@@ -1,1 +1,1 @@
-# msc-thesis-Using-LLMs-to-Rank-Decompiled-Code-Variants
+# MSC Thesis

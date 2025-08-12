@@ -1,5 +1,7 @@
 #! /usr/bin/env bash
 
+# repo: https://github.com/milahu/dogbolt-cli-client-bash/tree/main
+
 # dogbolt client
 
 # upload an executable binary file to dogbolt.org

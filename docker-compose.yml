@@ -1,0 +1,24 @@
+services:
+  make:
+    build:
+      dockerfile: Dockerfile
+      context: ./C_projects
+    volumes:
+      - ./C_projects/bin:/app/bin
+    command: >
+      sh -c "
+      cp -r /app/calculator/calculator /app/bin
+      "
+    # cp -r /app/crispy-doom/src/crispy-doom /app/bin &&
+
+  decompile:
+    build:
+      dockerfile: Dockerfile
+      context: ./dogbolt
+    volumes:
+      - ./dogbolt/src:/app/src
+    command: >
+      sh -c "
+      ./run.sh &&
+      cp -r /app/bin/src/* /app/src
+      "

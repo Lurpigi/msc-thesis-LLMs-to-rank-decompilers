@@ -1,0 +1,15 @@
+doom supera i 2 mb quindi non posso usarlo con dogbolt
+
+alla fine aveva API nascoste.. lo shell è stato modificato per funzionare nel container e saltare un decompilatore non più disponibile
+
+modelli scaricati su ollama:
+llama3.2:3b 2GB
+gpt-oss:20b 14GB
+deepseek-r1:14b 9GB
+gemma3:12b 8.1GB
+
+
+si può usare api con ollama, però prima devo capire se posso rendere tutto indipendente dal SO, 
+sicuramente ollama girerà sul desktop con windows, ma magari llama3.2 riesco a farlo girare sul portatile.
+
+capire se dividere in più prompt magari aggiungendo commenti senza modificare il codice per aiutare il LLM come su deGPT

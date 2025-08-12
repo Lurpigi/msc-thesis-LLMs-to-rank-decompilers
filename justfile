@@ -22,9 +22,7 @@ ownership:
 
 down:
     docker compose down --remove-orphans
-    docker volume prune -f
-    docker network prune -f
-    docker system prune -f
-    docker builder prune -f
-    docker image prune -f
-    docker container prune -f
+
+destroy:
+    docker stop $(docker ps -aq) 2>/dev/null
+    docker system prune -a --volumes -f

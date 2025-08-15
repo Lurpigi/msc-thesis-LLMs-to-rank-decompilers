@@ -6,29 +6,33 @@ import os
 from pathlib import Path
 
 MODELS = {
-    "d": [  #Desktop
+    "d": [  # Desktop
         "llama3.2:3b",
         "gpt-oss:20b",
         "deepseek-r1:14b",
         "gemma3:12b"
     ],
-    "l": [  #Laptop
+    "l": [  # Laptop
         "llama3.2:3b"
     ]
 }
 
-with open("/etc/resolv.conf") as f:
-    for line in f:
-        if line.startswith("nameserver"):
-            OLLAMA_HOST = line.split()[1].strip()
-            break
-    else:
-        OLLAMA_HOST = "localhost"
+try:
+    with open("/etc/resolv.conf") as f:
+        for line in f:
+            if line.startswith("nameserver"):
+                OLLAMA_HOST = line.split()[1].strip()
+                break
+            else:
+                OLLAMA_HOST = "localhost"
+except:
+    OLLAMA_HOST = "localhost"
 
 OLLAMA_URL = f"http://{OLLAMA_HOST}:11434/api/generate"
 
 PROMPT_FILE = Path("./prompt/llm_prompt.txt")
 OUTPUT_DIR = Path("./prompt/res")
+
 
 def main():
     if len(sys.argv) < 2 or sys.argv[1].lower() not in MODELS:
@@ -50,7 +54,8 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     for model in models_to_use:
-        print(f"→ Generating with {model} on {'Laptop' if pc_type == 'l' else 'Desktop'}...")
+        print(
+            f"→ Generating with {model} on {'Laptop' if pc_type == 'l' else 'Desktop'}...")
 
         payload = {
             "model": model,
@@ -71,6 +76,7 @@ def main():
 
         except requests.exceptions.RequestException as e:
             print(f"Error with model {model}: {e}")
+
 
 if __name__ == "__main__":
     main()

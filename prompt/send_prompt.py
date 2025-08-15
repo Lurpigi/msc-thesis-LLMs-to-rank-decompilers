@@ -17,7 +17,15 @@ MODELS = {
     ]
 }
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+with open("/etc/resolv.conf") as f:
+    for line in f:
+        if line.startswith("nameserver"):
+            OLLAMA_HOST = line.split()[1].strip()
+            break
+    else:
+        OLLAMA_HOST = "localhost"
+
+OLLAMA_URL = f"http://{OLLAMA_HOST}:11434/api/generate"
 
 PROMPT_FILE = Path("./prompt/llm_prompt.txt")
 OUTPUT_DIR = Path("./prompt/res")

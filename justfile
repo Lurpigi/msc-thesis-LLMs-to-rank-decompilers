@@ -20,6 +20,12 @@ ownership:
     sudo chown -R $(whoami):$(whoami) ./C_projects/bin
     sudo chown -R $(whoami):$(whoami) ./dogbolt/src
 
+gen_prompt:
+    python3 ./prompt/gen_prompt.py
+
+send_prompt pc_type:
+    python3 ./prompt/send_prompt.py {{pc_type}}
+
 down:
     docker compose down --remove-orphans
 

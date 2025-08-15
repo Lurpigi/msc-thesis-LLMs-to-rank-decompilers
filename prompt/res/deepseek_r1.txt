@@ -1,0 +1,53 @@
+### Final Ranking (from best to worst)
+1. **Decompiler 1: Binary Ninja**
+2. **Decompiler 2: Ghidra**
+
+---
+
+### Motivations
+#### **Binary Ninja (Rank 1)**
+- **Naming**: Uses context-aware names like `askdo_input`, `func_name`, and `memory` derived from usage patterns. Retains critical symbols (e.g., `__stack_chk_fail`).
+- **Structure**: Clear switch-case logic for operations (addition, sin, pow, etc.). Linear control flow with explicit tail calls and stack-canary checks.
+- **Readability**: Preserves high-level operations (e.g., `FCMP_UO` for float comparisons) and avoids opaque bit manipulation. Annotations (e.g., `/* tailcall */`) clarify intent.
+- **Weaknesses**: Low-level x87 FPU details (e.g., `x87control`) may distract, and some variables lack context (e.g., `var_8`).
+
+#### **Ghidra (Rank 2)**
+- **Naming**: Overuses generic names (e.g., `bVar1`, `lVar2`, `FUN_001010c0`). Splits variables unnaturally (e.g., `memory` + `_DAT_00104058` for a `long double`).
+- **Structure**: Confusing type casts (e.g., `CONCAT28`, `SUB102`), unreachable blocks, and fragmented conditionals. Switch logic is buried under bitwise operations.
+- **Readability**: Heavy use of bit manipulation for FPU values (e.g., `CONCAT62(uRam000000000010405a,_DAT_00104058)`) harms clarity. Warnings (e.g., "Unknown calling convention") add noise.
+- **Weaknesses**: Fails to abstract low-level details, making logic (e.g., trigonometric operations) harder to follow.
+
+---
+
+### Complexity Estimation
+| Decompiler  | Cognitive Complexity | Structural Complexity |
+|-------------|----------------------|------------------------|
+| Binary Ninja | Medium               | Medium-High            |
+| Ghidra      | High                 | High                   |
+
+- **Binary Ninja**: Moderate cognitive load due to FPU/stack-canary details, but control flow (conditionals + switch) is linear. Structural complexity arises from ABI-specific handling (e.g., `fsbase`).
+- **Ghidra**: High cognitive load from bitwise operations (e.g., `CONCAT28`/`SUB102` macros) and fragmented conditionals. Structural complexity is exacerbated by unreachable blocks and type ambiguity.
+
+---
+
+### Perplexity Estimation (Predictability)
+| Decompiler  | Perplexity  | Rationale                                                                 |
+|-------------|-------------|---------------------------------------------------------------------------|
+| Binary Ninja | Medium      | Predictable control flow (explicit conditionals + switch), despite FPU operations. |
+| Ghidra      | High        | Unconventional bit-manipulation macros (`CONCAT62`) and splintered variables reduce predictability. |
+
+---
+
+### Comparative Analysis
+| Aspect                | Binary Ninja                                      | Ghidra                                              |
+|-----------------------|--------------------------------------------------|-----------------------------------------------------|
+| **Naming**            | Contextual names (`askdo`, `func_name`)          | Generic names (`bVar1`, `lVar2`) + artificial splits |
+| **Control Flow**      | Linear conditionals + clear switch-case          | Fragmented conditionals + dead code warnings        |
+| **Data Handling**     | Direct FPU comparisons (`FCMP_UO`)               | Opaque bit-manipulation (`CONCAT28`, `SUB102`)      |
+| **Readability**       | **Superior**: Annotated tail calls, preserved operations | **Inferior**: Type confusion + lack of abstraction  |
+| **Key Weakness**      | Low-level x87 noise                              | Overly technical bitwise operations                 |
+
+**Summary**:  
+Binary Ninja wins due to **context-aware naming**, **linear logic**, and **minimal bit manipulation**. Ghidra's output is hindered by **artificial variable splits**,
+**unreachable code**, and **undecodable FPU handling**, increasing complexity and reducing predictability. 
+Both struggle with low-level details (x87/stack canaries), but Binary Ninja better balances accuracy and human comprehension.

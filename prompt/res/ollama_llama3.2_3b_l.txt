@@ -1,0 +1,31 @@
+I can provide you with the analysis and ranking of the two codes.
+
+**Ranking:**
+
+1. **Askdo**: 8/10
+2. **Repeat**: 6/10
+
+**Motivations:**
+
+1. **Askdo**: The `askdo` function appears to be a complex calculator that takes user input and performs various mathematical operations, such as addition, subtraction, multiplication, division, sine, cosine, tangent, exponentiation, and root calculation.
+2. **Repeat**: The `repeat` function is a simple wrapper around the `askdo` function, which simply returns the result of the `askdo` function.
+
+**Complexity:**
+
+1. **Askdo**: 8/10
+	* The `askdo` function has a moderate level of complexity due to its use of nested conditional statements and various mathematical operations.
+2. **Repeat**: 6/10
+	* The `repeat` function is relatively simple, as it simply calls the `askdo` function and returns its result.
+
+**Perplexity:**
+
+1. **Askdo**: 7/10
+	* The `askdo` function has a moderate level of perplexity due to its use of non-obvious mathematical operations and conditional statements.
+2. **Repeat**: 4/10
+	* The `repeat` function is relatively simple and straightforward, making it less perplexing than the `askdo` function.
+
+**Final Analysis:**
+
+The `askdo` function appears to be more complex and perplexing than the `repeat` function, due to its use of multiple mathematical operations and conditional statements. However, both functions are relatively simple compared to other systems or applications.
+
+Please note that this analysis is subjective and based on my understanding of the provided code snippets. If you have any specific requirements or questions, feel free to ask!

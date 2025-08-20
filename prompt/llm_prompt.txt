@@ -1,774 +1,92 @@
 You are an expert in reverse engineering and C/C++ code analysis.
-I will provide you with the decompilation results of the same binary performed using different decompilers.
-Your tasks are:
-1. Rank the outputs from the most 'human-readable' to the least, explaining your choices.
-2. Explain which style, naming, and structural factors influenced the ranking.
-3. Estimate the complexity of each output.
-4. Estimate the perplexity (measure of predictability) for each output.
-5. Provide a comparative analysis.
+You will be given multiple decompilation outputs of the same binary, each produced by a different decompiler.
+
+Your task is to evaluate **only the structural readability of the code**, not variable naming or stylistic details.
+For consistency, apply the following evaluation criteria:
+1. **Control Flow Clarity** : Are conditionals (if, switch, loops) expressed in a form close to standard C, or are they obfuscated with labels and gotos?
+   - Example (clear): `switch(x) { case 1: ... }`
+   - Example (unclear): `goto label_4014ba;`
+2. **Function Organization** : Are functions structured with clear entry/exit points, or fragmented into inline tailcalls and redundant wrappers?
+3. **Expression Predictability** : Are operations expressed as standard C expressions (`a + b`, `a / b`), or through low-level macros/register artifacts?
+   - Example (clear): `result = memory + func_name;`
+   - Example (unclear): `rax_6 = FCMP_O(x87_r6_2, askdo_input_3);`
+4. **Structural Economy** : Does the code minimize unnecessary temporaries and boilerplate, or is it bloated with intermediate variables from register spills?
+   - Example (efficient): `double d = sin(x);`
+   - Example (bloated): `var_50 = func_name / 57.2957; var_50 = sin(var_50);`
+
+For each decompiler output, you must:
+1. Rank all outputs from most human-readable to least.
+2. Explain which structural factors influenced your ranking.
+3. Estimate the **perplexity** (1–10, lower = more predictable control flow).
+4. Provide a comparative analysis, explicitly contrasting the structural differences.
+
+Remember: **do not evaluate variable naming, comments, or cosmetic style. Focus only on structural readability.**
 
 ---
 Decompiler N. 1: binary-ninja
 Code:
 ```
-int64_t (* const)() _init()
-{
-    if (!__gmon_start__)
-        return __gmon_start__;
-    
-    return __gmon_start__();
-}
-
-int64_t sub_401020()
-{
-    int64_t var_8 = 0;
-    /* jump -> nullptr */
-}
-
-int64_t sub_401030()
-{
-    int64_t var_8 = 0;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_401040()
-{
-    int64_t var_8 = 1;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_401050()
-{
-    int64_t var_8 = 2;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_401060()
-{
-    int64_t var_8 = 3;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_401070()
-{
-    int64_t var_8 = 4;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_401080()
-{
-    int64_t var_8 = 5;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_401090()
-{
-    int64_t var_8 = 6;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_4010a0()
-{
-    int64_t var_8 = 7;
-    /* tailcall */
-    return sub_401020();
-}
-
-int64_t sub_4010b0()
-{
-    int64_t var_8 = 8;
-    /* tailcall */
-    return sub_401020();
-}
-
-void __cxa_finalize(void* d)
-{
-    /* tailcall */
-    return __cxa_finalize(d);
-}
-
-int32_t puts(char const* str)
-{
-    /* tailcall */
-    return puts(str);
-}
-
-double pow(double x, double y)
-{
-    /* tailcall */
-    return pow(x, y);
-}
-
-void __stack_chk_fail() __noreturn
-{
-    /* tailcall */
-    return __stack_chk_fail();
-}
-
-int32_t system(char const* line)
-{
-    /* tailcall */
-    return system(line);
-}
-
-double cos(double arg1)
-{
-    /* tailcall */
-    return cos(arg1);
-}
-
-double tan(double arg1)
-{
-    /* tailcall */
-    return tan(arg1);
-}
-
-int32_t __printf_chk(int32_t flag, char const* format, ...)
-{
-    /* tailcall */
-    return __printf_chk(flag, format);
-}
-
-double sin(double arg1)
-{
-    /* tailcall */
-    return sin(arg1);
-}
-
-int32_t __isoc99_scanf(char const* format, ...)
-{
-    /* tailcall */
-    return __isoc99_scanf(format);
-}
-
-int32_t main(int32_t argc, char** argv, char** envp)
-{
-    int16_t x87control;
-    askdo(x87control);
-    return 0;
-}
-
-void _start(int64_t arg1, int64_t arg2, void (* arg3)()) __noreturn
-{
-    int64_t stack_end_1;
-    int64_t stack_end = stack_end_1;
-    void ubp_av;
-    __libc_start_main(main, __return_addr, &ubp_av, nullptr, nullptr, arg3, &stack_end);
-    /* no return */
-}
-
-char* deregister_tm_clones()
-{
-    return &__TMC_END__;
-}
-
-int64_t (* const)() register_tm_clones()
-{
-    return nullptr;
-}
-
-void __do_global_dtors_aux()
-{
-    if (__TMC_END__)
-        return;
-    
-    if (__cxa_finalize)
-        __cxa_finalize(__dso_handle);
-    
-    deregister_tm_clones();
-    __TMC_END__ = 1;
-}
-
-int64_t (* const)() frame_dummy()
-{
-    /* tailcall */
-    return register_tm_clones();
-}
-
-int64_t askdo(int16_t arg1 @ x87control)
-{
-    void* fsbase;
-    int64_t rax = *(fsbase + 0x28);
-    system("clear");
-    puts("\x1b[1;32m---------------------------------------\x1b[0m");
-    char var_60 = *(memory + 8);
-    char memory_1 = *memory;
-    __printf_chk(2, "\x1b[1;32m%Lf\x1b[0m\n");
-    __printf_chk(2, "\x1b[1;32m---------------------------------------\x1b[0m");
-    puts("\n0. Clear all\n1. Addition\n2. Subtraction\n3. Multiplication\n4. Division\n5. sin (deg)"
-    "6. cos (deg)\n7.tan (deg)\n8. n Power\n9. n Root");
-    __printf_chk(2, "Enter function option number/memory input num>9: ");
-    __isoc99_scanf("%Lf", &askdo_input);
-    long double askdo_input_1 = askdo_input;
-    long double askdo_input_5 = 0;
-    askdo_input_1 - askdo_input_5;
-    long double askdo_input_2;
-    
-    if (FCMP_UO(askdo_input_1, askdo_input_5))
-        askdo_input_2 = askdo_input_5;
-    else if (askdo_input_1 == askdo_input_5)
-    {
-        result = askdo_input_5;
-        memory = result;
-        system("clear");
-        arg1 = askdo(arg1);
-        askdo_input_2 = askdo_input;
+  test2(a1, a2) {
+    printf("1");
+    if(a1!=1 && a2!=1){
+      printf("2");
+      if(a1 == 1){
+        printf("5");
+      }else{
+        printf("4"); 
+      } 
+    }else{
+      printf("3");
+      printf("5"); 
     }
-    else
-        askdo_input_2 = askdo_input_5;
-    
-    long double x87_r6 = 10f;
-    
-    if (askdo_input_2 >= x87_r6)
-    {
-        result = x87_r6;
-        memory = x87_r6;
-        system("clear");
-        arg1 = askdo(arg1);
-    }
-    
-    long double x87_r7_2 = 0;
-    long double memory_2 = memory;
-    memory_2 - x87_r7_2;
-    
-    if (!FCMP_UO(memory_2, x87_r7_2) && !(memory_2 != x87_r7_2))
-    {
-        long double askdo_input_3 = askdo_input;
-        long double x87_r6_2 = 2f;
-        x87_r6_2 - askdo_input_3;
-        char rax_6 = FCMP_O(x87_r6_2, askdo_input_3);
-        long double x87_r6_3 = 1;
-        
-        if (x87_r6_2 != askdo_input_3)
-            rax_6 = 0;
-        
-        x87_r6_3 - askdo_input_3;
-        long double x87_r6_4 = 3f;
-        char rdx_1 = FCMP_O(x87_r6_3, askdo_input_3);
-        
-        if (x87_r6_3 != askdo_input_3)
-            rdx_1 = 0;
-        
-        char rax_7 = rax_6 | rdx_1;
-        x87_r6_4 - askdo_input_3;
-        rdx_1 = FCMP_O(x87_r6_4, askdo_input_3);
-        
-        if (x87_r6_4 != askdo_input_3)
-            rdx_1 = 0;
-        
-        rax_7 |= rdx_1;
-        
-        if (rax_7)
-        {
-            __printf_chk(2, "Enter memory number/primary number:", rdx_1);
-            __isoc99_scanf("%Lf", &memory);
-        }
-        else
-        {
-            long double x87_r6_5 = 4f;
-            x87_r6_5 - askdo_input_3;
-            rdx_1 = FCMP_O(x87_r6_5, askdo_input_3);
-            
-            if (x87_r6_5 == askdo_input_3)
-                rax_7 = rdx_1;
-            
-            if (rax_7)
-            {
-                __printf_chk(2, "Enter memory number/primary number:", rdx_1);
-                __isoc99_scanf("%Lf", &memory);
-            }
-        }
-    }
-    
-    __printf_chk(2, "Enter performing number:");
-    __isoc99_scanf("%Lf", &func_name);
-    long double askdo_input_4 = askdo_input;
-    int16_t x87status;
-    int16_t temp0_2;
-    temp0_2 = __fnstcw_memmem16(arg1);
-    int16_t rax_12;
-    *rax_12[1] = *temp0_2[1] | 0xc;
-    int16_t x87control;
-    int16_t x87status_1;
-    x87control = __fldcw_memmem16(rax_12);
-    int16_t x87control_1;
-    int16_t x87status_2;
-    x87control_1 = __fldcw_memmem16(temp0_2);
-    uint64_t rax_13 = askdo_input_4;
-    long double result_1;
-    int32_t var_50;
-    long double var_38;
-    long double x87_r7_5;
-    
-    if (rax_13 > 9)
-        result_1 = result;
-    else
-        switch (rax_13)
-        {
-            case 0:
-            {
-                result_1 = result;
-                break;
-            }
-            case 1:
-            {
-                result_1 = memory + func_name;
-                result = result_1;
-                break;
-            }
-            case 2:
-            {
-                result_1 = memory - func_name;
-                result = result_1;
-                break;
-            }
-            case 3:
-            {
-                result_1 = memory * func_name;
-                result = result_1;
-                break;
-            }
-            case 4:
-            {
-                result_1 = memory / func_name;
-                result = result_1;
-                break;
-            }
-            case 5:
-            {
-                var_50 = func_name / 57.295779500000002;
-                var_50 = sin(var_50);
-                result_1 = var_50;
-                result = result_1;
-                break;
-            }
-            case 6:
-            {
-                var_50 = func_name / 57.295779500000002;
-                var_50 = cos(var_50);
-                result_1 = var_50;
-                result = result_1;
-                break;
-            }
-            case 7:
-            {
-                var_50 = func_name / 57.295779500000002;
-                var_50 = tan(var_50);
-                result_1 = var_50;
-                result = result_1;
-                break;
-            }
-            case 8:
-            {
-                __printf_chk(2, "Enter exponent value: ", &jump_table_402194);
-                __isoc99_scanf("%Lf", &var_38);
-                x87_r7_5 = var_38;
-                goto label_4014ba;
-            }
-            case 9:
-            {
-                __printf_chk(2, "Enter root cap value: ", &jump_table_402194);
-                __isoc99_scanf("%Lf", &var_38);
-                x87_r7_5 = 1 / var_38;
-            label_4014ba:
-                var_50 = x87_r7_5;
-                var_50 = pow(func_name, var_50);
-                result_1 = var_50;
-                result = result_1;
-                break;
-            }
-        }
-    memory = result_1;
-    system("clear");
-    askdo(x87control_1);
-    *(fsbase + 0x28);
-    
-    if (rax == *(fsbase + 0x28))
-        return 0;
-    
-    __stack_chk_fail();
-    /* no return */
-}
-
-int64_t repeat()
-{
-    memory = result;
-    system("clear");
-    int16_t x87control;
-    /* tailcall */
-    return askdo(x87control);
-}
-
-int64_t _fini() __pure
-{
-    return;
-}
+    printf("6");
+    return 0; 
+  }
 ```
 ---
 Decompiler N. 2: ghidra
 Code:
 ```
-#include "out.h"
-
-
-
-int _init(EVP_PKEY_CTX *ctx)
-
-{
-  int iVar1;
-  
-  iVar1 = __gmon_start__();
-  return iVar1;
-}
-
-
-
-void FUN_00101020(void)
-
-{
-  (*(code *)(undefined *)0x0)();
-  return;
-}
-
-
-
-void FUN_001010c0(void)
-
-{
-  __cxa_finalize();
-  return;
-}
-
-
-
-// WARNING: Unknown calling convention -- yet parameter storage is locked
-
-int puts(char *__s)
-
-{
-  int iVar1;
-  
-  iVar1 = puts(__s);
-  return iVar1;
-}
-
-
-
-// WARNING: Unknown calling convention -- yet parameter storage is locked
-
-double pow(double __x,double __y)
-
-{
-  double dVar1;
-  
-  dVar1 = pow(__x,__y);
-  return dVar1;
-}
-
-
-
-void __stack_chk_fail(void)
-
-{
-                    // WARNING: Subroutine does not return
-  __stack_chk_fail();
-}
-
-
-
-// WARNING: Unknown calling convention -- yet parameter storage is locked
-
-int system(char *__command)
-
-{
-  int iVar1;
-  
-  iVar1 = system(__command);
-  return iVar1;
-}
-
-
-
-// WARNING: Unknown calling convention -- yet parameter storage is locked
-
-double cos(double __x)
-
-{
-  double dVar1;
-  
-  dVar1 = cos(__x);
-  return dVar1;
-}
-
-
-
-// WARNING: Unknown calling convention -- yet parameter storage is locked
-
-double tan(double __x)
-
-{
-  double dVar1;
-  
-  dVar1 = tan(__x);
-  return dVar1;
-}
-
-
-
-void __printf_chk(void)
-
-{
-  __printf_chk();
-  return;
-}
-
-
-
-// WARNING: Unknown calling convention -- yet parameter storage is locked
-
-double sin(double __x)
-
-{
-  double dVar1;
-  
-  dVar1 = sin(__x);
-  return dVar1;
-}
-
-
-
-void __isoc99_scanf(void)
-
-{
-  __isoc99_scanf();
-  return;
-}
-
-
-
-undefined8 main(void)
-
-{
-  askdo();
-  return 0;
-}
-
-
-
-void processEntry _start(undefined8 param_1,undefined8 param_2)
-
-{
-  undefined1 auStack_8 [8];
-  
-  __libc_start_main(main,param_2,&stack0x00000008,0,0,param_1,auStack_8);
-  do {
-                    // WARNING: Do nothing block with infinite loop
-  } while( true );
-}
-
-
-
-// WARNING: Removing unreachable block (ram,0x001011c3)
-// WARNING: Removing unreachable block (ram,0x001011cf)
-
-void deregister_tm_clones(void)
-
-{
-  return;
-}
-
-
-
-// WARNING: Removing unreachable block (ram,0x00101204)
-// WARNING: Removing unreachable block (ram,0x00101210)
-
-void register_tm_clones(void)
-
-{
-  return;
-}
-
-
-
-void __do_global_dtors_aux(void)
-
-{
-  if (completed_0 != '\0') {
-    return;
-  }
-  FUN_001010c0(__dso_handle);
-  deregister_tm_clones();
-  completed_0 = 1;
-  return;
-}
-
-
-
-void frame_dummy(void)
-
-{
-  register_tm_clones();
-  return;
-}
-
-
-
-// WARNING: Globals starting with '_' overlap smaller symbols at the same address
-
-undefined8 askdo(void)
-
-{
-  bool bVar1;
-  longdouble lVar2;
-  bool bVar3;
-  bool bVar4;
-  long lVar5;
-  undefined7 uVar7;
-  ulong uVar6;
-  ulong extraout_RDX;
-  ulong extraout_RDX_00;
-  ulong extraout_RDX_01;
-  long in_FS_OFFSET;
-  double dVar8;
-  longdouble local_38;
-  long local_20;
-  
-  local_20 = *(long *)(in_FS_OFFSET + 0x28);
-  system("clear");
-  puts("\x1b[1;32m---------------------------------------\x1b[0m");
-  uVar6 = CONCAT62(uRam000000000010405a,_DAT_00104058);
-  __printf_chk(2,&DAT_0010201a);
-  __printf_chk(2,&DAT_00102078);
-  puts(
-      "\n0. Clear all\n1. Addition\n2. Subtraction\n3. Multiplication\n4. Division\n5. sin (deg)\n6. cos (deg)\n7.tan (deg)\n8. n Power\n9. n Root"
-      );
-  __printf_chk(2,"Enter function option number/memory input num>9: ");
-  __isoc99_scanf(&DAT_0010202a,askdo_input);
-  lVar2 = (longdouble)0;
-  if ((longdouble)askdo_input._0_10_ == lVar2) {
-    memory = SUB108(lVar2,0);
-    _DAT_00104058 = (undefined2)((unkuint10)lVar2 >> 0x40);
-    result._0_10_ = lVar2;
-    system("clear");
-    askdo();
-    uVar6 = extraout_RDX_01;
-  }
-  if ((longdouble)10.0 <= (longdouble)askdo_input._0_10_) {
-    memory = (undefined8)askdo_input._0_10_;
-    _DAT_00104058 = SUB102(askdo_input._0_10_,8);
-    result._0_10_ = askdo_input._0_10_;
-    system("clear");
-    askdo();
-    uVar6 = extraout_RDX_00;
-  }
-  if ((longdouble)CONCAT28(_DAT_00104058,memory) == (longdouble)0) {
-    lVar5 = (uVar6 >> 8 & 0xffffff) << 8;
-    if ((longdouble)1 != (longdouble)askdo_input._0_10_) {
-      lVar5 = 0;
-    }
-    bVar3 = (longdouble)1 == (longdouble)askdo_input._0_10_;
-    uVar7 = (undefined7)((ulong)lVar5 >> 8);
-    if ((longdouble)3.0 != (longdouble)askdo_input._0_10_) {
-      uVar7 = 0;
-    }
-    bVar4 = (longdouble)3.0 == (longdouble)askdo_input._0_10_;
-    if (((longdouble)2.0 != (longdouble)askdo_input._0_10_ && !bVar3) && !bVar4) {
-      bVar1 = !NAN((longdouble)4.0) && !NAN((longdouble)askdo_input._0_10_);
-      uVar6 = CONCAT71(uVar7,bVar1);
-      bVar3 = ((longdouble)2.0 == (longdouble)askdo_input._0_10_ || bVar3) || bVar4;
-      if ((longdouble)4.0 == (longdouble)askdo_input._0_10_) {
-        bVar3 = bVar1;
+  test2(a1, a2) {
+    printf("1");
+    if(a1==1 && a2==1){
+      printf("3"); 
+    }else{
+      printf("2");
+      if( a1 != 1 ){
+        printf("4");
+        goto L1; 
       }
-      if (!bVar3) goto LAB_001013ce;
     }
-    __printf_chk(2,"Enter memory number/primary number:");
-    __isoc99_scanf(&DAT_0010202a,&memory);
-    uVar6 = extraout_RDX;
+    printf("5");
+    L1:
+    printf("6");
+    return 0LL; 
   }
-LAB_001013ce:
-  __printf_chk(2,"Enter performing number:",uVar6);
-  __isoc99_scanf(&DAT_0010202a,func_name);
-  switch((int)ROUND((longdouble)askdo_input._0_10_)) {
-  default:
-    break;
-  case 1:
-    result._0_10_ = (longdouble)func_name._0_10_ + (longdouble)CONCAT28(_DAT_00104058,memory);
-    break;
-  case 2:
-    result._0_10_ = (longdouble)CONCAT28(_DAT_00104058,memory) - (longdouble)func_name._0_10_;
-    break;
-  case 3:
-    result._0_10_ = (longdouble)func_name._0_10_ * (longdouble)CONCAT28(_DAT_00104058,memory);
-    break;
-  case 4:
-    result._0_10_ = (longdouble)CONCAT28(_DAT_00104058,memory) / (longdouble)func_name._0_10_;
-    break;
-  case 5:
-    dVar8 = sin((double)((longdouble)func_name._0_10_ / (longdouble)57.2957795));
-    result._0_10_ = (unkbyte10)dVar8;
-    break;
-  case 6:
-    dVar8 = cos((double)((longdouble)func_name._0_10_ / (longdouble)57.2957795));
-    result._0_10_ = (unkbyte10)dVar8;
-    break;
-  case 7:
-    dVar8 = tan((double)((longdouble)func_name._0_10_ / (longdouble)57.2957795));
-    result._0_10_ = (unkbyte10)dVar8;
-    break;
-  case 8:
-    __printf_chk(2,"Enter exponent value: ");
-    __isoc99_scanf(&DAT_0010202a,&local_38);
-    goto LAB_001014ba;
-  case 9:
-    __printf_chk(2,"Enter root cap value: ");
-    __isoc99_scanf(&DAT_0010202a,&local_38);
-    local_38 = (longdouble)1 / local_38;
-LAB_001014ba:
-    dVar8 = pow((double)(longdouble)func_name._0_10_,(double)local_38);
-    result._0_10_ = (unkbyte10)dVar8;
-  }
-  memory = (undefined8)result._0_10_;
-  _DAT_00104058 = SUB102(result._0_10_,8);
-  system("clear");
-  askdo();
-  if (local_20 != *(long *)(in_FS_OFFSET + 0x28)) {
-                    // WARNING: Subroutine does not return
-    __stack_chk_fail();
-  }
-  return 0;
-}
-
-
-
-// WARNING: Globals starting with '_' overlap smaller symbols at the same address
-
-void repeat(void)
-
-{
-  _memory = result._0_10_;
-  system("clear");
-  askdo();
-  return;
-}
-
-
-
-void _fini(void)
-
-{
-  return;
-}
 ```
 ---
-Provide the answer in an ordered format with:
-- Final ranking (from best to worst)
+Decompiler N. 3: DREAM dewolf
+Code:
+```
+  test2(a1, a2) {
+    printf("1");
+    if(a1==1 && a2==1){
+      printf("3"); 
+    }else{
+      printf("2"); 
+    }
+    if(a1 == 1){
+      printf("5"); 
+    }else{
+      printf("4"); 
+    }
+    printf("6");
+    return 0L; 
+  }
+```
+---
+Provide the answer in this ordered format:
+- Final ranking (best to worst)
 - Motivations
-- Complexity of each code
 - Perplexity of each code
+- Comparative analysis

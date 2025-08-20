@@ -17,16 +17,7 @@ MODELS = {
     ]
 }
 
-try:
-    with open("/etc/resolv.conf") as f:
-        for line in f:
-            if line.startswith("nameserver"):
-                OLLAMA_HOST = line.split()[1].strip()
-                break
-            else:
-                OLLAMA_HOST = "localhost"
-except:
-    OLLAMA_HOST = "localhost"
+OLLAMA_HOST = "localhost"
 
 OLLAMA_URL = f"http://{OLLAMA_HOST}:11434/api/generate"
 
@@ -55,7 +46,7 @@ def main():
 
     for model in models_to_use:
         print(
-            f"→ Generating with {model} on {'Laptop' if pc_type == 'l' else 'Desktop'}...")
+            f"Generating with {model} on {'Laptop' if pc_type == 'l' else 'Desktop'}...")
 
         payload = {
             "model": model,

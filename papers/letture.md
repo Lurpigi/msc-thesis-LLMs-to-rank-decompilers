@@ -17,13 +17,9 @@ approccio **a 3 ruoli**:
 
 ## Takeaways
 
-1. Definire criteri di _umanità_ e _complessità_ partendo dai difetti classici dei decompiler (es. nomi brutti, codice ridondante, zero commenti).
+1. Definire criteri di umanità e complessità partendo dai difetti classici dei decompiler (es. nomi brutti, codice ridondante, zero commenti).
 2. Non usare un singolo prompt -> meglio multi-step
-3. metriche usate (forse spunto):
-   **ER** (Edit Rate),
-   **MVR** (Meaningful Variable Ratio),
-   **CR** (Comment Rate),
-   **NR** (Noise Ratio).
+3. metriche usate (forse spunto)
 
 # DecLLM: LLM-Augmented Recompilable Decompilation for Enabling Programmatic Use of Decompiled Code
 
@@ -38,16 +34,13 @@ esempi di prompt
 static reparing(?) non so se potrebbe essere un problema ma voglio fidarmi dei decompilatori
 controllo su allucinazioni in loop
 
-Trovato anche questo che è praticamente la stessa cosa
-[https://arxiv.org/pdf/2310.06530](https://arxiv.org/pdf/2310.06530)
-
 # LLM4Decompile: Decompiling Binary Code with Large Language Models
 
 ## fonte da keyword su google scholar
 
 [https://arxiv.org/pdf/2403.05286](https://arxiv.org/pdf/2403.05286)
 
-LLM come sostituzione dei decompiler dopo il disassemblamento del binario
+LLM come sostituzione dei decompiler specializzato per la re-execution dopo il disassemblamento del binario
 interessante discorso sul training e sul fine tuning con guidelines e best practices
 humaneval e exebench come valutazione codice generato da LLM
 
@@ -55,4 +48,6 @@ humaneval e exebench come valutazione codice generato da LLM
 
 ## fonte da keyword su google scholar
 
-molto simile agli altri, creano framework DecGPT
+[https://arxiv.org/pdf/2310.06530](https://arxiv.org/pdf/2310.06530)
+
+molto simile agli altri, creano framework DecGPT -> uguale sputato a DecLLM

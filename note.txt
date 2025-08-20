@@ -12,4 +12,21 @@ gemma3:12b 8.1GB
 si può usare api con ollama, però prima devo capire se posso rendere tutto indipendente dal SO, 
 sicuramente ollama girerà sul desktop con windows, ma magari llama3.2 riesco a farlo girare sul portatile.
 
+forse installare ollama su wsl per usare justfile senza problemi.
+
+problemi:
+limite 2MB per dogbolt
+limite context window ollama (128k token) limite lunghezza messaggio llm esterni.
+
+trovare framework per auotmatizzare futuri flow.
 capire se dividere in più prompt magari aggiungendo commenti senza modificare il codice per aiutare il LLM come su deGPT
+o più prompt per diverse metriche (humanity, complexity, perplexity) -> limiti msg llm esterni
+
+
+https://lmarena.ai/leaderboard
+https://scale.com/leaderboard
+
+
+https://tiktokenizer.vercel.app/
+
+si basa su tiktoken di Openai, forse installarlo e aggiungerlo al flow senza passare dal sito (crush con messaggi lunghi di modelli non openai)

@@ -30,3 +30,16 @@ https://scale.com/leaderboard
 https://tiktokenizer.vercel.app/
 
 si basa su tiktoken di Openai, forse installarlo e aggiungerlo al flow senza passare dal sito (crush con messaggi lunghi di modelli non openai)
+
+
+ghidra
+https://ghidra.re/ghidra_docs/api/index.html
+https://ghidra.re/ghidra_docs/api/ghidra/app/decompiler/package-summary.html
+
+https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Features/Base/src/main/java/ghidra/app/plugin/core
+https://scrapco.de/ghidra_docs/Features/Base/GhidraScriptMgrPlugin/ScriptDevelopment.htm#:~:text=,than%20simple%20edits%20to%20scripts
+https://ghidra.re/ghidra_docs/api/ghidra/app/decompiler/DecompInterface.html
+
+
+MCP (forse da provare dopo?)
+https://medium.com/@clearbluejar/supercharging-ghidra-using-local-llms-with-ghidramcp-via-ollama-and-openweb-ui-794cef02ecf7

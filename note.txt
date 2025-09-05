@@ -40,6 +40,14 @@ https://github.com/NationalSecurityAgency/ghidra/tree/master/Ghidra/Features/Bas
 https://scrapco.de/ghidra_docs/Features/Base/GhidraScriptMgrPlugin/ScriptDevelopment.htm#:~:text=,than%20simple%20edits%20to%20scripts
 https://ghidra.re/ghidra_docs/api/ghidra/app/decompiler/DecompInterface.html
 
+https://www.nccgroup.com/research-blog/earlyremoval-in-the-conservatory-with-the-wrench-exploring-ghidra-s-decompiler-internals-to-make-automatic-p-code-analysis-scripts
+https://github.com/nneonneo/ghidra-wasm-plugin/blob/master/src/main/java/ghidra/program/emulation/WasmEmulateInstructionStateModifier.java
+
 
 MCP (forse da provare dopo?)
 https://medium.com/@clearbluejar/supercharging-ghidra-using-local-llms-with-ghidramcp-via-ollama-and-openweb-ui-794cef02ecf7
+
+
+extensions
+https://github.com/cyberkaida/reverse-engineering-assistant/blob/main/src/main/java/reva/plugin/RevaPlugin.java
+https://github.com/Nalen98/GhidraEmu

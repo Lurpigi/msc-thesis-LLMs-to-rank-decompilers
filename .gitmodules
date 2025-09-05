@@ -1,0 +1,3 @@
+[submodule "ghidra_fork"]
+	path = ghidra_fork
+	url = https://github.com/Lurpigi/ghidraLLM

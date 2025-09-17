@@ -4,16 +4,10 @@ import ghidra.app.decompiler.*;
 import ghidra.app.services.ConsoleService;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
-import ghidra.util.Msg;
 import ghidra.util.task.TaskMonitor;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -21,8 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -57,7 +49,6 @@ public class DecompileWithLLM {
                 printLog.log("Starting decompilation styles...", this, console);
                 for (String style : styles) {
                     ifc.setSimplificationStyle(style);
-                    ifc.resetDecompiler();
                     if (monitor.isCancelled()) {
 						printLog.log("Decompilation cancelled by user.", this, console);
 						return "// Decompilation cancelled.";
@@ -88,7 +79,7 @@ public class DecompileWithLLM {
                           .append(e.getValue()).append("\n\n");
                     idx++;
                 }
-                prompt.append("Answer ONLY with the number of the version you choose (es. '2'):");
+                prompt.append("Answer ONLY with the number of the version you choose:");
 
                 if (monitor.isCancelled()) {
 					printLog.log("Decompilation cancelled by user.", this, console);
@@ -134,6 +125,7 @@ public class DecompileWithLLM {
 
                 if (response.statusCode() == 200) {
                     String responseBody = response.body();
+                    printLog.log("Received response from Ollama API: " + responseBody, this, console);
                     Pattern pattern = Pattern.compile("\"response\"\\s*:\\s*\"(.*?)\"");
                     Matcher matcher = pattern.matcher(responseBody.replace("\\n", " "));
                     

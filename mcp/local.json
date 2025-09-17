@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ghidra": {
+      "command": "python3",
+      "args": [
+        "/home/lurpigi/Documents/Tesi/mcp/GhidraMCP-release-1-4/bridge_mcp_ghidra.py",
+        "--ghidra-server",
+        "http://127.0.0.1:8085/"
+      ]
+    }
+  }
+}

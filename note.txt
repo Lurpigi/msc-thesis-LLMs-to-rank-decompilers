@@ -43,11 +43,23 @@ https://ghidra.re/ghidra_docs/api/ghidra/app/decompiler/DecompInterface.html
 https://www.nccgroup.com/research-blog/earlyremoval-in-the-conservatory-with-the-wrench-exploring-ghidra-s-decompiler-internals-to-make-automatic-p-code-analysis-scripts
 https://github.com/nneonneo/ghidra-wasm-plugin/blob/master/src/main/java/ghidra/program/emulation/WasmEmulateInstructionStateModifier.java
 
+https://www.nccgroup.com/research-blog/earlyremoval-in-the-conservatory-with-the-wrench-exploring-ghidra-s-decompiler-internals-to-make-automatic-p-code-analysis-scripts
+https://spinsel.dev/2021/04/02/ghidra-decompiler-debugging.html
 
-MCP (forse da provare dopo?)
+MCP
 https://medium.com/@clearbluejar/supercharging-ghidra-using-local-llms-with-ghidramcp-via-ollama-and-openweb-ui-794cef02ecf7
+https://medium.com/data-science-in-your-pocket/model-context-protocol-mcp-using-ollama-e719b2d9fd7a !!
+https://github.com/fosdickio/binary_ninja_mcp
+
+https://github.com/aaddrick/claude-desktop-debian/releases/tag/v1.1.5%2Bclaude0.13.11
 
 
 extensions
 https://github.com/cyberkaida/reverse-engineering-assistant/blob/main/src/main/java/reva/plugin/RevaPlugin.java
 https://github.com/Nalen98/GhidraEmu
+https://github.com/ZeroDaysBroker/GhidraGPT/tree/main/src/main/java/ghidragpt
+
+ghidra stack
+
+https://reverseengineering.stackexchange.com/questions/20905/ghidra-control-flow-graph
+https://grant-h.github.io/docs/ghidra/decompiler/files.html

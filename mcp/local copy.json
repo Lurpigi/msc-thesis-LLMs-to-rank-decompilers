@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "ghidra": {
+      "command": "python3",
+      "args": [
+        "/home/lurpigi/Documents/Tesi/mcp/GhidraMCP-release-1-4/bridge_mcp_ghidra.py",
+        "--ghidra-server",
+        "http://127.0.0.1:8085/"
+      ]
+    },
+    "ida-pro-mcp": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/home/lurpigi/Documents/Tesi/mcp/ida-pro-mcp-1.3.0",
+        "run",
+        "server.py",
+        "--install-plugin"
+      ],
+      "timeout": 1800,
+      "disabled": false
+    }
+  }
+}

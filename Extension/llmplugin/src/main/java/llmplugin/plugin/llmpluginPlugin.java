@@ -15,7 +15,6 @@
  */
 package llmplugin.plugin;
 
-import java.awt.BorderLayout;
 import java.util.concurrent.CompletableFuture;
 
 import javax.swing.*;
@@ -100,7 +99,7 @@ public class llmpluginPlugin extends ProgramPlugin {
     }
 
     private void handleFunction(Function func) {
-    	tool.execute(new Task("LLM Decompile " + func.getName(), true, true, true) {
+    	tool.execute(new Task("LLM Decompile " + func.getName(), true, false, false) {
             @Override
             public void run(TaskMonitor monitor) {
                 try {

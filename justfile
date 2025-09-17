@@ -32,3 +32,7 @@ down:
 destroy:
     docker stop $(docker ps -aq) 2>/dev/null
     docker system prune -a --volumes -f
+
+mcp:
+    #mcphost -m ollama:llama3.2 --config "/home/lurpigi/Documents/Tesi/mcp/local.json"
+    mcphost -m ollama:qwen3:1.7b --config "/home/lurpigi/Documents/Tesi/mcp/local.json"

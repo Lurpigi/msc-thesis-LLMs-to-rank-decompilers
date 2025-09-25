@@ -1,0 +1,36 @@
+WARNING  | 2025-09-25 10:25:57,753 | cle.loader     | Symbol imported without a known size; emulation may fail if it is used non-opaqely: _ZSt4cout, _config, _system. See https://docs.angr.io/extending-angr/environment#simdata
+WARNING  | 2025-09-25 10:25:58,407 | angr.analyses.calling_convention.fact_collector.SimEngineFactCollectorVEX | Unsupported Binop Iop_CmpEQ64.
+WARNING  | 2025-09-25 10:25:58,467 | angr.analyses.calling_convention.fact_collector.SimEngineFactCollectorVEX | Unsupported Binop Iop_Shr64.
+WARNING  | 2025-09-25 10:25:58,469 | angr.analyses.calling_convention.fact_collector.SimEngineFactCollectorVEX | Unsupported Binop Iop_Shl64.
+Traceback (most recent call last):
+  File "/home/decompiler_user/decompile_angr.py", line 58, in <module>
+    decompile()
+  File "/home/decompiler_user/decompile_angr.py", line 24, in decompile
+    p.analyses.CompleteCallingConventions(
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/analysis.py", line 266, in __call__
+    r = w(*args, **kwargs)
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/analysis.py", line 251, in wrapper
+    oself.__init__(*args, **kwargs)
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/complete_calling_conventions.py", line 126, in __init__
+    self.work()
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/complete_calling_conventions.py", line 207, in work
+    cc, proto, proto_libname, _ = self._analyze_core(func_addr)
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/complete_calling_conventions.py", line 385, in _analyze_core
+    facts = self.project.analyses[FactCollector].prep(kb=self.kb)(func)
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/analysis.py", line 251, in wrapper
+    oself.__init__(*args, **kwargs)
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/calling_convention/fact_collector.py", line 253, in __init__
+    self._analyze()
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/calling_convention/fact_collector.py", line 259, in _analyze
+    end_states = self._analyze_startpoint()
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/calling_convention/fact_collector.py", line 301, in _analyze_startpoint
+    self._handle_function(state, node)
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/analyses/calling_convention/fact_collector.py", line 351, in _handle_function
+    arg_locs = func.calling_convention.arg_locs(func.prototype)
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/calling_conventions.py", line 880, in arg_locs
+    return [self.next_arg(session, arg_ty) for arg_ty in prototype.args]
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/calling_conventions.py", line 880, in <listcomp>
+    return [self.next_arg(session, arg_ty) for arg_ty in prototype.args]
+  File "/home/decompiler_user/.local/lib/python3.10/site-packages/angr/calling_conventions.py", line 1626, in next_arg
+    raise NotImplementedError("Bug. Report to @rhelmot")
+NotImplementedError: Bug. Report to @rhelmot

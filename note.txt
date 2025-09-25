@@ -63,3 +63,10 @@ ghidra stack
 
 https://reverseengineering.stackexchange.com/questions/20905/ghidra-control-flow-graph
 https://grant-h.github.io/docs/ghidra/decompiler/files.html
+
+
+
+ruleaction.hh -> definizione di classi che poi sono regole di traduzione da pcode, semplificazioni o funzioni utili (get)
+ruleaction.cc -> implementazione delle classi scritte nel .hh, limitate da scope e commenti
+
+Vernode -> struttura che implementa una variabile di basso livello o un insieme contiguo di byte, descritta da un Address e una size

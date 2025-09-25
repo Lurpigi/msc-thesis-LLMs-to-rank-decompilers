@@ -11,7 +11,7 @@ make:
     docker compose up make
 
 decompile:
-    cp -r ./C_projects/bin/calculator ./dogbolt/bin/ #./C_projects/bin/*
+    #cp -r ./C_projects/bin/calculator ./dogbolt/bin/ #./C_projects/bin/*
     docker compose build decompile
     docker compose up decompile
     cd dogbolt && bash decompress.sh
@@ -26,11 +26,14 @@ gen_prompt:
 send_prompt pc_type:
     python3 ./prompt/send_prompt.py {{pc_type}}
 
+study pc_type:
+    python3 ./prompt/study.py {{pc_type}}
+
 down:
     docker compose down --remove-orphans
 
 destroy:
-    docker stop $(docker ps -aq) 2>/dev/null
+    docker stop $(docker ps -aq) 2>/dev/null || true
     docker system prune -a --volumes -f
 
 mcp:

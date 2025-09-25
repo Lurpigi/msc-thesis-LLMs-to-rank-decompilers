@@ -26,6 +26,6 @@ Msg   | src/boomerang/core/Project.cpp          |  380 |   ST20 FrontEnd plugin 
 Msg   | src/boomerang/core/Project.cpp          |  380 |   X86 FrontEnd plugin v0.5.2 (by 'Boomerang developers')
 Msg   | src/boomerang/core/Project.cpp          |  384 |   C Symbol Provider plugin v0.5.2 (by 'Boomerang developers')
 Msg   | src/boomerang/core/Project.cpp          |  388 |   DFA Type Recovery plugin v0.5.2 (by 'Boomerang developers')
-Msg   | src/boomerang/core/Project.cpp          |  108 | Loading binary file '/tmp/tmpios0puh7/tmp2ikq6vhx'
-Warn  | src/boomerang/core/Project.cpp          |  114 | Cannot load '/tmp/tmpios0puh7/tmp2ikq6vhx': Unrecognized binary file format.
-Error | src/boomerang-cli/CommandlineDriver.cpp |  529 | Loading '/tmp/tmpios0puh7/tmp2ikq6vhx' failed.
+Msg   | src/boomerang/core/Project.cpp          |  108 | Loading binary file '/tmp/tmpl734fxxy/tmpoqo4apbj'
+Warn  | src/boomerang/core/Project.cpp          |  114 | Cannot load '/tmp/tmpl734fxxy/tmpoqo4apbj': Unrecognized binary file format.
+Error | src/boomerang-cli/CommandlineDriver.cpp |  529 | Loading '/tmp/tmpl734fxxy/tmpoqo4apbj' failed.

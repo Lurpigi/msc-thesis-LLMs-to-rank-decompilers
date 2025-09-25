@@ -11,7 +11,7 @@ DECOMPILERS: Dict[str, str] = {
     "boomerang": "boomerang-0.5.2",
     "dewolf": "dewolf-2025-01-01",
     "ghidra": "ghidra-11.3.1",
-    "hex-rays": "hex-rays-9.1.0.250226",
+    "hex-rays": "hex-rays-9.2.0.250908",
     "recstudio": "recstudio-4.1",
     "reko": "reko-0.11.6.0",
     "relyze": "relyze-4.0.0",

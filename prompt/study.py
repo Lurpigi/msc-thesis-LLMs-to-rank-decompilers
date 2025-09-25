@@ -26,7 +26,7 @@ ACTIVE_DECOMPILERS: List[str] = ["ghidra", "binary-ninja", "hex-rays"]
 
 MODELS = {
     "d": [  # Desktop
-        "llama3.2:3b",
+        # "llama3.2:3b",
         "gpt-oss:20b",
         "deepseek-r1:14b",
         "gemma3:12b"
@@ -43,6 +43,7 @@ INPUT_DIR = Path("./dogbolt/src")
 OUTPUT_DIR = Path("./prompt/res")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def remove_comments(code: str) -> str:
     """Removes comments // and /* */ from the code"""
     # Remove /* ... */ multiline
@@ -51,12 +52,14 @@ def remove_comments(code: str) -> str:
     code = re.sub(r"//.*", "", code)
     return code
 
+
 def strip_small_functions(code: str, min_lines: int = 5) -> str:
     """Removes functions with fewer than min_lines from the decompiled code"""
     result = []
     i = 0
     while i < len(code):
-        match = re.search(r"([a-zA-Z_][\w\s\*]+?\([^)]*\))\s*\{", code[i:], re.M)
+        match = re.search(
+            r"([a-zA-Z_][\w\s\*]+?\([^)]*\))\s*\{", code[i:], re.M)
         if not match:
             result.append(code[i:])
             break
@@ -96,7 +99,6 @@ def build_prompt(file: str, file_map: Dict[str, str]) -> str:
         "Your task is to choose the best decompiler based only on the structural readability of the code "
         "(control flow clarity, function organization, expression predictability, "
         "structural economy).\n\n"
-        "Output format: ONLY the number (1, 2, or 3)\n\n"
         "ANSWER WITH ONLY THE NUMBER OF THE DECOMPILER.\n\n"
     ]
     for idx, dec in enumerate(ACTIVE_DECOMPILERS, start=1):
@@ -106,25 +108,25 @@ def build_prompt(file: str, file_map: Dict[str, str]) -> str:
     return "\n".join(sections)
 
 
-def run_llm(models: List[str], prompt: str, file: str) -> str:
-    """Sends the prompt and returns the response"""
+def run_llm(models: List[str], prompt: str, file: str) -> Dict[str, str]:
+    """Sends the prompt to all models and returns their responses"""
+    responses = {}
     for model in models:
         try:
             print(f"Querying model {model} for file {file}...")
             response = requests.post(
                 OLLAMA_URL,
                 json={"model": model, "prompt": prompt, "stream": False},
-                timeout=120,
+                timeout=300,
             )
             response.raise_for_status()
             result = response.json().get("response", "").strip()
             print(f"Model {model} response for {file}: {result}")
-            if result not in {"1", "2", "3"}:
-                return "0"
-            return result
+            responses[model] = result if result in {"1", "2", "3"} else "0"
         except Exception as e:
             print(f"[ERROR] {model}: {e}")
-    return "0"
+            responses[model] = "0"
+    return responses
 
 
 def main():
@@ -136,7 +138,7 @@ def main():
     models_to_use = MODELS[pc_type]
 
     # Results dictionary {file: choice}
-    results = {}
+    results = {f: {} for f in FILES}
 
     for f in FILES:
         file_map: Dict[str, str] = {}
@@ -154,14 +156,11 @@ def main():
             continue
 
         prompt = build_prompt(f, file_map)
-        # print("\n=== PROMPT ===")
-        # print(prompt)
-        # print("==============\n")
-        choice = run_llm(models_to_use, prompt, f)
-        results[f] = choice
+        model_responses = run_llm(models_to_use, prompt, f)
+        results[f] = model_responses
 
-    # Final table
-    header = ["Decompiler"] + FILES
+    # --- Markdown table ---
+    header = ["model_llm"] + FILES
     sep = ["---"] * len(header)
 
     print("\n=== FINAL TABLE (Markdown) ===\n")
@@ -172,11 +171,14 @@ def main():
     table_lines.append("| " + " | ".join(header) + " |")
     table_lines.append("| " + " | ".join(sep) + " |")
 
-    for idx, dec in enumerate(ACTIVE_DECOMPILERS, start=1):
-        row = [dec]
+    for model in models_to_use:
+        row = [model]
         for f in FILES:
-            mark = "✔️" if results.get(f, "0") == str(idx) else ""
-            row.append(mark)
+            choice = results.get(f, {}).get(model, "0")
+            if choice in {"1", "2", "3"}:
+                row.append(ACTIVE_DECOMPILERS[int(choice)-1])
+            else:
+                row.append("")
         line = "| " + " | ".join(row) + " |"
         print(line)
         table_lines.append(line)

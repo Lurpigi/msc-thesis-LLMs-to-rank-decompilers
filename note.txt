@@ -69,4 +69,7 @@ https://grant-h.github.io/docs/ghidra/decompiler/files.html
 ruleaction.hh -> definizione di classi che poi sono regole di traduzione da pcode, semplificazioni o funzioni utili (get)
 ruleaction.cc -> implementazione delle classi scritte nel .hh, limitate da scope e commenti
 
+coreaction.cc -> void ActionDatabase::buildDefaultGroups(void) -> dichiarazione degli stili di azione
+                void ActionDatabase::universalAction(Architecture *conf) -> deinizione vari ActionPool con collegamento delle regole
+
 Vernode -> struttura che implementa una variabile di basso livello o un insieme contiguo di byte, descritta da un Address e una size

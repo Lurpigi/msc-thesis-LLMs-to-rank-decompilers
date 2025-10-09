@@ -59,10 +59,18 @@ https://github.com/cyberkaida/reverse-engineering-assistant/blob/main/src/main/j
 https://github.com/Nalen98/GhidraEmu
 https://github.com/ZeroDaysBroker/GhidraGPT/tree/main/src/main/java/ghidragpt
 
-ghidra stack
+ghidra stack decomp
 
 https://reverseengineering.stackexchange.com/questions/20905/ghidra-control-flow-graph
 https://grant-h.github.io/docs/ghidra/decompiler/files.html
+https://github.com/NationalSecurityAgency/ghidra/discussions/5433#discussioncomment-6338755
+
+https://cgit.git.savannah.gnu.org/cgit/coreutils.git/tree/src
+
+perplexity
+
+https://www.geeksforgeeks.org/nlp/perplexity-for-llm-evaluation/
+https://github.com/coreutils/coreutils
 
 
 
@@ -70,6 +78,21 @@ ruleaction.hh -> definizione di classi che poi sono regole di traduzione da pcod
 ruleaction.cc -> implementazione delle classi scritte nel .hh, limitate da scope e commenti
 
 coreaction.cc -> void ActionDatabase::buildDefaultGroups(void) -> dichiarazione degli stili di azione
-                void ActionDatabase::universalAction(Architecture *conf) -> deinizione vari ActionPool con collegamento delle regole
+                void ActionDatabase::universalAction(Architecture *conf) -> deinizione vari ActionGoup con collegamento delle regole
+
+ActionGroup -> insieme di regole che vengono effettuate in sequenza (generalmente) l'ordine potrebbe cambiare il risultato //Alcuni hanno la proprietà rule_repeatapply -> l'intero gruppo di azioni viene ripetuto finché non vengono più apportate modifiche
+ActionPool -> insieme di regole che vengono eseguite in "contemporanea" iterando sui pcode di una funzione
+
+new rule("fase di analisi")
+
+ordine di esecuzione dipende dall'ordine di implementazione, no gerarchie
 
 Vernode -> struttura che implementa una variabile di basso livello o un insieme contiguo di byte, descritta da un Address e una size
+
+action.cc ->
+            *ActionDatabase::deriveAction(const string &baseaction, const string &grp) -> funzione per generare una action da eseguire dal basegroup
+
+
+make decomp_opt -j$(nproc)      # SLEIGH optimized
+make decomp_dbg                 # SLEIGH debug
+./gradlew buildGhidra           #build

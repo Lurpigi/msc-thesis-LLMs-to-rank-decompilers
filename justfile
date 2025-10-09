@@ -7,8 +7,7 @@ stop:
     docker compose stop
 
 make:
-    docker compose build make #--no-cache
-    docker compose up make
+    cd C_projects && bash build.sh
 
 decompile:
     #cp -r ./C_projects/bin/calculator ./dogbolt/bin/ #./C_projects/bin/*

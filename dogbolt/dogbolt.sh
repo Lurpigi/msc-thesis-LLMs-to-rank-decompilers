@@ -96,11 +96,8 @@ fi
 echo "binary id: $binary_id"
 
 # get the list of all decompilers
-# so we know how many results to expect
 echo "fetching decompiler names"
 # parse json from html
-# TODO is there an api to fetch this json?
-# https://dogbolt.org/api/decompilers/ has too many versions
 decompilers_json="$(
   curl -s https://dogbolt.org/ |
   grep -F '<script id="decompilers_json" type="application/json">' |
@@ -108,6 +105,10 @@ decompilers_json="$(
 )"
 # Remove the "rev.ng" key from decompilers_json, always timeout
 decompilers_json="$(echo "$decompilers_json" | jq 'del(.["rev.ng"])')"
+
+# keep only the desired decompilers
+decompilers_json="$(echo "$decompilers_json" | jq 'with_entries(select(.key | IN("Hex-Rays", "BinaryNinja", "Ghidra")) )')"
+
 decompilers_names="$(echo "$decompilers_json" | jq -r 'keys | join("\n")')"
 decompilers_count=$(echo "$decompilers_names" | wc -l)
 echo "decompiler names:" $decompilers_names
@@ -135,6 +136,14 @@ for ((retry_step=0; retry_step<retry_count; retry_step++)); do
 
     decompiler_name=$(echo "$result_json" | jq -r .decompiler.name)
     decompiler_version=$(echo "$result_json" | jq -r .decompiler.version)
+
+    case "$decompiler_name" in
+    "Hex-Rays"|"BinaryNinja"|"Ghidra")
+      ;; # allowed
+    *)
+      continue
+      ;;
+  esac
 
     decompiler_key="$decompiler_name-$decompiler_version"
     if [[ " $done_decompiler_keys " =~ " $decompiler_key " ]]; then
@@ -284,7 +293,7 @@ for ((retry_step=0; retry_step<retry_count; retry_step++)); do
 
   done_decompilers_count=$(printf "%s\n" $done_decompiler_keys | wc -l)
 
-  if ((done_decompilers_count == decompilers_count)); then
+  if ((done_decompilers_count >= decompilers_count)); then
     echo "fetched all results"
     break
   fi

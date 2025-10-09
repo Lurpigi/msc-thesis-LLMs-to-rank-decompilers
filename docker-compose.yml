@@ -1,16 +1,4 @@
 services:
-  make:
-    build:
-      dockerfile: Dockerfile
-      context: ./C_projects
-    volumes:
-      - ./C_projects/bin:/app/bin
-    command: >
-      sh -c "
-      cp -r /app/calculator/calculator /app/bin
-      "
-    # cp -r /app/crispy-doom/src/crispy-doom /app/bin &&
-
   decompile:
     build:
       dockerfile: Dockerfile
@@ -20,5 +8,6 @@ services:
     command: >
       sh -c "
       ./run.sh &&
-      cp -r /app/bin/src/* /app/src
+      cp -r /app/bin/src/* /app/src &&
+      chown -R $(id -u):$(id -g) /app/src
       "

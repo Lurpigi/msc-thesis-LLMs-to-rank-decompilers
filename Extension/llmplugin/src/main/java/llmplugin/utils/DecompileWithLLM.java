@@ -43,12 +43,15 @@ public class DecompileWithLLM {
                 ifc.setOptions(options);
                 ifc.openProgram(program);
 
-                String[] styles = {"decompile", "normalize", "firstpass", "register"};
+                String[] styles = {"different", "decompile"};
                 Map<String, String> results = new LinkedHashMap<>();
 
                 printLog.log("Starting decompilation styles...", this, console);
                 for (String style : styles) {
-                    ifc.setSimplificationStyle(style);
+                    if(ifc.setSimplificationStyle(style))
+                    	printLog.log("Set simplification style to: " + style, this, console);
+					else
+						printLog.warn("Failed to set simplification style to: " + style, this, console);
                     if (monitor.isCancelled()) {
 						printLog.log("Decompilation cancelled by user.", this, console);
 						return "// Decompilation cancelled.";

@@ -51,7 +51,7 @@ def extract_functions(code: str) -> Dict[str, str]:
     funcs: Dict[str, str] = {}
     # Rudimentary pattern: "type name(args) { … }"
     # This can fail on complex cases, but it's a starting point.
-    pattern = re.compile(r"([a-zA-Z_][\w]*)\s*\([^)]*\)\s*\{", re.M)
+    pattern = re.compile(r"([a-zA-Z_][\w]*)\s*\([^)]*\)\s*(?:__[a-zA-Z_]\w*\s*)*\{", re.M)
     for m in pattern.finditer(code):
         name = m.group(1)
         start = m.start()

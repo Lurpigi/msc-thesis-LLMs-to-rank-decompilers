@@ -1,0 +1,7 @@
+RuleControlFlowMerging:
+    CBRANCH(cond, op_true, op_false) :- {
+        op_true = CBRANCH(cond_2, a, b)
+        cond = cond_2
+    }
+    =>
+    CBRANCH(cond, op_true, b)

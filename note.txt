@@ -65,6 +65,8 @@ https://reverseengineering.stackexchange.com/questions/20905/ghidra-control-flow
 https://grant-h.github.io/docs/ghidra/decompiler/files.html
 https://github.com/NationalSecurityAgency/ghidra/discussions/5433#discussioncomment-6338755
 
+https://radareorg.github.io/blog/posts/sleigh_disassembler_backend/
+
 https://cgit.git.savannah.gnu.org/cgit/coreutils.git/tree/src
 
 https://github.com/LukeSerne/RuleChef/tree/master

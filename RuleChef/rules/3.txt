@@ -1,0 +1,3 @@
+SimplifySlessAndNotEqual:	
+    BOOL_AND(INT_SLESSEQUAL(a, b), INT_NOTEQUAL(a, b))	    
+    => INT_SLESS(a, b)

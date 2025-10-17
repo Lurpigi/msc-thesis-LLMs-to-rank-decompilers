@@ -1,0 +1,3 @@
+SimplifyOrEqual:	        
+    BOOL_OR(INT_LESS(a, b), INT_EQUAL(a, b))	            
+    => INT_LESSEQUAL(a, b)

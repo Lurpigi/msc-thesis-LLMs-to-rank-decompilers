@@ -1,0 +1,8 @@
+NestedConditionals:
+    CBRANCH( cond, op_true, op_false ) :- {
+        cond = INT_OR(a, b)
+        a = INT_AND(x, y)
+        b = INT_AND(x, z)
+    }
+    =>
+    CBRANCH( INT_AND( x, INT_OR(y, z) ), op_true, op_false )

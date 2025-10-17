@@ -1,0 +1,21 @@
+SignBitExtract:
+    INT_RIGHT(x, |x| * 8 - 1) :- {
+        x = INT_OR(y, INT_MULT(y, -1:|y|))
+    }
+    => INT_ZEXT(INT_NOTEQUAL(y, 0:|y|))
+
+SimplifyLessAndNotEqual:	
+    BOOL_AND(INT_LESSEQUAL(a, b), INT_NOTEQUAL(a, b))       
+    => INT_LESS(a, b)
+
+SimplifyGreaterAndNotEqual:	
+    BOOL_AND(INT_SLESSEQUAL(a, b), INT_NOTEQUAL(a, b))	    
+    => INT_SLESS(a, b)
+
+SimplifyOrEqual:	        
+    BOOL_OR(INT_LESS(a, b), INT_EQUAL(a, b))	            
+    => INT_LESSEQUAL(a, b)
+
+SimplifyConditionalCopy:	
+    BOOL_NEGATE(INT_EQUAL(a, b))	                        
+    => INT_NOTEQUAL(a, b)

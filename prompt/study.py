@@ -46,7 +46,6 @@ def extract_functions(code: str) -> Dict[str, str]:
     """
     Extract complete functions from decompiled code, returning a dict
     {function_name: full_code_block}.
-    This does not try to filter by length here.
     """
     funcs: Dict[str, str] = {}
     # Rudimentary pattern: "type name(args) { … }"

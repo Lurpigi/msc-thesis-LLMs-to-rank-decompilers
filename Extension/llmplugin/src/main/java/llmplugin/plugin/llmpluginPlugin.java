@@ -15,30 +15,23 @@
  */
 package llmplugin.plugin;
 
-import java.util.concurrent.CompletableFuture;
-
 import javax.swing.*;
 
-import docking.ActionContext;
-import docking.ComponentProvider;
-import docking.action.DockingAction;
-import docking.action.ToolBarData;
 import ghidra.app.ExamplesPluginPackage;
 import ghidra.app.plugin.PluginCategoryNames;
 import ghidra.app.plugin.ProgramPlugin;
+import ghidra.app.plugin.core.decompile.DecompilerProvider;
 import ghidra.app.services.ConsoleService;
 import ghidra.framework.plugintool.*;
 import ghidra.framework.plugintool.util.PluginStatus;
 import ghidra.program.model.listing.Function;
 import ghidra.program.util.ProgramLocation;
-import ghidra.util.HelpLocation;
 import ghidra.util.Msg;
 import ghidra.util.task.Task;
 import ghidra.util.task.TaskMonitor;
+import llmplugin.utils.DecompilationCache;
 import llmplugin.utils.DecompileWithLLM;
 import llmplugin.utils.printLog;
-import ghidra.app.decompiler.*;
-import resources.Icons;
 
 /**
  * Provide class-level documentation that describes what this plugin does.
@@ -57,10 +50,14 @@ public class llmpluginPlugin extends ProgramPlugin {
     private DecompileWithLLM decompiler;
     private ConsoleService console;
     private Function currentFunction;
+    private DecompilationCache cache;
+    private LLMDecompilerProvider llmProvider;
 
     public llmpluginPlugin(PluginTool tool) {
         super(tool);
-        
+        this.cache = new DecompilationCache();
+        this.llmProvider = new LLMDecompilerProvider(this, "LLM Enhanced Decompilation");
+        tool.addComponentProvider(llmProvider, false); // 'false' means not initially visible
         Msg.info(this, "llmplugin Plugin instantiated");
     }
 
@@ -80,7 +77,11 @@ public class llmpluginPlugin extends ProgramPlugin {
 			Msg.error(this, "Console Service Not Found - Could not find ConsoleService to display output.");
 			decompiler = new DecompileWithLLM(model);
 		}
+   
     }
+    
+    
+    
 
     @Override
     protected void locationChanged(ProgramLocation loc) {
@@ -99,15 +100,31 @@ public class llmpluginPlugin extends ProgramPlugin {
     }
 
     private void handleFunction(Function func) {
-    	tool.execute(new Task("LLM Decompile " + func.getName(), true, false, false) {
+        // Check cache first
+        String functionKey = DecompilationCache.createFunctionKey(currentProgram, func);
+        String cachedCode = cache.get(functionKey);
+        
+        if (cachedCode != null) {
+            printLog.log("Using cached LLM enhancement for: " + func.getName(), this, console);
+            displayInProvider(func.getName(), cachedCode);
+            return;
+        }
+        
+        tool.execute(new Task("LLM Decompile " + func.getName(), true, false, false) {
             @Override
             public void run(TaskMonitor monitor) {
                 try {
                     String code = decompiler.enhanceDecompiler(currentProgram, func, monitor);
                     if (monitor.isCancelled()) return;
-                    SwingUtilities.invokeLater(() ->
-                        printLog.log("Code enhanced for " + func.getName() + ":\n" + code, llmpluginPlugin.this, console)
-                    );
+                    
+                    // Cache the result
+                    cache.put(functionKey, code, "llm-enhanced");
+                    
+                    SwingUtilities.invokeLater(() -> {
+                        displayInProvider(func.getName(), code);
+                        printLog.log("Code enhanced and cached for " + func.getName(), llmpluginPlugin.this, console);
+                    });
+                    
                 } catch (Exception e) {
                     SwingUtilities.invokeLater(() ->
                         printLog.err("Enhancement failed: " + e.getMessage(), llmpluginPlugin.this, console)
@@ -116,4 +133,21 @@ public class llmpluginPlugin extends ProgramPlugin {
             }
         });
     }
+    
+    private void displayInProvider(String functionName, String code) {
+        llmProvider.displayEnhancedCode(functionName, code);
+    }
+    
+    @Override
+    protected void dispose() {
+        if (llmProvider != null) {
+            tool.removeComponentProvider(llmProvider);
+        }
+        super.dispose();
+    }
+    
+    
+
+    
+
 }

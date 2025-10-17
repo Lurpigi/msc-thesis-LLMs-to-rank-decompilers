@@ -67,15 +67,25 @@ https://github.com/NationalSecurityAgency/ghidra/discussions/5433#discussioncomm
 
 https://cgit.git.savannah.gnu.org/cgit/coreutils.git/tree/src
 
+https://github.com/LukeSerne/RuleChef/tree/master
+https://github.com/LukeSerne/DecompVis?tab=readme-ov-file#usage
+
+
 perplexity
 
 https://www.geeksforgeeks.org/nlp/perplexity-for-llm-evaluation/
 https://github.com/coreutils/coreutils
+https://github.com/ollama/ollama/issues/2415
+
 
 
 
 ruleaction.hh -> definizione di classi che poi sono regole di traduzione da pcode, semplificazioni o funzioni utili (get)
 ruleaction.cc -> implementazione delle classi scritte nel .hh, limitate da scope e commenti
+
+blockaction.cc -> regole da flowblock a stutture in C, non c'è più divisione tra vari "stili" -> 
+                            CollapseStructure::collapseInternal
+                            BlockWhileDo::finalTransform -> from while to for
 
 coreaction.cc -> void ActionDatabase::buildDefaultGroups(void) -> dichiarazione degli stili di azione
                 void ActionDatabase::universalAction(Architecture *conf) -> deinizione vari ActionGoup con collegamento delle regole
@@ -96,3 +106,13 @@ action.cc ->
 make decomp_opt -j$(nproc)      # SLEIGH optimized
 make decomp_dbg                 # SLEIGH debug
 ./gradlew buildGhidra           #build
+
+
+
+
+RuleChef
+
+SimplifyLessAndNotEqual:	BOOL_AND(INT_LESSEQUAL(a, b), INT_NOTEQUAL(a, b))       => INT_LESS(a, b)	            -----Da (a <= b && a != b) a (a < b).
+SimplifyGreaterAndNotEqual:	BOOL_AND(INT_SLESSEQUAL(a, b), INT_NOTEQUAL(a, b))	    => INT_SLESS(a, b)	            -----Da (a >= b && a != b) a (a > b).
+SimplifyOrEqual:	        BOOL_OR(INT_LESS(a, b), INT_EQUAL(a, b))	            => INT_LESSEQUAL(a, b)	        -----Da (a < b || a == b)  a (a <= b).
+SimplifyConditionalCopy:	BOOL_NEGATE(INT_EQUAL(a, b))	                        => INT_NOTEQUAL(a, b)	        -----Da !(a == b)          a (a != b).

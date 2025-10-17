@@ -70,15 +70,15 @@ public class DecompileWithLLM {
                     }
                 }
                 ifc.closeProgram();
-                printLog.log("Decompilation styles completed. Preparing to query LLM...", this, console);
+                //printLog.log("Decompilation styles completed. Preparing to query LLM...", this, console);
 
                 // Prepare prompt for LLM
                 StringBuilder prompt = new StringBuilder("You are an expert in reverse engineering and C/C++ code analysis.\n"
                         + "You will be given multiple decompilation outputs of the same binary.\n"
                         + "Your task is to choose the most human and the one with less perplexity using **only the structural readability of the code**, not variable naming or stylistic details.\n");
-                int idx = 0;
+                int idx = 1;
                 for (Map.Entry<String, String> e : results.entrySet()) {
-                    prompt.append("Version ").append(idx).append(" (").append(e.getKey()).append("):\n")
+                    prompt.append("Version ").append(idx).append(" (").append(clearCode.clean(e.getKey())).append("):\n")
                           .append(e.getValue()).append("\n\n");
                     idx++;
                 }
@@ -90,11 +90,11 @@ public class DecompileWithLLM {
                 }
                 printLog.log("Prompt sent to LLM:\n" + prompt.toString(), this, console);
                 int choice = queryLLMChoice(prompt.toString());
-                if (choice < 0 || choice >= styles.length) {
+                if (choice <= 0 || choice > styles.length) {
                     printLog.warn("LLM returned invalid choice: " + choice + ". Falling back to default.", this, console);
-                    choice = 0; // Fallback
+                    choice = 1; // Fallback
                 }
-                return results.get(styles[choice]);
+                return results.get(styles[choice-1]);
 
             } catch (Exception e) {
                 printLog.err("Error during decompilation enhancement: " + e.getMessage(), this, console);

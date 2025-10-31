@@ -31,7 +31,7 @@ def main():
     }
 
     try:
-        response = requests.post(FLASK_URL, json=payload, timeout=300)
+        response = requests.post(FLASK_URL, json=payload, timeout=600)
         response.raise_for_status()
 
         data = response.json()

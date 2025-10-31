@@ -6,10 +6,13 @@ import math
 app = Flask(__name__)
 
 # Load model and tokenizer
-model_name = "meta-llama/Llama-3.2-3B-Instruct"
+model_name = "openai/gpt-oss-safeguard-20b"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name)
-model.eval()
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = model.to(device)
+
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -18,27 +21,40 @@ def generate():
     if not user_prompt:
         return jsonify({"error": "Missing 'prompt' field"}), 400
 
-    # Tokenize input
-    inputs = tokenizer(user_prompt, return_tensors="pt")
+    messages = [
+        {"role": "user", "content": user_prompt},
+    ]
+    inputs = tokenizer.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(model.device)
+
     try:
         # Generate output with logits
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                return_dict_in_generate=True,
-                output_scores=True,  # Usa output_scores invece di output_logits
-                max_new_tokens=50,
-                pad_token_id=tokenizer.eos_token_id  # Usa eos_token come pad_token
-            )
+
+        outputs = model.generate(
+            **inputs,
+            return_dict_in_generate=True,
+            output_scores=True,
+            max_new_tokens=5000,
+        )
 
         # Decode generated text
-        generated_tokens = outputs.sequences[0][inputs['input_ids'].shape[1]:]
-        generated_text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        full_text = tokenizer.decode(
+            outputs.sequences[0], skip_special_tokens=True)
+        input_text = tokenizer.decode(
+            inputs["input_ids"][0], skip_special_tokens=True)
+        generated_text = full_text[len(input_text):].strip()
 
+        print(f"[INFO] Generated text: {generated_text}")
+        # print(f"[DEBUG] {tokenizer.decode(outputs[0][inputs['input_ids'].shape[-1]:])}")
 
         # Process scores (logits) - outputs.scores è una tupla di tensori
         scores = outputs.scores  # Tuple di tensori, uno per ogni token generato
-        
+
         token_probs = []
         logbits = []
         tokens = []
@@ -79,7 +95,7 @@ def generate():
 
         return jsonify(response)
     except Exception as e:
-            return jsonify({"error": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':

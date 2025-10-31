@@ -2,7 +2,6 @@
 import os
 import re
 import sys
-import math
 import requests
 from pathlib import Path
 from typing import Dict, List, Tuple, Set
@@ -30,11 +29,13 @@ MODELS = {
     "l": ["llama3.2:3b"]
 }
 
-FLASK_URL = "http://localhost:8900/generate"
+OLLAMA_HOST = "localhost:11434"
+OLLAMA_URL = f"http://{OLLAMA_HOST}/api/generate"
 
 INPUT_DIR = Path("./dogbolt/src")
 OUTPUT_DIR = Path("./prompt/res")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def remove_comments(code: str) -> str:
     code = re.sub(r"/\*.*?\*/", "", code, flags=re.S)
@@ -42,11 +43,18 @@ def remove_comments(code: str) -> str:
     return code
 
 def extract_functions(code: str) -> Dict[str, str]:
+    """
+    Extract complete functions from decompiled code, returning a dict
+    {function_name: full_code_block}.
+    """
     funcs: Dict[str, str] = {}
+    # Rudimentary pattern: "type name(args) { … }"
+    # This can fail on complex cases, but it's a starting point.
     pattern = re.compile(r"([a-zA-Z_][\w]*)\s*\([^)]*\)\s*(?:__[a-zA-Z_]\w*\s*)*\{", re.M)
     for m in pattern.finditer(code):
         name = m.group(1)
         start = m.start()
+        # Find the opening brace position
         brace_pos = code.find("{", m.end() - 1)
         if brace_pos < 0:
             continue
@@ -64,13 +72,21 @@ def extract_functions(code: str) -> Dict[str, str]:
         funcs[name] = func_body
     return funcs
 
+
 def intersect_function_names(mappings: List[Dict[str, str]]) -> Set[str]:
+    """
+    Given dicts of functions for each decompiler, return the intersection
+    of function names that appear in all of them.
+    """
     name_sets = [set(m.keys()) for m in mappings]
     if not name_sets:
         return set()
-    return name_sets[0].intersection(*name_sets[1:])
+    common = name_sets[0].intersection(*name_sets[1:])
+    return common
+
 
 def build_prompt_for_function(func_name: str, func_map: Dict[str, str]) -> str:
+    """Build the prompt for a single function, comparing decompilation outputs."""
     lines = [
         "You are an expert in reverse engineering and C/C++ code analysis.",
         "You will be given multiple decompilation outputs of the **same function** from different decompilers.",
@@ -83,28 +99,41 @@ def build_prompt_for_function(func_name: str, func_map: Dict[str, str]) -> str:
         lines.append(f"---\nDecompiler N. {idx}: {dec}\nCode:\n```\n{code}\n```")
     return "\n".join(lines)
 
-def run_llm_with_flask(prompt: str) -> Tuple[str, float]:
-    """Invia il prompt al server Flask Hugging Face locale."""
-    try:
-        resp = requests.post(FLASK_URL, json={"prompt": prompt}, timeout=600)
-        resp.raise_for_status()
-        data = resp.json()
-        generated = data.get("generated_text", "").strip()
-        perplexity = data.get("perplexity", float("inf"))
-        return generated, perplexity
-    except Exception as e:
-        print(f"[ERROR] Flask LLM call failed: {e}", file=sys.stderr)
-        return "0", float("inf")
+
+def estimate_perplexity(prompt: str) -> float:
+    """
+    TODO: Implement a real perplexity estimation. For now, return a dummy value based on length.
+    """
+    n = len(prompt.split())
+    if n == 0:
+        return float("inf")
+    # Use a fake formula: perplexity = exp(log n)
+    import math
+    return math.exp(math.log(n))
+
 
 def run_llm(models: List[str], prompt: str) -> Dict[str, Tuple[str, float]]:
-    """Simula la chiamata a più modelli, ma passa tutto al server Flask."""
+    """
+    Send the prompt to each model, return dict {model: (response, perplexity)}.
+    """
     out: Dict[str, Tuple[str, float]] = {}
     for model in models:
-        text, perp = run_llm_with_flask(prompt)
-        # Il modello risponde con testo libero → cerchiamo "1", "2" o "3"
-        match = re.search(r"\b([123])\b", text)
-        choice = match.group(1) if match else "0"
-        out[model] = (choice, perp)
+        try:
+            resp = requests.post(
+                OLLAMA_URL,
+                json={"model": model, "prompt": prompt, "stream": False},
+                timeout=300,
+            )
+            resp.raise_for_status()
+            result = resp.json().get("response", "").strip()
+            # TODO PERPLEXITY
+            perp = estimate_perplexity(prompt)
+            if result not in {"1", "2", "3"}:
+                result = "0"
+            out[model] = (result, perp)
+        except Exception as e:
+            print(f"[ERROR] model {model}: {e}", file=sys.stderr)
+            out[model] = ("0", float("inf"))
     return out
 
 

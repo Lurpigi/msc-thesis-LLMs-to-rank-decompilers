@@ -6,6 +6,7 @@ declare -A PROJS
 PROJS["cat"]="src:cat.c"
 PROJS["chmod"]="src:chmod.c"
 PROJS["sleep"]="src:sleep.c"
+PROJS["func"]="src:func.c"
 
 OPTS=(O1 O2 O3)
 

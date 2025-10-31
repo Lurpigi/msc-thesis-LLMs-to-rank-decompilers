@@ -118,3 +118,8 @@ SimplifyLessAndNotEqual:	BOOL_AND(INT_LESSEQUAL(a, b), INT_NOTEQUAL(a, b))      
 SimplifyGreaterAndNotEqual:	BOOL_AND(INT_SLESSEQUAL(a, b), INT_NOTEQUAL(a, b))	    => INT_SLESS(a, b)	            -----Da (a >= b && a != b) a (a > b).
 SimplifyOrEqual:	        BOOL_OR(INT_LESS(a, b), INT_EQUAL(a, b))	            => INT_LESSEQUAL(a, b)	        -----Da (a < b || a == b)  a (a <= b).
 SimplifyConditionalCopy:	BOOL_NEGATE(INT_EQUAL(a, b))	                        => INT_NOTEQUAL(a, b)	        -----Da !(a == b)          a (a != b).
+
+
+blocchi -> per il for da while in BlockWhileDo::finalTransform() in block.cc
+regole di creazione grafo in blockaction.cc -> apply() -> collapseAll() -> collapseInternal()
+

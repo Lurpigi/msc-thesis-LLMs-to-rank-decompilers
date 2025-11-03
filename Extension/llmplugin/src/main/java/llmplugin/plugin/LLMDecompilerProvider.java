@@ -6,6 +6,7 @@ import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
+import java.io.IOException;
 import java.util.Date;
 
 import javax.swing.JButton;
@@ -16,14 +17,15 @@ import javax.swing.JTextArea;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 
-import docking.ComponentProvider;
-import docking.WindowPosition;
 import ghidra.framework.plugintool.ComponentProviderAdapter;
-import ghidra.util.HTMLUtilities;
 import llmplugin.utils.CCodeFormatter;
 
+import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
+import org.fife.ui.rtextarea.RTextScrollPane;
+
 public class LLMDecompilerProvider extends ComponentProviderAdapter {
-    private JTextArea codeTextArea;
+    private RSyntaxTextArea codeTextArea;
     private JPanel panel;
     //private llmpluginPlugin plugin;
 
@@ -34,13 +36,17 @@ public class LLMDecompilerProvider extends ComponentProviderAdapter {
     }
 
     private void buildComponent() {
-        panel = new JPanel(new BorderLayout());
-        
-        codeTextArea = new JTextArea(25, 80);
+    	panel = new JPanel(new BorderLayout());
+
+        //RSyntaxTextArea
+        codeTextArea = new RSyntaxTextArea(25, 80);
+        codeTextArea.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_C); // Set language to C
+        codeTextArea.setCodeFoldingEnabled(true); // Optional: enables code folding
         codeTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
         codeTextArea.setEditable(false);
-        
-        JScrollPane scrollPane = new JScrollPane(codeTextArea);
+
+        // Use RTextScrollPane to enable line numbers and other features
+        JScrollPane scrollPane = new RTextScrollPane(codeTextArea);
         panel.add(scrollPane, BorderLayout.CENTER);
         
         // Add toolbar with clear, copy buttons
@@ -64,9 +70,15 @@ public class LLMDecompilerProvider extends ComponentProviderAdapter {
                 setSubTitle(title);
                 
                 // Format the code using the CCodeFormatter
-                String formattedCode = CCodeFormatter.formatCCode(code);
+                String formattedCode;
+				try {
+					formattedCode = CCodeFormatter.formatCCode(code);
+				} catch (IOException | InterruptedException e) {
+					formattedCode = code; // Fallback to unformatted code on error
+					e.printStackTrace();
+				}
                 
-                String finalOutput = String.format("// LLM Enhanced Decompilation: %s\n// %s\n\n%s", 
+                String finalOutput = String.format("/* LLM Enhanced Decompilation: %s */\n/* %s */\n%s", 
                     functionName, new Date(), formattedCode);
                 codeTextArea.setText(finalOutput);
                 

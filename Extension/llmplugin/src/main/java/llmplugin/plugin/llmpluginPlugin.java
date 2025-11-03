@@ -72,17 +72,14 @@ public class llmpluginPlugin extends ProgramPlugin {
 		Msg.info(this, "llmpluginPlugin initialized with model: " + model);
 		if (console != null) {
 			//console.getStdOut().println("Using model: " + model);
-			decompiler = new DecompileWithLLM(model,console);
+			decompiler = new DecompileWithLLM(console);
 		}else {
 			Msg.error(this, "Console Service Not Found - Could not find ConsoleService to display output.");
-			decompiler = new DecompileWithLLM(model);
+			decompiler = new DecompileWithLLM();
 		}
    
     }
     
-    
-    
-
     @Override
     protected void locationChanged(ProgramLocation loc) {
         super.locationChanged(loc);
@@ -145,9 +142,5 @@ public class llmpluginPlugin extends ProgramPlugin {
         }
         super.dispose();
     }
-    
-    
-
-    
 
 }

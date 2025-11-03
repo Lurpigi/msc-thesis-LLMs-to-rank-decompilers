@@ -36,23 +36,31 @@ def main():
 
         data = response.json()
 
-        generated_text = data.get("generated_text", "")
-        input_prompt = data.get("input_prompt", "")
-        perplexity = data.get("perplexity", None)
-        logbits = data.get("logbits", [])
-        token_probs = data.get("token_probabilities", [])
         model = data.get("model", "unknown_model")
+        input_prompt = data.get("input_prompt", "")
+        input_perplexity = data.get("input_perplexity", None)
+        input_mean_logbits = data.get("input_mean_logbits", None)
+        generated_text = data.get("generated_text", "")
+        generated_tokens = data.get("generated_tokens", [])
+        generated_token_probabilities = data.get("generated_token_probabilities", [])
+        generated_logbits = data.get("generated_logbits", [])
+        generated_mean_logbits = data.get("generated_mean_logbits", None)
+        generated_perplexity = data.get("generated_perplexity", None)
 
-        # Salva i risultati in JSON per mantenere tutte le info
+        # Save all results in JSON
         filename = f"{OUTPUT_DIR}/flask_response.json"
         with open(filename, "w", encoding="utf-8") as out_file:
             json.dump({
-                "model": model,
-                "input_prompt": input_prompt,
-                "generated_text": generated_text,
-                "perplexity": perplexity,
-                "mean_logbits": sum(logbits) / len(logbits) if logbits else None,
-                "token_probabilities": token_probs
+            "model": model,
+            "input_prompt": input_prompt,
+            "input_perplexity": input_perplexity,
+            "input_mean_logbits": input_mean_logbits,
+            "generated_text": generated_text,
+            "generated_tokens": generated_tokens,
+            "generated_token_probabilities": generated_token_probabilities,
+            "generated_logbits": generated_logbits,
+            "generated_mean_logbits": generated_mean_logbits,
+            "generated_perplexity": generated_perplexity
             }, out_file, indent=2, ensure_ascii=False)
 
         print(f"saved on in {filename}")

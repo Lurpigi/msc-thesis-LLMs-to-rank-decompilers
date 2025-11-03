@@ -1,0 +1,92 @@
+You are an expert in reverse engineering and C/C++ code analysis.
+You will be given multiple decompilation outputs of the same binary, each produced by a different decompiler.
+
+Your task is to evaluate **only the structural readability of the code**, not variable naming or stylistic details.
+For consistency, apply the following evaluation criteria:
+1. **Control Flow Clarity** : Are conditionals (if, switch, loops) expressed in a form close to standard C, or are they obfuscated with labels and gotos?
+   - Example (clear): `switch(x) { case 1: ... }`
+   - Example (unclear): `goto label_4014ba;`
+2. **Function Organization** : Are functions structured with clear entry/exit points, or fragmented into inline tailcalls and redundant wrappers?
+3. **Expression Predictability** : Are operations expressed as standard C expressions (`a + b`, `a / b`), or through low-level macros/register artifacts?
+   - Example (clear): `result = memory + func_name;`
+   - Example (unclear): `rax_6 = FCMP_O(x87_r6_2, askdo_input_3);`
+4. **Structural Economy** : Does the code minimize unnecessary temporaries and boilerplate, or is it bloated with intermediate variables from register spills?
+   - Example (efficient): `double d = sin(x);`
+   - Example (bloated): `var_50 = func_name / 57.2957; var_50 = sin(var_50);`
+
+For each decompiler output, you must:
+1. Rank all outputs from most human-readable to least.
+2. Explain which structural factors influenced your ranking.
+3. Estimate the **perplexity** (1–10, lower = more predictable control flow).
+4. Provide a comparative analysis, explicitly contrasting the structural differences.
+
+Remember: **do not evaluate variable naming, comments, or cosmetic style. Focus only on structural readability.**
+
+---
+Decompiler N. 1: binary-ninja
+Code:
+```
+  test2(a1, a2) {
+    printf("1");
+    if(a1!=1 && a2!=1){
+      printf("2");
+      if(a1 == 1){
+        printf("5");
+      }else{
+        printf("4"); 
+      } 
+    }else{
+      printf("3");
+      printf("5"); 
+    }
+    printf("6");
+    return 0; 
+  }
+```
+---
+Decompiler N. 2: ghidra
+Code:
+```
+  test2(a1, a2) {
+    printf("1");
+    if(a1==1 && a2==1){
+      printf("3"); 
+    }else{
+      printf("2");
+      if( a1 != 1 ){
+        printf("4");
+        goto L1; 
+      }
+    }
+    printf("5");
+    L1:
+    printf("6");
+    return 0LL; 
+  }
+```
+---
+Decompiler N. 3: DREAM dewolf
+Code:
+```
+  test2(a1, a2) {
+    printf("1");
+    if(a1==1 && a2==1){
+      printf("3"); 
+    }else{
+      printf("2"); 
+    }
+    if(a1 == 1){
+      printf("5"); 
+    }else{
+      printf("4"); 
+    }
+    printf("6");
+    return 0L; 
+  }
+```
+---
+Provide the answer in this ordered format:
+- Final ranking (best to worst)
+- Motivations
+- Perplexity of each code
+- Comparative analysis

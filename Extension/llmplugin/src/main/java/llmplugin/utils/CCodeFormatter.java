@@ -1,5 +1,11 @@
 package llmplugin.utils;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+
 /**
  * Utility class for formatting C code with proper indentation
  */
@@ -9,19 +15,58 @@ public class CCodeFormatter {
      * Formats C code with proper indentation
      * @param code the raw C code string to format
      * @return properly formatted C code with indentation
+     * @throws InterruptedException 
+     * @throws IOException 
      */
-    public static String formatCCode(String code) {
+    public static String formatCCode(String code) throws IOException, InterruptedException {
         if (code == null || code.trim().isEmpty()) {
             return code;
         }
+        
         
         // If the code is all on one line, preprocess it
         if (!code.contains("\n")) {
             code = preprocessSingleLineCode(code);
         }
         
-        return advancedFormat(code);
+        return advancedFormat(code).replace("*/", "*/\n");
     }
+    
+    public static String formatWithClangFormat(String rawCode) throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder("clang-format", "-style=Google"); // o il tuo stile preferito
+        Process proc = pb.start();
+
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(proc.getOutputStream()))) {
+            writer.write(rawCode);
+            // può essere necessario flush e chiudere lo stream di input:
+            writer.flush();
+        }
+
+        // Leggi l’output formattato
+        StringBuilder formatted = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                formatted.append(line).append("\n");
+            }
+        }
+
+        int exit = proc.waitFor();
+        if (exit != 0) {
+            // qualcosa è andato storto, puoi leggere stderr per diagnostica
+            try (BufferedReader err = new BufferedReader(new InputStreamReader(proc.getErrorStream()))) {
+                String errLine;
+                StringBuilder errMsg = new StringBuilder();
+                while ((errLine = err.readLine()) != null) {
+                    errMsg.append(errLine).append("\n");
+                }
+                throw new RuntimeException("clang-format failed: " + errMsg);
+            }
+        }
+        return formatted.toString();
+    }
+
+    
     
     /**
      * Preprocesses single-line C code by adding strategic newlines
@@ -77,15 +122,6 @@ public class CCodeFormatter {
                     inMultiLineComment = false;
                     result.append(c).append(next);
                     i++; // skip next char
-                    
-                    // SPECIAL CASE: If after the comment there's a function declaration, add newline
-                    if (i + 1 < code.length()) {
-                        char afterComment = code.charAt(i + 1);
-                        if (Character.isLetter(afterComment) || afterComment == '_') {
-                            // Might be the start of a function return type
-                            result.append('\n');
-                        }
-                    }
                     continue;
                 }
             }
@@ -99,31 +135,35 @@ public class CCodeFormatter {
             
             // Add newline at strategic points (only if not in strings/comments)
             if (!inString && !inChar && !inLineComment && !inMultiLineComment) {
-                // SPECIAL CASE: After multi-line comments preceding function declarations
-                if (i >= 2 && code.charAt(i-1) == '/' && code.charAt(i-2) == '*') {
-                    // This is handled above in the multi-line comment block
-                }
-                // After semicolon
-                else if (c == ';') {
-                    result.append('\n');
+                // After semicolons (but not in for loops)
+                if (c == ';') {
+                    // Check if this is part of a for loop
+                    boolean isForLoop = false;
+                    int j = i - 1;
+                    int parenCount = 0;
+                    while (j >= 0) {
+                        if (code.charAt(j) == '(') parenCount++;
+                        else if (code.charAt(j) == ')') parenCount--;
+                        else if (code.charAt(j) == 'f' && j >= 2 && 
+                                 code.substring(j-2, j+1).equals("for")) {
+                            isForLoop = (parenCount > 0);
+                            break;
+                        }
+                        j--;
+                    }
+                    
+                    if (!isForLoop) {
+                        result.append('\n');
+                    }
                 }
                 // After braces
                 else if (c == '{' || c == '}') {
                     result.append('\n');
                 }
-                // Before else, if, while in certain contexts
-                else if (i < code.length() - 2) {
-                    String nextChars = code.substring(i + 1, Math.min(i + 6, code.length()));
-                    if ((c == '}' && nextChars.startsWith("else")) ||
-                        (c == '}' && nextChars.startsWith("while")) ||
-                        (c == ';' && nextChars.startsWith("if"))) {
-                        result.append('\n');
-                    }
-                }
             }
             
-            // End of line comment (when encountering newline, but here we don't have newline)
-            if (inLineComment && (c == '\n' || i == code.length() - 1)) {
+            // Reset line comment at end of line (simulated)
+            if (inLineComment && i == code.length() - 1) {
                 inLineComment = false;
             }
         }
@@ -132,7 +172,7 @@ public class CCodeFormatter {
     }
     
     /**
-     * Advanced formatting with proper indentation
+     * Advanced formatting with proper indentation - IMPROVED VERSION
      */
     private static String advancedFormat(String code) {
         StringBuilder formatted = new StringBuilder();
@@ -140,9 +180,8 @@ public class CCodeFormatter {
         boolean inMultiLineComment = false;
         String[] lines = code.split("\n");
         
-        for (int lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-            String originalLine = lines[lineIndex];
-            String line = originalLine.trim();
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
             
             if (line.isEmpty()) {
                 formatted.append("\n");
@@ -151,85 +190,63 @@ public class CCodeFormatter {
             
             // Handle multi-line comments
             if (inMultiLineComment || line.startsWith("/*")) {
-                boolean commentEnded = false;
                 if (line.contains("*/")) {
                     inMultiLineComment = false;
-                    commentEnded = true;
-                } else if (line.startsWith("/*") && !line.contains("*/")) {
+                    // Add proper indentation for comment
+                    for (int j = 0; j < indentLevel; j++) {
+                        formatted.append("    ");
+                    }
+                    formatted.append(line).append("\n");
+                } else {
                     inMultiLineComment = true;
-                }
-                
-                // Add indentation for multi-line comments
-                for (int i = 0; i < indentLevel; i++) {
-                    formatted.append("\t");
-                }
-                formatted.append(line).append("\n");
-                
-                if (commentEnded) {
-                    inMultiLineComment = false;
+                    // Add proper indentation for comment
+                    for (int j = 0; j < indentLevel; j++) {
+                        formatted.append("    ");
+                    }
+                    formatted.append(line).append("\n");
                 }
                 continue;
             }
             
             // Handle single-line comments
             if (line.startsWith("//")) {
-                for (int i = 0; i < indentLevel; i++) {
-                    formatted.append("\t");
+                for (int j = 0; j < indentLevel; j++) {
+                    formatted.append("    ");
                 }
                 formatted.append(line).append("\n");
                 continue;
             }
             
-            // SPECIAL CASE: If the line is a multi-line comment followed by code on the same line
-            if (line.contains("*/") && line.indexOf("*/") < line.length() - 2) {
-                int commentEnd = line.indexOf("*/") + 2;
-                String commentPart = line.substring(0, commentEnd).trim();
-                String codePart = line.substring(commentEnd).trim();
-                
-                // Add the comment
-                for (int i = 0; i < indentLevel; i++) {
-                    formatted.append("\t");
-                }
-                formatted.append(commentPart).append("\n");
-                
-                // Process the code part as a new line
-                lines[lineIndex] = codePart;
-                lineIndex--; // Reprocess this line as code
-                continue;
-            }
-            
-            // Decrease indentation before processing the line
-            String trimmed = line.trim();
-            if (trimmed.startsWith("}") || 
-                trimmed.startsWith("} else") || 
-                trimmed.startsWith("})") || 
-                trimmed.endsWith("};")) {
+            // Decrease indentation for closing braces
+            if (line.startsWith("}") || line.equals(");") || 
+                line.startsWith("} else") || line.startsWith("} while") ||
+                line.startsWith("} else if")) {
                 indentLevel = Math.max(0, indentLevel - 1);
             }
             
             // Add current indentation
-            for (int i = 0; i < indentLevel; i++) {
-                formatted.append("\t");
+            for (int j = 0; j < indentLevel; j++) {
+                formatted.append("    ");
             }
             
-            formatted.append(trimmed).append("\n");
+            formatted.append(line).append("\n");
             
-            // Increase indentation after processing the line
-            if (trimmed.endsWith("{") || 
-                (trimmed.startsWith("struct") && trimmed.endsWith("{")) ||
-                (trimmed.startsWith("enum") && trimmed.endsWith("{")) ||
-                (trimmed.startsWith("union") && trimmed.endsWith("{")) ||
-                trimmed.startsWith("case") || 
-                trimmed.startsWith("default:")) {
+            // Increase indentation for opening braces and other block starters
+            if (line.endsWith("{") || 
+                (line.startsWith("struct") && line.endsWith("{")) ||
+                (line.startsWith("enum") && line.endsWith("{")) ||
+                (line.startsWith("union") && line.endsWith("{")) ||
+                (line.startsWith("case") && line.endsWith(":")) ||
+                line.equals("default:")) {
                 indentLevel++;
             }
             
-            // Special handling for if/for/while without braces
-            if ((trimmed.startsWith("if ") || trimmed.startsWith("for ") || trimmed.startsWith("while ")) &&
-                !trimmed.endsWith("{") && !trimmed.endsWith(";")) {
+            // Special case: if statement without braces
+            if ((line.startsWith("if ") || line.startsWith("for ") || line.startsWith("while ")) &&
+                !line.endsWith("{") && !line.endsWith(";")) {
                 // Check if next line is a single statement
-                if (lineIndex < lines.length - 1) {
-                    String nextLine = lines[lineIndex + 1].trim();
+                if (i + 1 < lines.length) {
+                    String nextLine = lines[i + 1].trim();
                     if (!nextLine.isEmpty() && !nextLine.startsWith("//") && !nextLine.startsWith("/*") &&
                         !nextLine.equals("}") && !nextLine.startsWith("else")) {
                         indentLevel++;
@@ -239,163 +256,5 @@ public class CCodeFormatter {
         }
         
         return formatted.toString();
-    }
-    
-    /**
-     * Simple formatting for quick results - IMPROVED to handle comments on the same line
-     */
-    public static String simpleFormat(String code) {
-        if (code == null || code.trim().isEmpty()) {
-            return code;
-        }
-        
-        // If the code is all on one line, preprocess it
-        if (!code.contains("\n")) {
-            code = preprocessSingleLineCode(code);
-        }
-        
-        StringBuilder formatted = new StringBuilder();
-        int indentLevel = 0;
-        String[] lines = code.split("\n");
-        
-        for (String line : lines) {
-            String trimmed = line.trim();
-            if (trimmed.isEmpty()) {
-                formatted.append("\n");
-                continue;
-            }
-            
-            // SPECIAL CASE: Handle multi-line comments followed by code on the same line
-            if (trimmed.contains("*/") && trimmed.indexOf("*/") < trimmed.length() - 2) {
-                int commentEnd = trimmed.indexOf("*/") + 2;
-                String commentPart = trimmed.substring(0, commentEnd);
-                String codePart = trimmed.substring(commentEnd).trim();
-                
-                // Add the comment with current indentation
-                for (int i = 0; i < indentLevel; i++) {
-                    formatted.append("\t");
-                }
-                formatted.append(commentPart).append("\n");
-                
-                // Process the code part with the same indentation
-                for (int i = 0; i < indentLevel; i++) {
-                    formatted.append("\t");
-                }
-                formatted.append(codePart).append("\n");
-                continue;
-            }
-            
-            // Skip pure comment lines for indentation calculation
-            boolean isPureComment = trimmed.startsWith("//") || 
-                                   (trimmed.startsWith("/*") && trimmed.endsWith("*/"));
-            
-            // Decrease indent before lines that close blocks
-            if (!isPureComment && (trimmed.startsWith("}") || trimmed.equals(");") || 
-                trimmed.startsWith("} else") || trimmed.startsWith("} while"))) {
-                indentLevel = Math.max(0, indentLevel - 1);
-            }
-            
-            // Add current indentation
-            for (int i = 0; i < indentLevel; i++) {
-                formatted.append("\t");
-            }
-            
-            formatted.append(trimmed).append("\n");
-            
-            // Increase indent after lines that open blocks (only if not pure comment)
-            if (!isPureComment) {
-                if (trimmed.endsWith("{") || 
-                    (trimmed.startsWith("struct") && trimmed.contains("{")) ||
-                    (trimmed.startsWith("enum") && trimmed.contains("{")) ||
-                    (trimmed.startsWith("union") && trimmed.contains("{"))) {
-                    indentLevel++;
-                }
-                
-                // Special case for else without braces
-                if (trimmed.startsWith("else") && !trimmed.endsWith("{") && !trimmed.endsWith(";")) {
-                    indentLevel++;
-                }
-            }
-        }
-        
-        return formatted.toString();
-    }
-    
-    /**
-     * NEW METHOD: Formatting specifically for cases where comments are attached to code
-     */
-    public static String formatWithCommentHandling(String code) {
-        if (code == null || code.trim().isEmpty()) {
-            return code;
-        }
-        
-        // First separate multi-line comments from code on the same line
-        code = separateCommentsFromCode(code);
-        
-        // Then apply simple formatting
-        return simpleFormat(code);
-    }
-    
-    /**
-     * Separates multi-line comments from code on the same line
-     */
-    private static String separateCommentsFromCode(String code) {
-        StringBuilder result = new StringBuilder();
-        boolean inMultiLineComment = false;
-        boolean inString = false;
-        boolean inChar = false;
-        StringBuilder currentLine = new StringBuilder();
-        
-        for (int i = 0; i < code.length(); i++) {
-            char c = code.charAt(i);
-            char next = (i < code.length() - 1) ? code.charAt(i + 1) : '\0';
-            
-            // Handle strings and chars
-            if (!inMultiLineComment) {
-                if (c == '"' && !inChar) inString = !inString;
-                if (c == '\'' && !inString) inChar = !inChar;
-            }
-            
-            // Handle multi-line comments
-            if (!inString && !inChar) {
-                if (!inMultiLineComment && c == '/' && next == '*') {
-                    // If we have code before the comment, add it
-                    if (currentLine.length() > 0) {
-                        result.append(currentLine.toString()).append("\n");
-                        currentLine = new StringBuilder();
-                    }
-                    inMultiLineComment = true;
-                    currentLine.append("/*");
-                    i++; // skip next char
-                    continue;
-                } else if (inMultiLineComment && c == '*' && next == '/') {
-                    currentLine.append("*/");
-                    i++; // skip next char
-                    result.append(currentLine.toString()).append("\n");
-                    currentLine = new StringBuilder();
-                    inMultiLineComment = false;
-                    continue;
-                }
-            }
-            
-            if (inMultiLineComment) {
-                currentLine.append(c);
-            } else {
-                currentLine.append(c);
-                
-                // If we find a newline, process the current line
-                if (c == '\n') {
-                    result.append(currentLine.toString());
-                    currentLine = new StringBuilder();
-                }
-            }
-        }
-        
-        // Add the last line if present
-        if (currentLine.length() > 0) {
-            result.append(currentLine.toString());
-        }
-        
-        return result.toString();
     }
 }

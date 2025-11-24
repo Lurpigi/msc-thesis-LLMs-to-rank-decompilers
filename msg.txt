@@ -1,0 +1,57 @@
+Ciao Luke, sono Luigi Timossi, uno studente universitario dell'università di Genova.
+Attualmente sto lavorando alla mia tesi magistrale che si pone l'obiettivo di 
+utilizzare decompilatori (principalmente ghidra) e modificare il loro output creando
+vari branch di scelte (ove possibile) per poi utilizzare un LLM per scegliere quale branch di decompilazione
+sia più "leggibile" e umano. Ora il mio obiettivo principale è trovare nel decompiler di ghidra, possibili punti
+dove si possono venire a creare delle scelte che portano a risultati diversi (tutti validi).
+Ti scrivo perché nelle mie ricerche su come funziona il decompilatore di ghidra è apparso più volte il tuo nome,
+ho anche utilizzato i tuoi RuleChef e DecompVis per alcune cose.
+Mi piacerebbe sapere da te, dato che sembri molto esperto del decompilatore, alcuni punti critici su cui è possibile modificare
+l'output finale in modo abbastanza sostanziale e senza perderci troppo la testa.
+
+Attualmente ho modificato il decompilatore in modo tale che possa restituirmi 2 versioni, quella originale e un'altra con le modifiche.
+Ho creato un nuovo "gruppo" (come decompile,normalize,jumptable...) e grazie ad una estensione ghidra ricavo entrambe le versioni decompilate di una funzione.
+Attualmente ho anche implementato come scelta della mia nuova "SemplificationStyle" (è così che viene chiamato il gruppo in java) una tua pull request, ovvero
+la Improve for-loop detection, e una mia modifica in ruleBlockWhileDo che trasforma if(cond){do{..}while(cond)} in while(cond){} 
+(questa è praticamente uno srotolamento di una ottimizzazione del compilatore, il mio obiettivo finale però è un altro ovvero andare a parare su scelte del decompilatore non di rivoluzionarlo,
+inoltre questa modifica è ancora in fase di test e sviluppo anche perché è complicato controllare se le due condizioni sono le stesse).
+
+ps: l'idea di tesi è nata da questo paper qui https://ieeexplore.ieee.org/abstract/document/11129273
+
+Se hai voglia di darmi qualche consiglio e dritta ne sarei infinitamente grato, altrimenti grazie lo stesso per il tuo lavoro e impegno nella community dei decompilatori.
+LT
+
+Hi Luke, I'm Luigi Timossi, a student of the University of Genoa.
+I'm currently working on my master's thesis, which aims to use decompilers (mainly Ghidra) and modify their output by creating
+different branches of choices (where possible), and then use an LLM to choose which decompilation branch
+is more “readable” and human-like. My main goal now is to find, in Ghidra’s decompiler, possible points
+where choices can be made that lead to different (but all valid) results.
+I’m writing to you because, in my research on how Ghidra’s decompiler works, your name has come up several times;
+I’ve also used your RuleChef and DecompVis for some things.
+I’d like to know from you, since you seem very experienced with the decompiler, about some critical points where it is possible to modify
+the final output in a fairly substantial way without overcomplicating things.
+
+At the moment I’ve modified the decompiler so that it can return 2 versions, the original one and another one with the changes.
+I’ve created a new “group” (like decompile, normalize, jumptable...) and, thanks to a Ghidra extension, I obtain both decompiled versions of a function.
+I’ve also currently implemented, as a choice of my new “SimplificationStyle” (this is what the group is called in Java), one of your pull requests, namely
+the “Improve for-loop detection”, and one of my own changes in ruleBlockWhileDo that transforms if(cond){do{..}while(cond)} into while(cond){}
+(this is basically an unrolling of a compiler optimization; however, my final goal is something else, namely to focus on decompiler choices rather than revolutionizing it.
+Moreover, this change is still in the testing and development phase, also because it is complicated to check whether the two conditions are the same).
+
+PS: the idea for the thesis came from this paper: https://ieeexplore.ieee.org/abstract/document/11129273
+
+If you feel like giving me some advice and tips I would be immensely grateful; otherwise, thank you anyway for your work and commitment to the decompiler community.
+LT
+
+P.S. I had to upgrade my LinkedIn account in order to contact you. I’m not sure I’ll be able to reply to messages once the upgrade expires, but for now I have a free month, so there’s no problem at the moment; I just wanted to let you know about this possible limitation.
+
+
+ciao, grazie per la risposta veloce! si gli LLM verranno usati unicamente per la scelta finale tra le varie versioni della decompilazione, con inoltre calcolo di perplexity, quindi misurato con varie metriche.
+grazie mille per gli spunti e per il contatto mail, continuerò il mio lavoro e ti farò sapere se ho dubbi e/o una volta completata la tesi.
+Ancora grazie mille
+LT
+
+Hi, thanks for the quick reply! Yes, the LLMs will only be used for the final choice between the various versions of the decompilation, also with the calculation of perplexity, so evaluated with various metrics.
+Thank you very much for the ideas and for your email contact; I will continue my work and let you know if I have any doubts and/or once the thesis is completed.
+Thanks again.
+LT

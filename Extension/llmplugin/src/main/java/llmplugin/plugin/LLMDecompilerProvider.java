@@ -18,7 +18,6 @@ import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 
 import ghidra.framework.plugintool.ComponentProviderAdapter;
-import llmplugin.utils.CCodeFormatter;
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
@@ -69,17 +68,9 @@ public class LLMDecompilerProvider extends ComponentProviderAdapter {
                 String title = "LLM Enhanced: " + functionName;
                 setSubTitle(title);
                 
-                // Format the code using the CCodeFormatter
-                String formattedCode;
-				try {
-					formattedCode = CCodeFormatter.formatCCode(code);
-				} catch (IOException | InterruptedException e) {
-					formattedCode = code; // Fallback to unformatted code on error
-					e.printStackTrace();
-				}
                 
-                String finalOutput = String.format("/* LLM Enhanced Decompilation: %s */\n/* %s */\n%s", 
-                    functionName, new Date(), formattedCode);
+                String finalOutput = String.format("// LLM Enhanced Decompilation: %s\n%s", 
+                    functionName, code);
                 codeTextArea.setText(finalOutput);
                 
                 // Make sure the provider is visible

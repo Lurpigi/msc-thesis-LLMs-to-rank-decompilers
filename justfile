@@ -22,8 +22,17 @@ ownership:
 gen_prompt:
     python3 ./prompt/gen_prompt.py
 
-send_prompt pc_type:
-    python3 ./prompt/send_prompt.py {{pc_type}}
+send_prompt:
+    python3 ./prompt/send_prompt.py
+
+huggingface:
+    python3 ./prompt/huggingface.py
+
+debug:
+    sudo bash ./debug.sh
+
+kill_ghidra:
+    bash ./kill_ghidra.sh
 
 study pc_type:
     python3 ./prompt/study.py {{pc_type}}

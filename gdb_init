@@ -1,0 +1,8 @@
+set debugger_present = 1
+
+
+#b ActionPreferWhile::isDoWhilePattern
+b CollapseStructure::ruleBlockWhileDo 
+#b BlockWhileDo::finalTransform
+
+#c

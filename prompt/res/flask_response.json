@@ -1,12 +1,21 @@
 {
   "model": "meta-llama/Llama-3.2-1B-Instruct",
   "input_prompt": "You are an expert in reverse engineering and C/C++ code analysis.\nYou will be given multiple decompilation outputs of the same binary.\nYour task is to choose the most human and the one with less perplexity using **only the structural readability of the code**, not variable naming or stylistic details.\n\nAnswer ONLY with the number of the version you choose:\n---\nDecompiler N. 1: binary-ninja\nCode:\n```\n  test2(a1, a2) {\n    printf(\"1\");\n    if(a1!=1 && a2!=1){\n      printf(\"2\");\n      if(a1 == 1){\n        printf(\"5\");\n      }else{\n        printf(\"4\"); \n      } \n    }else{\n      printf(\"3\");\n      printf(\"5\"); \n    }\n    printf(\"6\");\n    return 0; \n  }\n```\n---\nDecompiler N. 2: ghidra\nCode:\n```\n  test2(a1, a2) {\n    printf(\"1\");\n    if(a1==1 && a2==1){\n      printf(\"3\"); \n    }else{\n      printf(\"2\");\n      if( a1 != 1 ){\n        printf(\"4\");\n        goto L1; \n      }\n    }\n    printf(\"5\");\n    L1:\n    printf(\"6\");\n    return 0LL; \n  }\n```\n---\nDecompiler N. 3: DREAM dewolf\nCode:\n```\n  test2(a1, a2) {\n    printf(\"1\");\n    if(a1==1 && a2==1){\n      printf(\"3\"); \n    }else{\n      printf(\"2\"); \n    }\n    if(a1 == 1){\n      printf(\"5\"); \n    }else{\n      printf(\"4\"); \n    }\n    printf(\"6\");\n    return 0L; \n  }\n```\n",
-  "input_perplexity": 8.421875,
-  "input_mean_logbits": -2.130859375,
+  "input_perplexity": 8.2734375,
+  "input_mean_logbits": -2.11328125,
   "generated_text": "3",
-  "generated_tokens": ["3", "<|eot_id|>"],
-  "generated_token_probabilities": [0.5712331533432007, 1.0],
-  "generated_logbits": [-0.8078483816691427, 0.0],
-  "generated_mean_logbits": -0.4039241908345714,
-  "generated_perplexity": 1.3231019131652324
+  "generated_tokens": [
+    "3",
+    "<|eot_id|>"
+  ],
+  "generated_token_probabilities": [
+    0.5207943320274353,
+    1.0
+  ],
+  "generated_logbits": [
+    -0.9412143476134762,
+    0.0
+  ],
+  "generated_mean_logbits": -0.4706071738067381,
+  "generated_perplexity": 1.3856925290918825
 }

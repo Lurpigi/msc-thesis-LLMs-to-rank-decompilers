@@ -58,6 +58,7 @@ extensions
 https://github.com/cyberkaida/reverse-engineering-assistant/blob/main/src/main/java/reva/plugin/RevaPlugin.java
 https://github.com/Nalen98/GhidraEmu
 https://github.com/ZeroDaysBroker/GhidraGPT/tree/main/src/main/java/ghidragpt
+https://github.com/bobbylight/RSyntaxTextArea
 
 ghidra stack decomp
 
@@ -72,6 +73,10 @@ https://cgit.git.savannah.gnu.org/cgit/coreutils.git/tree/src
 https://github.com/LukeSerne/RuleChef/tree/master
 https://github.com/LukeSerne/DecompVis?tab=readme-ov-file#usage
 
+https://github.com/NationalSecurityAgency/ghidra/pull/8161
+
+https://ftp.gnu.org/gnu/gdb/
+
 
 perplexity
 
@@ -79,7 +84,10 @@ https://www.geeksforgeeks.org/nlp/perplexity-for-llm-evaluation/
 https://github.com/coreutils/coreutils
 https://github.com/ollama/ollama/issues/2415
 
-
+https://www.llama.com/docs/model-cards-and-prompt-formats/llama3_1/
+https://huggingface.co/blog/4bit-transformers-bitsandbytes
+https://medium.com/%40lambdafluxofficial/packing-and-unpacking-weights-in-4-bit-quantization-982c7a04c684
+https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct
 
 
 ruleaction.hh -> definizione di classi che poi sono regole di traduzione da pcode, semplificazioni o funzioni utili (get)
@@ -123,3 +131,151 @@ SimplifyConditionalCopy:	BOOL_NEGATE(INT_EQUAL(a, b))	                        =>
 blocchi -> per il for da while in BlockWhileDo::finalTransform() in block.cc
 regole di creazione grafo in blockaction.cc -> apply() -> collapseAll() -> collapseInternal()
 
+flowblock:
+
+=== parent do while ===
+0
+Basic Block 0 0x0010118d-0x001011d1
+0x0010118d:1:	RSP(0x0010118d:1) = RSP(i) + #0xfffffffffffffff8
+0x0010118d:2:	*(ram,RSP(0x0010118d:1)) = RBP(i)
+0x0010118e:4:	RSP(0x0010118e:4) = RSP(i) + #0xfffffffffffffff0
+0x0010118e:5:	*(ram,RSP(0x0010118e:4)) = RBX(i)
+0x00101193:f:	u0x00006480(0x00101193:f) = FS_OFFSET(i) + #0x28
+0x00101193:10:	u0x00011f00(0x00101193:10) = *(ram,u0x00006480(0x00101193:f))
+0x0010119c:12:	u0x00004e80(0x0010119c:12) = RSP(i) + #0xffffffffffffffe0
+0x0010119c:14:	*(ram,u0x00004e80(0x0010119c:12)) = u0x00011f00(0x00101193:10)
+0x001011af:21:	RSP(0x001011af:21) = RSP(i) + #0xffffffffffffffd0
+0x001011af:22:	*(ram,RSP(0x001011af:21)) = #0x1011b4
+0x001011af:9a:	u0x10000008:1(0x001011af:9a) = *(ram,RSP(0x001011af:21))
+0x001011af:e7:	RDX(0x001011af:e7) = [create] m0x001011af:23(free)
+0x001011af:108:	FS_OFFSET(0x001011af:108) = FS_OFFSET(i) [] m0x001011af:23(free)
+0x001011af:23:	call l__printf_chk(free)(u0x10000008:1(0x001011af:9a),RCX(i),RDX(i),#0x102004,#0x1)
+0x001011b4:24:	u0x00004e80(0x001011b4:24) = RSP(i) + #0xffffffffffffffdc
+0x001011c5:28:	RSP(0x001011c5:28) = RSP(i) + #0xffffffffffffffd0
+0x001011c5:29:	*(ram,RSP(0x001011c5:28)) = #0x1011ca
+0x001011c5:9c:	u0x10000011:1(0x001011c5:9c) = *(ram,RSP(0x001011c5:28))
+0x001011c5:e8:	RDX(0x001011c5:e8) = [create] m0x001011c5:2a(free)
+0x001011c5:109:	FS_OFFSET(0x001011c5:109) = FS_OFFSET(0x001011af:108) [] m0x001011c5:2a(free)
+0x001011c5:2a:	call l__isoc99_scanf(free)(u0x10000011:1(0x001011c5:9c),#0x0,RDX(0x001011af:e7),u0x00004e80(0x001011b4:24),#0x102018)
+0x001011ca:2b:	u0x00004e80(0x001011ca:2b) = RSP(i) + #0xffffffffffffffdc
+0x001011ca:2c:	u0x00011e80:4(0x001011ca:2c) = *(ram,u0x00004e80(0x001011ca:2b))
+0x001011ca:db:	RCX(0x001011ca:db) = ZEXT48(u0x00011e80:4(0x001011ca:2c))
+0x001011d1:3b:	u0x00013180:1(0x001011d1:3b) = #0x9:4 < u0x00011e80:4(0x001011ca:2c)
+0x001011d1:3c:	goto Block_3:0x00101206 if (u0x00013180:1(0x001011d1:3b) != 0) else Block_1:0x001011d3
+Basic Block 1 0x001011d3-0x001011d8
+0x001011d3:3d:	RBX(0x001011d3:3d) = #0x0
+Basic Block 2 0x001011df-0x00101204
+0x001011df:10d:	FS_OFFSET(0x001011df:10d) = FS_OFFSET(0x001011c5:109) ? FS_OFFSET(0x001011ee:10a)
+0x001011df:f8:	RBX(0x001011df:f8) = RBX(0x001011d3:3d) ? RBX(0x001011fe:f6)
+0x001011df:e3:	RCX(0x001011df:e3) = RCX(0x001011ca:db) ? RCX(0x001011f7:dd)
+0x001011df:ed:	EBX(0x001011df:ed) = SUB84(RBX(0x001011df:f8),#0x0:4)
+0x001011ee:44:	RSP(0x001011ee:44) = RSP(i) + #0xffffffffffffffd0
+0x001011ee:45:	*(ram,RSP(0x001011ee:44)) = #0x1011f3
+0x001011ee:9e:	u0x1000001a:1(0x001011ee:9e) = *(ram,RSP(0x001011ee:44))
+0x001011ee:e9:	RDX(0x001011ee:e9) = [create] m0x001011ee:46(free)
+0x001011ee:10a:	FS_OFFSET(0x001011ee:10a) = FS_OFFSET(0x001011df:10d) [] m0x001011ee:46(free)
+0x001011ee:46:	call l__printf_chk(free)(u0x1000001a:1(0x001011ee:9e),RCX(0x001011df:e3),RBX(0x001011df:f8),#0x102020,#0x1)
+0x001011f3:47:	u0x00004e80(0x001011f3:47) = RSP(i) + #0xffffffffffffffdc
+0x001011f3:48:	u0x00011e80:4(0x001011f3:48) = *(ram,u0x00004e80(0x001011f3:47))
+0x001011f7:141:	u0x00004780:4(0x001011f7:141) = u0x00011e80:4(0x001011f3:48) + #0x1:4
+0x001011f7:dd:	RCX(0x001011f7:dd) = ZEXT48(u0x00004780:4(0x001011f7:141))
+0x001011fa:4e:	u0x00004e80(0x001011fa:4e) = RSP(i) + #0xffffffffffffffdc
+0x001011fa:50:	*(ram,u0x00004e80(0x001011fa:4e)) = u0x00004780:4(0x001011f7:141)
+0x001011fe:53:	EBX(0x001011fe:53) = EBX(0x001011df:ed) + #0x1:4
+0x001011fe:f6:	RBX(0x001011fe:f6) = ZEXT48(EBX(0x001011fe:53))
+0x00101204:66:	u0x00012f80:1(0x00101204:66) = u0x00004780:4(0x001011f7:141) < #0xa:4
+0x00101204:67:	goto Block_2:0x001011df if (u0x00012f80:1(0x00101204:66) != 0) else Block_3:0x00101206
+Basic Block 3 0x00101206-0x00101214
+0x00101206:10c:	FS_OFFSET(0x00101206:10c) = FS_OFFSET(0x001011c5:109) ? FS_OFFSET(0x001011ee:10a)
+0x00101206:eb:	RDX(0x00101206:eb) = RDX(0x001011c5:e8) ? RDX(0x001011ee:e9)
+0x00101206:e2:	RCX(0x00101206:e2) = RCX(0x001011ca:db) ? RCX(0x001011f7:dd)
+0x00101206:68:	u0x00004e80(0x00101206:68) = RSP(i) + #0xffffffffffffffe0
+0x00101206:69:	u0x00011f00(0x00101206:69) = *(ram,u0x00004e80(0x00101206:68))
+0x0010120b:6b:	u0x00006480(0x0010120b:6b) = FS_OFFSET(0x00101206:10c) + #0x28
+0x0010120b:70:	u0x00011f00(0x0010120b:70) = *(ram,u0x00006480(0x0010120b:6b))
+0x0010120b:73:	ZF(0x0010120b:73) = u0x00011f00(0x00101206:69) != u0x00011f00(0x0010120b:70)
+0x00101214:79:	goto Block_4:0x00101222 if (ZF(0x0010120b:73) != 0) else Block_5:0x00101216
+Basic Block 4 0x00101222-0x00101222
+0x00101222:8f:	RSP(0x00101222:8f) = RSP(i) + #0xffffffffffffffd0
+0x00101222:90:	*(ram,RSP(0x00101222:8f)) = #0x101227
+0x00101222:a0:	u0x10000023:1(0x00101222:a0) = *(ram,RSP(0x00101222:8f))
+0x00101222:91:	call l__stack_chk_fail(free)(u0x10000023:1(0x00101222:a0),RCX(0x00101206:e2),RDX(0x00101206:eb),#0x0,#0x0)
+0x00101222:93:	return(#0x1:4)
+Basic Block 5 0x00101216-0x00101221
+0x00101221:ca:	EAX(0x00101221:ca) = #0x0:4
+0x00101221:8e:	return(#0x0) EAX(0x00101221:ca)
+
+=====================
+{
+  int iVar1;
+  long in_FS_OFFSET;
+  int a;
+  long local_20;
+  
+  local_20 = *(long *)(in_FS_OFFSET + 0x28);
+  __printf_chk(1,"=== TestWhiles ===\n");
+                    /* Unresolved local var: int i@[???] */
+  __isoc99_scanf(&DAT_00102018,&a);
+  if (a < 10) {
+    iVar1 = 0;
+    do {
+      __printf_chk(1,"While semplice: i = %d, a = %d\n",iVar1);
+      a = a + 1;
+      iVar1 = iVar1 + 1;
+    } while (a < 10);
+  }
+  if (local_20 == *(long *)(in_FS_OFFSET + 0x28)) {
+    return 0;
+  }
+                    /* WARNING: Subroutine does not return */
+  __stack_chk_fail();
+}
+
+=== newbl whiledo parent ===
+0
+Basic Block 0 0x0010114d-0x00101158
+0x0010114d:1:	RSP(0x0010114d:1) = RSP(i) + #0xfffffffffffffff8
+0x0010114d:2:	*(ram,RSP(0x0010114d:1)) = RBP(i)
+0x0010114e:4:	RSP(0x0010114e:4) = RSP(i) + #0xfffffffffffffff0
+0x0010114e:5:	*(ram,RSP(0x0010114e:4)) = RBX(i)
+0x00101153:14a:	EBX(0x00101153:14a) = #0x0:4
+Basic Block 1 0x0010115f-0x00101165
+0x0010115f:147:	EBX(0x0010115f:147) = EBX(0x00101153:14a) ? EBX(0x0010115f:13) ? EBX(0x0010115f:13)
+0x0010115f:13:	EBX(0x0010115f:13) = EBX(0x0010115f:147) + #0x1:4
+0x00101162:20:	ZF(0x00101162:20) = EBX(0x0010115f:13) == #0xa:4
+0x00101165:25:	goto Block_3:0x00101167 if (ZF(0x00101162:20) == 0) else Block_2:0x00101199
+Basic Block 2 0x00101199-0x001011a4
+0x001011a4:108:	EAX(0x001011a4:108) = #0x0:4
+0x001011a4:b0:	return(#0x0) EAX(0x001011a4:108)
+If block 3
+Basic Block 3 0x00101167-0x00101181
+0x00101171:14c:	u0x10000039:4(0x00101171:14c) = EBX(0x0010115f:13) / #0x3:4
+0x0010117a:154:	u0x1000003d:4(0x0010117a:154) = EBX(0x0010115f:13) s>> #0x1f:4
+0x00101171:32:	EAX(0x00101171:32) = u0x10000039:4(0x00101171:14c) + u0x1000003d:4(0x0010117a:154)
+0x00101177:59:	EDX(0x00101177:59) = EBX(0x0010115f:13) s>> #0x1f:4
+0x0010117a:152:	u0x10000035:4(0x0010117a:152) = EDX(0x00101177:59) * #0xffffffff:4
+0x0010117a:7c:	EAX(0x0010117a:7c) = EAX(0x00101171:32) + u0x10000035:4(0x0010117a:152)
+0x0010117c:15e:	u0x10000059:4(0x0010117c:15e) = EAX(0x0010117a:7c) * #0x3:4
+0x0010117f:8d:	ZF(0x0010117f:8d) = EBX(0x0010115f:13) == u0x10000059:4(0x0010117c:15e)
+0x00101181:92:	goto Block_4:0x00101183 if (ZF(0x0010117f:8d) == 0) else Block_1:0x0010115f
+Basic Block 4 0x00101183-0x00101197
+0x00101183:11f:	RDX(0x00101183:11f) = ZEXT48(EBX(0x0010115f:13))
+0x00101192:98:	RSP(0x00101192:98) = RSP(i) + #0xffffffffffffffe0
+0x00101192:99:	*(ram,RSP(0x00101192:98)) = #0x101197
+0x00101192:b4:	u0x10000008:1(0x00101192:b4) = *(ram,RSP(0x00101192:98))
+0x00101192:9a:	call l__printf_chk(free)(u0x10000008:1(0x00101192:b4),RDX(0x00101183:11f),#0x102004,#0x1)
+0x00101197:9b:	goto Block_1:0x0010115f
+
+=====================
+{
+  int iVar1;
+  
+                    /* Unresolved local var: int i@[???] */
+  iVar1 = 0;
+  while (iVar1 = iVar1 + 1, iVar1 != 10) {
+    if (iVar1 != (iVar1 / 3) * 3) {
+      __printf_chk(1,"For con continue: i = %d\n",iVar1);
+    }
+  }
+  return 0;
+}

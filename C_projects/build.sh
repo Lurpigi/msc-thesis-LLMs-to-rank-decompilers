@@ -7,8 +7,10 @@ PROJS["cat"]="src:cat.c"
 PROJS["chmod"]="src:chmod.c"
 PROJS["sleep"]="src:sleep.c"
 PROJS["func"]="src:func.c"
+PROJS["while"]="src:while.c"
+PROJS["for"]="src:for.c"
 
-OPTS=(O1 O2 O3)
+OPTS=(O0 O1 O2 O3)
 
 # function
 compile_proj () {

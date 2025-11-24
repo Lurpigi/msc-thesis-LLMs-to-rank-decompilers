@@ -59,13 +59,12 @@ public class DecompileWithLLM {
 					return "// Decompilation cancelled.";
 				}
                 DecompileResults res = ifc.decompileFunction(func, 60, monitor);
-
+                
                 if (!res.decompileCompleted()) {
                     results.put(style, "// decomp failed: " + res.getErrorMessage());
                 } else {
-                    ClangTokenGroup markup = res.getCCodeMarkup();
-                    if (markup != null) {
-                        results.put(style, markup.toString());
+                    if (res.getCCodeMarkup() != null) {
+                        results.put(style, res.getDecompiledFunction().getC());
                     } else {
                         results.put(style, "// Decompilation produced no C code for style: " + style);
                     }
@@ -232,10 +231,10 @@ public class DecompileWithLLM {
         
         // Add perplexity and metrics as the first comment
         if (perplexity != null) {
-            sb.append("/* Perplexity: ").append(String.format("%.4f", perplexity)).append(" */");
+            sb.append("// Perplexity: ").append(String.format("%.4f", perplexity)).append("\n");
         }
         if (meanLogbits != null) {
-            sb.append("/* Mean Logbits: ").append(String.format("%.4f", meanLogbits)).append(" */");
+            sb.append("// Mean Logbits: ").append(String.format("%.4f", meanLogbits)).append("\n");
         }
         sb.append(code);
         

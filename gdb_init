@@ -2,7 +2,12 @@ set debugger_present = 1
 
 
 #b ActionPreferWhile::isDoWhilePattern
-b CollapseStructure::ruleBlockWhileDo 
+#b CollapseStructure::ruleBlockWhileDo 
 #b BlockWhileDo::finalTransform
-
-#c
+#b CollapseStructure::ruleBlockProperIf
+#b isBranchWithGoto
+#b CollapseStructure::gotoWithOneBlock
+#b BlockBasic::isComplex
+#b CollapseStructure::inlineTerminalGoto
+b CollapseStructure::collapseInternal
+c

@@ -1,0 +1,6 @@
+ghidra_src
+outputs
+dogbolt
+.git
+__pycache__
+*.pyc

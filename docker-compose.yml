@@ -3,11 +3,60 @@ services:
     build:
       dockerfile: Dockerfile
       context: ./dogbolt
+    user: "${UID_GID}"
     volumes:
       - ./dogbolt/src:/app/src
+    environment:
+      - HOST_UID=${UID:-1000}
+      - HOST_GID=${GID:-1000}
     command: >
       sh -c "
       ./run.sh &&
       cp -r /app/bin/src/* /app/src &&
-      chown -R $(id -u):$(id -g) /app/src
+      chown -R \${HOST_UID}:\${HOST_GID} /app/src
       "
+
+  llm-server:
+    build:
+      context: ./llm_server
+      dockerfile: Dockerfile
+    ports:
+      - "8900:8900"
+    environment:
+      - HF_TOKEN=${TOKEN_HUGGINFACE_READ}
+    volumes:
+      # Map HuggingFace cache
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      # Check the server
+      test: ["CMD", "curl", "-f", "http://localhost:8900/"]
+      interval: 10s
+      retries: 10
+      start_period: 300s
+
+  ghidra-bench:
+    build:
+      context: ./ghidra_bench
+      dockerfile: Dockerfile
+    user: "${UID_GID}"
+    depends_on:
+      llm-server:
+        condition: service_healthy
+    environment:
+      - LLM_API_URL=http://llm-server:8900/generate
+      - GHIDRA_BENCH_OUTPUT=/app/outputs
+    volumes:
+      - ./ghidra_bench/outputs:/app/outputs
+      - ./ghidra_bench/bin:/app/bin
+      - gradle_cache:/home/gradle/.gradle
+      - ./ghidra_bench/scripts:/app/scripts
+
+volumes:
+  gradle_cache:

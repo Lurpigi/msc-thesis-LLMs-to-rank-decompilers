@@ -102,7 +102,7 @@ def build_prompt_for_function(func_name: str, func_map: Dict[str, str]) -> str:
 
 def estimate_perplexity(prompt: str) -> float:
     """
-    TODO: Implement a real perplexity estimation. For now, return a dummy value based on length.
+    TODO: Implement a real perplexity estimation.
     """
     n = len(prompt.split())
     if n == 0:

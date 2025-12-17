@@ -71,6 +71,21 @@ public class DecompileWithLLM {
                 }
             }
             ifc.closeProgram();
+            // Analyze results
+            String firstResult = results.values().iterator().next();
+            boolean allEqual = true;
+            for (String result : results.values()) {
+                if (!result.equals(firstResult)) {
+                    allEqual = false;
+                    break;
+                }
+            }
+
+            if (allEqual) {
+                printLog.log("--SAME DECOMP RES.", this, console);
+            } else {
+                printLog.log("--DIFFERENT DECOMP RES", this, console);
+            }
 
             // Prepare prompt for LLM
             StringBuilder prompt = new StringBuilder("You are an expert in reverse engineering and C/C++ code analysis.\n"
@@ -88,7 +103,8 @@ public class DecompileWithLLM {
 				printLog.log("Decompilation cancelled by user.", this, console);
 				return "// Decompilation cancelled.";
             }
-            printLog.log("Prompt sent to LLM:\n" + prompt.toString(), this, console);
+            //printLog.log("Prompt sent to LLM:\n" + prompt.toString(), this, console);//LOG PROMPT
+            
             
             // Query the Flask HuggingFace service
             FlaskLLMResponse llmResponse = queryFlaskService(prompt.toString());

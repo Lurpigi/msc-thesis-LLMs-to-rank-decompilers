@@ -12,7 +12,7 @@ make:
 decompile:
     #cp -r ./C_projects/bin/calculator ./dogbolt/bin/ #./C_projects/bin/*
     docker compose build decompile
-    docker compose up decompile
+    UID_GID="$(id -u):$(id -g)" docker compose up decompile
     cd dogbolt && bash decompress.sh
 
 ownership:
@@ -27,6 +27,9 @@ send_prompt:
 
 huggingface:
     python3 ./prompt/huggingface.py
+
+ghidra_bench:
+    UID_GID="$(id -u):$(id -g)" docker compose up --build -d ghidra-bench
 
 debug:
     sudo bash ./debug.sh

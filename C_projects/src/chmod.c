@@ -1,10 +1,17 @@
 #include <stdio.h>
 
-int foo() {
-    return 42;
+void foo(int a1){
+    if(a1 > 0){
+        printf("positive");
+    }else{
+        printf("non positive");
+    }
 }
 
+
 int main(){
-    printf("chmod");
-    return foo();
+    int a1;
+    scanf("%d", &a1);
+    foo(a1);
+    return 0;
 }

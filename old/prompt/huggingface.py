@@ -46,6 +46,10 @@ def compute_perplexity(inputs):
         "mean_logbits": torch.mean(target_log_probs).item() if target_log_probs.numel() > 0 else 0.0
     }
 
+#healtcheck docker
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok"}), 200
 
 @app.route('/generate', methods=['POST'])
 def generate():

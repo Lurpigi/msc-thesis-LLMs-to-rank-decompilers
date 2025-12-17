@@ -131,6 +131,9 @@ SimplifyConditionalCopy:	BOOL_NEGATE(INT_EQUAL(a, b))	                        =>
 blocchi -> per il for da while in BlockWhileDo::finalTransform() in block.cc
 regole di creazione grafo in blockaction.cc -> apply() -> collapseAll() -> collapseInternal()
 
+
+
+
 flowblock:
 
 === parent do while ===
@@ -278,4 +281,148 @@ Basic Block 4 0x00101183-0x00101197
     }
   }
   return 0;
+}
+
+
+=== newbl whiledo parent ===
+0
+Basic Block 0 0x0010114d-0x00101173
+0x0010114d:1:	RSP(0x0010114d:1) = RSP(i) + #0xfffffffffffffff8
+0x0010114d:2:	*(ram,RSP(0x0010114d:1)) = R12(i)
+0x0010114f:4:	RSP(0x0010114f:4) = RSP(i) + #0xfffffffffffffff0
+0x0010114f:5:	*(ram,RSP(0x0010114f:4)) = RBP(i)
+0x00101150:7:	RSP(0x00101150:7) = RSP(i) + #0xffffffffffffffe8
+0x00101150:8:	*(ram,RSP(0x00101150:7)) = RBX(i)
+0x00101162:c:	RSP(0x00101162:c) = RSP(i) + #0xffffffffffffffe0
+0x00101162:d:	*(ram,RSP(0x00101162:c)) = #0x101167
+0x00101162:b8:	u0x10000008:1(0x00101162:b8) = *(ram,RSP(0x00101162:c))
+0x00101162:11e:	RDX(0x00101162:11e) = [create] m0x00101162:e(free)
+0x00101162:e:	call l__printf_chk(free)(u0x10000008:1(0x00101162:b8),RDX(i),#0x102004,#0x1)
+0x00101167:15d:	EBX(0x00101167:15d) = #0x0:4
+Basic Block 1 0x0010117a-0x00101180
+0x0010117a:15a:	EBX(0x0010117a:15a) = EBX(0x00101167:15d) ? EBX(0x0010117a:14) ? EBX(0x0010117a:14)
+0x0010117a:121:	RDX(0x0010117a:121) = RDX(0x00101162:11e) ? RDX(0x001011a4:11b) ? RDX(0x001011bf:120)
+0x0010117a:14:	EBX(0x0010117a:14) = EBX(0x0010117a:15a) + #0x1:4
+0x0010117d:21:	ZF(0x0010117d:21) = EBX(0x0010117a:14) == #0xa:4
+0x00101180:26:	goto Block_3:0x00101182 if (ZF(0x0010117d:21) == 0) else Block_2:0x001011c6
+Basic Block 2 0x001011c6-0x001011cf
+0x001011cf:104:	EAX(0x001011cf:104) = #0x0:4
+0x001011cf:b2:	return(#0x0) EAX(0x001011cf:104)
+If block 3
+Basic Block 3 0x00101182-0x001011ae
+0x0010118f:2a:	RSP(0x0010118f:2a) = RSP(i) + #0xffffffffffffffe0
+0x0010118f:2b:	*(ram,RSP(0x0010118f:2a)) = #0x101194
+0x0010118f:ba:	u0x10000011:1(0x0010118f:ba) = *(ram,RSP(0x0010118f:2a))
+0x0010118f:2c:	call l__printf_chk(free)(u0x10000011:1(0x0010118f:ba),RDX(0x0010117a:121),#0x102004,#0x1)
+0x0010119e:160:	u0x1000005b:4(0x0010119e:160) = EBX(0x0010117a:14) / #0x3:4
+0x001011a7:166:	u0x1000005f:4(0x001011a7:166) = EBX(0x0010117a:14) s>> #0x1f:4
+0x0010119e:39:	EAX(0x0010119e:39) = u0x1000005b:4(0x0010119e:160) + u0x1000005f:4(0x001011a7:166)
+0x001011a4:60:	EDX(0x001011a4:60) = EBX(0x0010117a:14) s>> #0x1f:4
+0x001011a4:11b:	RDX(0x001011a4:11b) = ZEXT48(EDX(0x001011a4:60))
+0x001011a7:164:	u0x10000057:4(0x001011a7:164) = EDX(0x001011a4:60) * #0xffffffff:4
+0x001011a7:83:	EAX(0x001011a7:83) = EAX(0x0010119e:39) + u0x10000057:4(0x001011a7:164)
+0x001011a9:170:	u0x1000007b:4(0x001011a9:170) = EAX(0x001011a7:83) * #0x3:4
+0x001011ac:94:	ZF(0x001011ac:94) = EBX(0x0010117a:14) == u0x1000007b:4(0x001011a9:170)
+0x001011ae:99:	goto Block_4:0x001011b0 if (ZF(0x001011ac:94) == 0) else Block_1:0x0010117a
+Basic Block 4 0x001011b0-0x001011c4
+0x001011b0:11d:	RDX(0x001011b0:11d) = ZEXT48(EBX(0x0010117a:14))
+0x001011bf:9f:	RSP(0x001011bf:9f) = RSP(i) + #0xffffffffffffffe0
+0x001011bf:a0:	*(ram,RSP(0x001011bf:9f)) = #0x1011c4
+0x001011bf:bc:	u0x1000001a:1(0x001011bf:bc) = *(ram,RSP(0x001011bf:9f))
+0x001011bf:120:	RDX(0x001011bf:120) = [create] m0x001011bf:a1(free)
+0x001011bf:a1:	call l__printf_chk(free)(u0x1000001a:1(0x001011bf:bc),RDX(0x001011b0:11d),#0x102010,#0x1)
+0x001011c4:a2:	goto Block_1:0x0010117a
+
+{
+  int iVar1;
+  
+                    /* Unresolved local var: int i@[???] */
+  __printf_chk(1,"altroprintf");
+  iVar1 = 0;
+  while (iVar1 = iVar1 + 1, iVar1 != 10) {                    //block1
+    __printf_chk(1,"altroprintf");
+    if (iVar1 != (iVar1 / 3) * 3) {
+      __printf_chk(1,"For con continue: i = %d\n",iVar1);
+    }
+  }
+  return 0;
+}
+
+
+Basic Block 4 0x001011b1-0x001011bb
+0x001011b6:33:	RSP(0x001011b6:33) = RSP(i) + #0xffffffffffffffe0
+0x001011b6:34:	*(ram,RSP(0x001011b6:33)) = #0x1011bb
+0x001011b6:6d:	u0x10000023:1(0x001011b6:6d) = *(ram,RSP(0x001011b6:33))
+0x001011b6:35:	call jputchar(free)(#0x33:4,u0x10000023:1(0x001011b6:6d))           //3
+0x001011bb:36:	goto Block_5:0x001011db
+Condition block(||) 0
+Basic Block 0 0x0010118d-0x001011a9
+0x0010118d:1:	RSP(0x0010118d:1) = RSP(i) + #0xfffffffffffffff8
+0x0010118d:2:	*(ram,RSP(0x0010118d:1)) = RBP(i)
+0x00101195:d:	u0x00004780(0x00101195:d) = RSP(i) + #0xfffffffffffffff4
+0x00101195:f:	*(ram,u0x00004780(0x00101195:d)) = EDI(i)
+0x00101198:10:	u0x00004780(0x00101198:10) = RSP(i) + #0xfffffffffffffff0
+0x00101198:12:	*(ram,u0x00004780(0x00101198:10)) = ESI(i)
+0x001011a0:14:	RSP(0x001011a0:14) = RSP(i) + #0xffffffffffffffe0
+0x001011a0:15:	*(ram,RSP(0x001011a0:14)) = #0x1011a5
+0x001011a0:67:	u0x10000008:1(0x001011a0:67) = *(ram,RSP(0x001011a0:14))
+0x001011a0:16:	call jputchar(free)(#0x31:4,u0x10000008:1(0x001011a0:67))             //1
+0x001011a5:17:	u0x00004780(0x001011a5:17) = RSP(i) + #0xfffffffffffffff4
+0x001011a5:18:	u0x00011e80:4(0x001011a5:18) = *(ram,u0x00004780(0x001011a5:17))
+0x001011a5:1e:	ZF(0x001011a5:1e) = u0x00011e80:4(0x001011a5:18) == #0x1:4
+0x001011a9:23:	goto Block_2:0x001011bd if (ZF(0x001011a5:1e) != 0) else Block_1:0x001011ab
+Basic Block 1 0x001011ab-0x001011af
+0x001011ab:24:	u0x00004780(0x001011ab:24) = RSP(i) + #0xfffffffffffffff0
+0x001011ab:25:	u0x00011e80:4(0x001011ab:25) = *(ram,u0x00004780(0x001011ab:24))
+0x001011ab:2b:	ZF(0x001011ab:2b) = u0x00011e80:4(0x001011ab:25) != #0x2:4
+0x001011af:31:	goto Block_2:0x001011bd if (ZF(0x001011ab:2b) != 0) else Block_4:0x001011b1
+List block 5
+Basic Block 5 0x001011db-0x001011e0
+0x001011e0:38:	RSP(0x001011e0:38) = RSP(i) + #0xffffffffffffffe0
+0x001011e0:39:	*(ram,RSP(0x001011e0:38)) = #0x1011e5
+0x001011e0:6f:	u0x1000002c:1(0x001011e0:6f) = *(ram,RSP(0x001011e0:38))
+0x001011e0:3a:	call jputchar(free)(#0x35:4,u0x1000002c:1(0x001011e0:6f))             //5
+Basic Block 6 0x001011e5-0x001011f1
+0x001011ea:3c:	RSP(0x001011ea:3c) = RSP(i) + #0xffffffffffffffe0
+0x001011ea:3d:	*(ram,RSP(0x001011ea:3c)) = #0x1011ef
+0x001011ea:71:	u0x10000035:1(0x001011ea:71) = *(ram,RSP(0x001011ea:3c))
+0x001011ea:3e:	call jputchar(free)(#0x36:4,u0x10000035:1(0x001011ea:71))           //6
+0x001011f1:44:	return(#0x0)
+If block 2
+Basic Block 2 0x001011bd-0x001011cd
+0x001011c2:46:	RSP(0x001011c2:46) = RSP(i) + #0xffffffffffffffe0
+0x001011c2:47:	*(ram,RSP(0x001011c2:46)) = #0x1011c7
+0x001011c2:69:	u0x10000011:1(0x001011c2:69) = *(ram,RSP(0x001011c2:46))
+0x001011c2:48:	call jputchar(free)(#0x32:4,u0x10000011:1(0x001011c2:69))               //2
+0x001011c7:49:	u0x00004780(0x001011c7:49) = RSP(i) + #0xfffffffffffffff4
+0x001011c7:4a:	u0x00011e80:4(0x001011c7:4a) = *(ram,u0x00004780(0x001011c7:49))
+0x001011ca:4d:	u0x00004780(0x001011ca:4d) = RSP(i) + #0xfffffffffffffff0
+0x001011ca:4e:	u0x00006a00:4(0x001011ca:4e) = *(ram,u0x00004780(0x001011ca:4d))
+0x001011ca:54:	ZF(0x001011ca:54) = u0x00011e80:4(0x001011c7:4a) == u0x00006a00:4(0x001011ca:4e)
+0x001011cd:59:	goto Block_3:0x001011cf if (ZF(0x001011ca:54) == 0) else Block_5:0x001011db
+Basic Block 3 0x001011cf-0x001011d9
+0x001011d4:5b:	RSP(0x001011d4:5b) = RSP(i) + #0xffffffffffffffe0
+0x001011d4:5c:	*(ram,RSP(0x001011d4:5b)) = #0x1011d9
+0x001011d4:6b:	u0x1000001a:1(0x001011d4:6b) = *(ram,RSP(0x001011d4:5b))
+0x001011d4:5d:	call jputchar(free)(#0x34:4,u0x1000001a:1(0x001011d4:6b))             //4
+0x001011d9:5e:	goto Block_6:0x001011e5
+
+{
+  int a2_local;                       //block0
+  int a1_local;                       //block0
+  putchar(L'1');                      //block0
+  if ((a1 == 1) || (a2 != 2)) {       //block0 || //block1
+    putchar(L'2');                    //block2
+    if (a1 != a2) {                   //block2
+      putchar(L'4');                  //block3
+      goto LAB_001011e5;              //block3
+    }
+  }
+  else {
+    putchar(L'3');                    //block4
+  }
+  putchar(L'5');                      //block5
+LAB_001011e5:                         //block6
+  putchar(L'6');                      //block6
+  return;                             //block6
 }

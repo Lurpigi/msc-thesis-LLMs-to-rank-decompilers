@@ -31,6 +31,12 @@ huggingface:
 ghidra_bench:
     UID_GID="$(id -u):$(id -g)" docker compose up --build -d ghidra-bench
 
+save_ghidra_image:
+    docker save -o ghidra_bench_image.tar ghidra-bench:latest
+
+load_ghidra_image:
+    docker load -i ghidra_bench_image.tar
+
 debug:
     sudo bash ./debug.sh
 

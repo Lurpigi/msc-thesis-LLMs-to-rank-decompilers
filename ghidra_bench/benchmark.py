@@ -7,7 +7,8 @@ import sys
 
 # CONFIGURATION
 GHIDRA_REPO = "https://github.com/NationalSecurityAgency/ghidra"
-REPO_DIR = "ghidra_src"
+GHIDRA_REPO_DIR = os.environ.get("GHIDRA_GIT_PATH")  #"/opt/ghidra_src"
+GHIDRA_EXTRACTED_DIR = os.environ.get("GHIDRA_EXTRACTED_PATH")  #"/opt/ghidra_exe"
 BINARIES_DIR = os.path.abspath("bin")
 OUTPUT_DIR = os.path.abspath("outputs")
 TARGET_FUNCTIONS = ["main", "test1", "test2", "test3", "test4"]
@@ -36,54 +37,63 @@ def run_command(cmd, cwd=None, env=None):
         
     if process.returncode != 0:
         print(f"[FATAL] Command failed with return code {process.returncode}")
+        if not os.environ.get("VERBOSE") and process.stdout:
+            print(process.stdout)
         raise subprocess.CalledProcessError(process.returncode, cmd)
 
 def setup_ghidra_version(tag_or_pr, is_pr=False):
     """Clones, checks out and builds Ghidra. Returns the path to 'support/analyzeHeadless'"""
-    if not os.path.exists(os.path.join(REPO_DIR, ".git")):
-        print(f"[INFO] Ghidra repository not found or invalid in {REPO_DIR}. Cloning...")
-        if os.path.exists(REPO_DIR):
-            shutil.rmtree(REPO_DIR)
+    
+    # check image for prebuilt master
+    if tag_or_pr == "master" and not is_pr:
+        prebuilt_path = os.environ.get("GHIDRA_EXTRACTED_PATH")
+        if prebuilt_path and os.path.exists(prebuilt_path):
+            print(f"[INFO] Using PRE-BUILT Ghidra Master found at {prebuilt_path}")
+            headless_path = os.path.join(prebuilt_path, "support", "analyzeHeadless")
+            
+            if not os.access(headless_path, os.X_OK):
+                run_command(f"chmod +x {headless_path}")
+                
+            return headless_path
         
-        run_command(f"git clone {GHIDRA_REPO} {REPO_DIR}")
+    cwd = GHIDRA_REPO_DIR
+
+    if os.path.exists(GHIDRA_REPO_DIR):
+        print(f"[SPEEDUP] Using pre-built Ghidra template from {GHIDRA_REPO_DIR}...")
+    else:
+        print("[WARN] Template not found. Falling back to slow git clone...")
+        run_command(f"git clone {GHIDRA_REPO} .", cwd=cwd)
     
-    cwd = os.path.abspath(REPO_DIR)
-    
-    # Reset and Checkout
-    run_command("git reset --hard && git clean -fd", cwd=cwd)
+    # MAYBE SHOULD NOT BE NEEDED
+    run_command("git reset --hard && git clean -fd -e build/ -e .gradle/", cwd=cwd)
     run_command("git checkout master", cwd=cwd)
     
     if is_pr:
-        # Fetch PR: refs/pull/ID/head
         run_command(f"git fetch origin pull/{tag_or_pr}/head:pr-{tag_or_pr}", cwd=cwd)
         run_command(f"git checkout pr-{tag_or_pr}", cwd=cwd)
     else:
         run_command(f"git checkout {tag_or_pr}", cwd=cwd)
         
-    print(f"[BUILD] Building Ghidra for {tag_or_pr} (this takes time the first time)...")
+    print(f"[BUILD] Building Ghidra for {tag_or_pr} (this takes time)...")
     run_command("./gradlew -I gradle/support/fetchDependencies.gradle", cwd=cwd)
-        
-    #run_command("./gradlew prepDev", cwd=cwd)
-    run_command("./gradlew buildGhidra", cwd=cwd)
+    run_command("./gradlew buildGhidra -x test -x integrationTest -x javadoc -x check", cwd=cwd)
     
-    # Find the path of the unzipped dist
     dist_dir = os.path.join(cwd, "build", "dist")
-    # Find the generated zip and extract it
     for f in os.listdir(dist_dir):
         if f.endswith(".zip"):
             zip_path = os.path.join(dist_dir, f)
-            run_command(f"unzip -o -q {zip_path} -d extracted", cwd=dist_dir)
-            extracted_root = os.path.join(dist_dir, "extracted")
-            ghidra_folder = os.listdir(extracted_root)[0] # ghidra_x.x_DEV
 
+            run_command(f"unzip -o -q {zip_path} -d {GHIDRA_EXTRACTED_DIR}", cwd=dist_dir)
+            ghidra_folder = GHIDRA_EXTRACTED_DIR
 
-            pyghidra_path = os.path.join(extracted_root, ghidra_folder, "Ghidra", "Features", "PyGhidra")
+            pyghidra_path = os.path.join(ghidra_folder, "Ghidra", "Features", "PyGhidra")
             if os.path.exists(pyghidra_path):
-                print(f"[FIX] Removing broken PyGhidra extension at {pyghidra_path} to force Jython...")
+                print(f"[FIX] Removing broken PyGhidra extension at {pyghidra_path}...")
                 shutil.rmtree(pyghidra_path)
-            
 
-            return os.path.join(extracted_root, ghidra_folder, "support", "analyzeHeadless")
+            headless = os.path.join(ghidra_folder, "support", "analyzeHeadless")
+            run_command(f"chmod +x {headless}")
+            return headless
             
     raise Exception("Build failed or artifact not found")
 
@@ -111,7 +121,6 @@ def extract_decompilation(headless_path, version_tag):
             f"{headless_path} {project_path} temp_proj_{version_tag} "
             f"-import {bin_path} -overwrite "
             f"-scriptPath {script_path} -postScript extract.py "
-            # f"-noanalysis" # TODO: consider if analysis is needed
         )
         
         run_command(cmd, env=env)
@@ -138,9 +147,9 @@ def evaluate_with_llm(base_data, pr_data):
         if not pr_code: continue
         
         # no change
-        if base_code.strip() == pr_code.strip():
-            print(f"[SKIP] Function {func_name} is identical.")
-            continue
+        # if base_code.strip() == pr_code.strip():
+        #     print(f"[SKIP] Function {func_name} is identical.")
+        #     continue
 
         print(f"[EVAL] Evaluating change in {func_name}...")
         
@@ -166,7 +175,7 @@ def evaluate_with_llm(base_data, pr_data):
         llm_reasoning = ""
         
         try:
-            resp = requests.post(LLM_API_URL, json={"prompt": prompt}).json()
+            resp = requests.post(LLM_API_GEN, json={"prompt": prompt}).json()
             generated_text = resp.get("generated_text", "").strip()
             llm_reasoning = generated_text
             
@@ -206,7 +215,7 @@ def evaluate_with_llm(base_data, pr_data):
     return report
 
 def main():
-    pr_number = "8718" #TODO: get from args/env
+    pr_number = "8718"#"8635"#"8718" #TODO: get from args/env
     
     base_headless = setup_ghidra_version("master")
     extract_decompilation(base_headless, "base")
@@ -242,11 +251,11 @@ def main():
     with open(pr_json_path, 'r') as f:
         pr_data = json.load(f)
 
-    if base_data == pr_data:
-        print("[INFO] No changes detected between base and PR decompilations.")
-        with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
-            json.dump({"message": "No changes detected between base and PR decompilations."}, f, indent=2)
-        return
+    # if base_data == pr_data:
+    #     print("[INFO] No changes detected between base and PR decompilations.")
+    #     with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
+    #         json.dump({"message": "No changes detected between base and PR decompilations."}, f, indent=2)
+    #     return
 
     results = evaluate_with_llm(base_data, pr_data)
     

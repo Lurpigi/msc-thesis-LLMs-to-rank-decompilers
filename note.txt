@@ -90,6 +90,9 @@ https://medium.com/%40lambdafluxofficial/packing-and-unpacking-weights-in-4-bit-
 https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct
 
 
+headless
+https://github.com/galoget/ghidra-headless-scripts/tree/main
+
 ruleaction.hh -> definizione di classi che poi sono regole di traduzione da pcode, semplificazioni o funzioni utili (get)
 ruleaction.cc -> implementazione delle classi scritte nel .hh, limitate da scope e commenti
 

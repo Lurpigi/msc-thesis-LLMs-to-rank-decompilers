@@ -15,10 +15,14 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel build requests
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel build requests pyghidra
 
-RUN mkdir -p /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app/outputs && \
-    chown -R gradle:gradle /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app
+RUN mkdir -p /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app/outputs /opt/gradle_cache && \
+    chown -R gradle:gradle /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app /opt/gradle_cache
+
+#SPEEDING UP GRADLE
+ENV GRADLE_USER_HOME=/opt/gradle_cache
+RUN echo "org.gradle.caching=true\norg.gradle.jvmargs=-Xmx2g" > /opt/gradle_cache/gradle.properties
 
 RUN git config --system --add safe.directory /opt/ghidra_src
 
@@ -31,10 +35,12 @@ RUN echo "[DOCKER] Cloning Ghidra Master..." && \
 
 WORKDIR /opt/ghidra_src
 
-RUN echo "[DOCKER] Building Ghidra (this may take a while)..." && \
+RUN echo "[DOCKER] Fetching dependencies..." && \
     mkdir flatRepo && \
-    ./gradlew -I gradle/support/fetchDependencies.gradle && \
-    ./gradlew buildGhidra -x test -x integrationTest -x javadoc -x check
+    ./gradlew -I gradle/support/fetchDependencies.gradle
+
+RUN echo "[DOCKER] Building Ghidra (this may take a while)..." && \
+    ./gradlew buildGhidra -x test -x integrationTest -x javadoc -x check -x ip -x createJavadocs -x createJsondocs -x zipJavadocs
 
 RUN mkdir -p /opt/ghidra-dist && \
     find build/dist -name "ghidra_*.zip" -exec unzip -q {} -d /opt/ghidra-dist \; && \
@@ -48,7 +54,6 @@ COPY --chown=gradle:gradle . /app
 ENV GHIDRA_GIT_PATH=/opt/ghidra_src
 ENV GHIDRA_EXTRACTED_PATH=/opt/ghidra_exe
 ENV GHIDRA_BENCH_OUTPUT=/app/outputs
-ENV GRADLE_USER_HOME=/app/.gradle
 
 RUN mkdir -p /app/outputs && \
     chown -R gradle:gradle /app/outputs

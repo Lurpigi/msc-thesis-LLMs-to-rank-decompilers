@@ -5,7 +5,7 @@ from ghidra.app.decompiler import DecompInterface
 from ghidra.util.task import ConsoleTaskMonitor
 
 #CONFIGURATION
-TARGET_FUNCTIONS = os.environ.get("GHIDRA_BENCH_TARGETS", "main,test1,test2,test3,test4").split(",")
+TARGET_FUNCTIONS = os.environ.get("GHIDRA_BENCH_TARGETS").split(",") if os.environ.get("GHIDRA_BENCH_TARGETS") else []
 OUTPUT_DIR = os.environ.get("GHIDRA_BENCH_OUTPUT", "/tmp")
 VERSION_TAG = os.environ.get("GHIDRA_BENCH_TAG", "unknown")
 
@@ -16,9 +16,15 @@ def run():
     monitor = ConsoleTaskMonitor()
     
     results = {}
-    
+
     fm = prog.getFunctionManager()
-    for func_name in TARGET_FUNCTIONS:
+    target_functions = TARGET_FUNCTIONS[:]
+
+    if len(target_functions) == 0:
+        print("[WARN] No target functions specified for decompilation. using all the functions.")
+        target_functions = [f.getName() for f in fm.getFunctions(True)]
+    
+    for func_name in target_functions:
         funcs = fm.getFunctions(True)
         target_func = None
         for f in funcs:

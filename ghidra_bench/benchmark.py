@@ -1,6 +1,7 @@
 import os
 import subprocess
 import requests
+import concurrent.futures
 import shutil
 import json
 import sys
@@ -13,12 +14,14 @@ BINARIES_DIR = os.path.abspath("bin")
 OUTPUT_DIR = os.path.abspath("outputs")
 TARGET_FUNCTIONS = ["main", "test1", "test2", "test3", "test4"]
 LLM_API_URL = os.environ.get("LLM_API_URL", "http://localhost:8900")
-LLM_API_GEN = f"{LLM_API_URL}/generate"
+#LLM_API_GEN = f"{LLM_API_URL}/generate"
 LLM_API_SCORE = f"{LLM_API_URL}/score"
+MAX_WORKERS = int(os.environ.get("GHIDRA_WORKERS", 4))
 
-def run_command(cmd, cwd=None, env=None):
+def run_command(cmd, cwd=None, env=None, input_text=None):
     #subprocess.check_call(cmd, shell=True, cwd=cwd, env=env)
-    print(f"[CMD] Executing: {cmd}")
+    if os.environ.get("VERBOSE"):
+        print(f"[CMD] Executing: {cmd}")
     sys.stdout.flush()
     
     process = subprocess.run(
@@ -26,6 +29,7 @@ def run_command(cmd, cwd=None, env=None):
         shell=True,
         cwd=cwd,
         env=env,
+        input=input_text,
         stdout=subprocess.PIPE,    # Capture stdout and stderr as text
         stderr=subprocess.STDOUT,  # Merge stderr into stdout
         text=True                  # Decode bytes to string
@@ -42,31 +46,31 @@ def run_command(cmd, cwd=None, env=None):
         raise subprocess.CalledProcessError(process.returncode, cmd)
 
 def setup_ghidra_version(tag_or_pr, is_pr=False):
-    """Clones, checks out and builds Ghidra. Returns the path to 'support/analyzeHeadless'"""
+    """Clones, checks out and builds Ghidra. Returns the path"""
     
     # check image for prebuilt master
     if tag_or_pr == "master" and not is_pr:
         prebuilt_path = os.environ.get("GHIDRA_EXTRACTED_PATH")
         if prebuilt_path and os.path.exists(prebuilt_path):
             print(f"[INFO] Using PRE-BUILT Ghidra Master found at {prebuilt_path}")
-            headless_path = os.path.join(prebuilt_path, "support", "analyzeHeadless")
+            # headless_path = os.path.join(prebuilt_path, "support", "analyzeHeadless")
             
-            if not os.access(headless_path, os.X_OK):
-                run_command(f"chmod +x {headless_path}")
+            # if not os.access(headless_path, os.X_OK):
+            #     run_command(f"chmod +x {headless_path}")
                 
-            return headless_path
+            # return headless_path
+            return prebuilt_path
         
     cwd = GHIDRA_REPO_DIR
 
     if os.path.exists(GHIDRA_REPO_DIR):
-        print(f"[SPEEDUP] Using pre-built Ghidra template from {GHIDRA_REPO_DIR}...")
+        print(f"[INFO] Using pre-built Ghidra template from {GHIDRA_REPO_DIR}...")
     else:
         print("[WARN] Template not found. Falling back to slow git clone...")
         run_command(f"git clone {GHIDRA_REPO} .", cwd=cwd)
     
-    # MAYBE SHOULD NOT BE NEEDED
-    run_command("git reset --hard && git clean -fd -e build/ -e .gradle/", cwd=cwd)
-    run_command("git checkout master", cwd=cwd)
+    # print("[GIT] Cleaning repository state...")
+    # run_command("git reset --hard HEAD && git clean -fd -e build/ -e .gradle/", cwd=cwd)
     
     if is_pr:
         run_command(f"git fetch origin pull/{tag_or_pr}/head:pr-{tag_or_pr}", cwd=cwd)
@@ -75,8 +79,13 @@ def setup_ghidra_version(tag_or_pr, is_pr=False):
         run_command(f"git checkout {tag_or_pr}", cwd=cwd)
         
     print(f"[BUILD] Building Ghidra for {tag_or_pr} (this takes time)...")
-    run_command("./gradlew -I gradle/support/fetchDependencies.gradle", cwd=cwd)
-    run_command("./gradlew buildGhidra -x test -x integrationTest -x javadoc -x check", cwd=cwd)
+    gradlew_path = os.path.join(cwd, "gradlew")
+    if not os.path.exists(gradlew_path):
+        print("[FATAL] gradlew not found! - Ghidra can't be built.")
+        raise FileNotFoundError("gradlew not found in Ghidra repo")
+        
+    #run_command("./gradlew -I gradle/support/fetchDependencies.gradle", cwd=cwd)
+    run_command("./gradlew buildGhidra -x test -x integrationTest -x javadoc -x check -x ip -x createJavadocs -x createJsondocs -x zipJavadocs ", cwd=cwd)
     
     dist_dir = os.path.join(cwd, "build", "dist")
     for f in os.listdir(dist_dir):
@@ -86,44 +95,83 @@ def setup_ghidra_version(tag_or_pr, is_pr=False):
             run_command(f"unzip -o -q {zip_path} -d {GHIDRA_EXTRACTED_DIR}", cwd=dist_dir)
             ghidra_folder = GHIDRA_EXTRACTED_DIR
 
-            pyghidra_path = os.path.join(ghidra_folder, "Ghidra", "Features", "PyGhidra")
-            if os.path.exists(pyghidra_path):
-                print(f"[FIX] Removing broken PyGhidra extension at {pyghidra_path}...")
-                shutil.rmtree(pyghidra_path)
+            # extracted_subfolders = [d for d in os.listdir(ghidra_folder) if os.path.isdir(os.path.join(ghidra_folder, d)) and "ghidra" in d.lower()]
+            # if extracted_subfolders:
+            #     ghidra_home = os.path.join(ghidra_folder, extracted_subfolders[0])
+            # else:
+            #     ghidra_home = ghidra_folder
 
-            headless = os.path.join(ghidra_folder, "support", "analyzeHeadless")
-            run_command(f"chmod +x {headless}")
-            return headless
+            # headless = os.path.join(ghidra_folder, "support", "analyzeHeadless")
+            # run_command(f"chmod +x {headless}")
+            print("Timestamp: ", subprocess.getoutput("date"))
+            return ghidra_folder
             
     raise Exception("Build failed or artifact not found")
 
-def extract_decompilation(headless_path, version_tag):
-    """Runs Ghidra Headless on the binaries"""
-    script_path = os.path.abspath("scripts") 
+def process_binary_task(binary, ghidra_home, version_tag):
+    """
+    Function executed by the worker to process a single binary.
+    """
+    bin_path = os.path.join(BINARIES_DIR, binary)
+    script_path = os.path.abspath("scripts")
     
+    unique_proj_dir = os.path.join(OUTPUT_DIR, f"proj_{version_tag}_{binary}")
+    if not os.path.exists(unique_proj_dir):
+        os.makedirs(unique_proj_dir)
+
     env = os.environ.copy()
     env["GHIDRA_BENCH_OUTPUT"] = OUTPUT_DIR
     env["GHIDRA_BENCH_TAG"] = version_tag
-    env["GHIDRA_BENCH_TARGETS"] = ",".join(TARGET_FUNCTIONS)
+    # env["GHIDRA_INSTALL_DIR"] = ghidra_home
 
-    # Create temporary project
-    project_path = os.path.join(OUTPUT_DIR, "temp_proj")
-    if not os.path.exists(project_path):
-        os.makedirs(project_path)
-
-    for binary in os.listdir(BINARIES_DIR):
-        bin_path = os.path.join(BINARIES_DIR, binary)
-        if not os.path.isfile(bin_path): continue
-
-        print(f"[EXTRACT] Processing {binary} with version {version_tag}...")
-        # Headless command: imports the binary and then runs the script
-        cmd = (
-            f"{headless_path} {project_path} temp_proj_{version_tag} "
-            f"-import {bin_path} -overwrite "
-            f"-scriptPath {script_path} -postScript extract.py "
-        )
+    print(f"[INFO] [Parallel] Processing {binary} with version {version_tag}...")
+    
+    cmd = (
+        f"{ghidra_home}/support/pyghidraRun --headless {unique_proj_dir} temp_{binary} "
+        f"-deleteProject " 
+        f"-import {bin_path} -overwrite "
+        f"-scriptPath {script_path} -postScript extract.py "
+    )
+    
+    try:
+        run_command(cmd, env=env, input_text="n\n")
+    except Exception as e:
+        print(f"[ERR] Failed processing {binary}: {e}")
+    finally:
+        if os.path.exists(unique_proj_dir):
+            shutil.rmtree(unique_proj_dir, ignore_errors=True)
+        print(f"[INFO] Finished {binary}")
         
-        run_command(cmd, env=env)
+
+def extract_decompilation(ghidra_home, version_tag):
+    """
+    Runs pyghidraRun --headless in parallel on the binaries.
+    """
+
+    binaries = [
+        f for f in os.listdir(BINARIES_DIR) 
+        if os.path.isfile(os.path.join(BINARIES_DIR, f)) and not f.startswith('.')
+    ]
+
+    if not binaries:
+        print("[WARN] No binaries found to process.")
+        return
+
+    workers = int(MAX_WORKERS)
+    print(f"[INFO] Starting extraction with {workers} parallel workers...")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        future_to_bin = {
+            executor.submit(process_binary_task, binary, ghidra_home, version_tag): binary 
+            for binary in binaries
+        }
+        
+        for future in concurrent.futures.as_completed(future_to_bin):
+            binary = future_to_bin[future]
+            try:
+                future.result()
+            except Exception as exc:
+                print(f"[FATAL] {binary} generated an exception: {exc}")
 
 def get_code_metrics(code_snippet):
     """Calls the /score endpoint to obtain raw perplexity of the code)"""
@@ -141,55 +189,24 @@ def get_code_metrics(code_snippet):
 def evaluate_with_llm(base_data, pr_data):
     """Creates the prompt, calculates metrics, and calls the Flask server"""
     report = []
+
+    print("Timestamp: ", subprocess.getoutput("date"))
     
     for func_name, base_code in base_data.items():
         pr_code = pr_data.get(func_name)
         if not pr_code: continue
         
         # no change
-        # if base_code.strip() == pr_code.strip():
-        #     print(f"[SKIP] Function {func_name} is identical.")
-        #     continue
+        if base_code.strip() == pr_code.strip():
+            #print(f"[SKIP] Function {func_name} is identical.")
+            continue
 
         print(f"[EVAL] Evaluating change in {func_name}...")
         
-        # Calc (Low PPL = Better/More predictable code)
         base_metrics = get_code_metrics(base_code)
         pr_metrics = get_code_metrics(pr_code)
         
-        # Calc Delta PPL (Negative is good -> PR reduced confusion)
         ppl_delta = pr_metrics['perplexity'] - base_metrics['perplexity']
-
-        # 2. Ask LLM for SUBJECTIVE preference
-        prompt = (
-            "You are an expert in reverse engineering and C/C++ code analysis.\n"
-            "You will be given multiple decompilation outputs of the same binary function.\n"
-            "Your task is to choose the most human-readable version.\n"
-            "Ignore variable names unless they impact structure clarity significantly.\n\n"
-            f"Version 1 (Base):\n{base_code}\n\n"
-            f"Version 2 (PR):\n{pr_code}\n\n"
-            "Answer ONLY with the number of the version you choose (1 or 2)."
-        )
-
-        llm_choice = "Error"
-        llm_reasoning = ""
-        
-        try:
-            resp = requests.post(LLM_API_GEN, json={"prompt": prompt}).json()
-            generated_text = resp.get("generated_text", "").strip()
-            llm_reasoning = generated_text
-            
-            if "1" in generated_text and "2" not in generated_text:
-                llm_choice = "Base"
-            elif "2" in generated_text and "1" not in generated_text:
-                llm_choice = "PR"
-            elif "1" in generated_text: # Fallback
-                llm_choice = "Base" 
-            else:
-                llm_choice = "PR" # O Undecided
-                
-        except Exception as e:
-            print(f"Error calling LLM Generate: {e}")
 
         entry = {
             "function": func_name,
@@ -197,73 +214,125 @@ def evaluate_with_llm(base_data, pr_data):
                 "base_ppl": base_metrics['perplexity'],
                 "pr_ppl": pr_metrics['perplexity'],
                 "delta_ppl": ppl_delta, # < 0 means PR improved (lowered) perplexity
-                "base_logbits": base_metrics['mean_logbits'],
-                "pr_logbits": pr_metrics['mean_logbits']
-            },
-            "llm_eval": {
-                "winner": llm_choice,
-                "reasoning": llm_reasoning
             }
         }
         
-        # Log
         print(f"   > PPL Base: {base_metrics['perplexity']:.2f} | PPL PR: {pr_metrics['perplexity']:.2f} | Delta: {ppl_delta:.2f}")
-        print(f"   > LLM Pick: {llm_choice}")
+        print(f"   > Better version: {'PR' if ppl_delta < 0 else 'Base' if ppl_delta > 0 else 'No Change'}")
         
         report.append(entry)
 
     return report
 
-def main():
-    pr_number = "8718"#"8635"#"8718" #TODO: get from args/env
-    
+def main(prs_number=None):
+    #pr_number = "8635"#"8718"#"8718"
+    print(f"[START] Timestamp: {subprocess.getoutput('date')}")
+        
     base_headless = setup_ghidra_version("master")
     extract_decompilation(base_headless, "base")
-    
-    pr_headless = setup_ghidra_version(pr_number, is_pr=True)
-    extract_decompilation(pr_headless, "pr")
-    
-    test_binary_name = None
-    try:
-        for item in os.listdir(BINARIES_DIR):
-            if os.path.isfile(os.path.join(BINARIES_DIR, item)) and not item.startswith('.'):
-                test_binary_name = item
-                break
-        if not test_binary_name:
-            print("[FATAL] No binary found in BINARIES_DIR.")
+    final_report = []
+
+    for pr_number in prs_number:
+        print("Timestamp: ", subprocess.getoutput("date"))
+        print(f"[PROCESSING] PR #{pr_number}")
+        try:
+            pr_headless = setup_ghidra_version(pr_number, is_pr=True)
+        except FileNotFoundError as e:
+            print(f"[ERROR] {e}")
+            continue
+        extract_decompilation(pr_headless, "pr_"+pr_number)
+        
+        test_binary_name = None
+        results = []
+        try:
+            for item in os.listdir(BINARIES_DIR):
+                if os.path.isfile(os.path.join(BINARIES_DIR, item)) and not item.startswith('.'):
+                    test_binary_name = item
+                    base_json_path = os.path.join(OUTPUT_DIR, f"{test_binary_name}_base.json")
+                    pr_json_path = os.path.join(OUTPUT_DIR, f"{test_binary_name}_pr_{pr_number}.json")
+                    
+                    if not os.path.exists(base_json_path) or not os.path.exists(pr_json_path):
+                        print("[FATAL] Decompilation output files not found. Check Ghidra headless run.")
+                        print(f"Expected Base: {base_json_path}")
+                        print(f"Expected PR: {pr_json_path}")
+                        return
+                    
+
+                    with open(base_json_path, 'r') as f:
+                        base_data = json.load(f)
+                    with open(pr_json_path, 'r') as f:
+                        pr_data = json.load(f)
+
+                    # if base_data == pr_data:
+                    #     print("[INFO] No changes detected between base and PR decompilations.")
+                    #     with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
+                    #         json.dump({"message": "No changes detected between base and PR decompilations."}, f, indent=2)
+                    #     return
+
+                    results.extend(evaluate_with_llm(base_data, pr_data))
+
+
+            if not test_binary_name:
+                print("[FATAL] No binary found in BINARIES_DIR.")
+                return
+        except FileNotFoundError:
+            print(f"[FATAL] BINARIES_DIR ({BINARIES_DIR}) not found.")
             return
-    except FileNotFoundError:
-        print(f"[FATAL] BINARIES_DIR ({BINARIES_DIR}) not found.")
-        return
+        
+        #mean results
+        mean_delta = sum(entry['metrics']['delta_ppl'] for entry in results) / len(results) if results else 0
+        print(f"[FINAL RESULT] Mean delta perplexity across all functions: {mean_delta:.2f}")
+        print(f"[FINAL RESULT] Overall improvement: {'YES' if mean_delta < 0 else 'NO' if mean_delta > 0 else 'NO CHANGE'}")
 
-    base_json_path = os.path.join(OUTPUT_DIR, f"{test_binary_name}_base.json")
-    pr_json_path = os.path.join(OUTPUT_DIR, f"{test_binary_name}_pr.json")
-    
-    if not os.path.exists(base_json_path) or not os.path.exists(pr_json_path):
-        print("[FATAL] Decompilation output files not found. Check Ghidra headless run.")
-        print(f"Expected Base: {base_json_path}")
-        print(f"Expected PR: {pr_json_path}")
-        return
-    
+        print("Timestamp: ", subprocess.getoutput("date"))
 
-    with open(base_json_path, 'r') as f:
-        base_data = json.load(f)
-    with open(pr_json_path, 'r') as f:
-        pr_data = json.load(f)
-
-    # if base_data == pr_data:
-    #     print("[INFO] No changes detected between base and PR decompilations.")
-    #     with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
-    #         json.dump({"message": "No changes detected between base and PR decompilations."}, f, indent=2)
-    #     return
-
-    results = evaluate_with_llm(base_data, pr_data)
-    
+        final_report.append({
+            "pr_number": pr_number,
+            "mean_delta_perplexity": mean_delta,
+            "results": results
+        })
 
     with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
-       json.dump(results, f, indent=2)
-    pass
+        json.dump(final_report, f, indent=2)
+
+    print(f"[END] Timestamp: {subprocess.getoutput('date')}")
+
+def fetch_decompiler_prs():
+    """
+    Fetches open PR numbers from Ghidra repo with label "Feature: Decompiler"
+    """
+    url = "https://api.github.com/search/issues"
+    query = 'repo:NationalSecurityAgency/ghidra is:pr is:open label:"Feature: Decompiler"'
+    
+    params = {
+        'q': query,
+        'sort': 'updated',
+        'order': 'desc',
+        'per_page': 100 
+    }
+    
+    try:
+        print(f"[GITHUB] Fetching open PRs with label 'Feature: Decompiler'...")
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            items = data.get('items', [])
+            pr_numbers = [str(item['number']) for item in items]
+            print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
+            return pr_numbers
+        elif response.status_code == 403:
+            print("[WARN] GitHub API rate limit exceeded or access denied.")
+            return []
+        else:
+            print(f"[ERR] GitHub API returned status {response.status_code}")
+            return []
+            
+    except Exception as e:
+        print(f"[ERR] Failed to fetch PRs: {e}")
+        return []
 
 if __name__ == "__main__":
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
-    main()
+
+    main(fetch_decompiler_prs())

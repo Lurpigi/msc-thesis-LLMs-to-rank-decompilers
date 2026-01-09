@@ -29,7 +29,7 @@ huggingface:
     python3 ./prompt/huggingface.py
 
 ghidra_bench:
-    UID_GID="$(id -u):$(id -g)" docker compose up --build -d ghidra-bench
+    UID_GID="$(id -u):$(id -g)" docker compose up --build -d ghidra-bench && docker logs -f tesi-ghidra-bench-1
 
 save_ghidra_image:
     docker save -o ghidra_bench_image.tar ghidra-bench:latest

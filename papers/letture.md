@@ -51,3 +51,6 @@ humaneval e exebench come valutazione codice generato da LLM
 [https://arxiv.org/pdf/2310.06530](https://arxiv.org/pdf/2310.06530)
 
 molto simile agli altri, creano framework DecGPT -> uguale sputato a DecLLM
+
+NUOVA
+https://aclanthology.org/2025.findings-acl.1194.pdf

@@ -19,14 +19,8 @@ ownership:
     sudo chown -R $(whoami):$(whoami) ./C_projects/bin
     sudo chown -R $(whoami):$(whoami) ./dogbolt/src
 
-gen_prompt:
-    python3 ./prompt/gen_prompt.py
-
-send_prompt:
-    python3 ./prompt/send_prompt.py
-
-huggingface:
-    python3 ./prompt/huggingface.py
+server:
+    docker compose up --build -d llm-server
 
 ghidra_bench:
     UID_GID="$(id -u):$(id -g)" docker compose up --build -d ghidra-bench && docker logs -f tesi-ghidra-bench-1

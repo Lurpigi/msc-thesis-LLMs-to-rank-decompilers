@@ -22,7 +22,8 @@ RUN mkdir -p /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app/outputs /opt/
 
 #SPEEDING UP GRADLE
 ENV GRADLE_USER_HOME=/opt/gradle_cache
-RUN echo "org.gradle.caching=true\norg.gradle.jvmargs=-Xmx2g" > /opt/gradle_cache/gradle.properties
+RUN echo "org.gradle.caching=true\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" > /opt/gradle_cache/gradle.properties
+RUN chown -R gradle:gradle /opt/gradle_cache
 
 RUN git config --system --add safe.directory /opt/ghidra_src
 
@@ -54,6 +55,7 @@ COPY --chown=gradle:gradle . /app
 ENV GHIDRA_GIT_PATH=/opt/ghidra_src
 ENV GHIDRA_EXTRACTED_PATH=/opt/ghidra_exe
 ENV GHIDRA_BENCH_OUTPUT=/app/outputs
+ENV PYTHONUNBUFFERED=1
 
 RUN mkdir -p /app/outputs && \
     chown -R gradle:gradle /app/outputs

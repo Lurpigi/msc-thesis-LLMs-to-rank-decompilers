@@ -3,6 +3,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import torch
 import gc
 
+import unittest
+
 from huggingface_hub import snapshot_download
 
 app = Flask(__name__)
@@ -10,9 +12,17 @@ app = Flask(__name__)
 MODELS_CONFIG = {
     "llama3.2-1b": "meta-llama/Llama-3.2-1B-Instruct",
     "qwen2.5-1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
-    "phi3.5-mini": "microsoft/Phi-3.5-mini-instruct",
+    "deepseek-1.3b": "deepseek-ai/deepseek-coder-1.3b-instruct",
     "gemma2-2b": "google/gemma-2-2b-it"
 }
+
+#Desktop
+# MODELS_CONFIG = {
+#     "qwen-coder": "Qwen/Qwen2.5-Coder-7B-Instruct",
+#     "deepseek-v2": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
+#     "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
+#     "gemma2": "google/gemma-2-9b-it"
+# }
 
 current_model_id = None
 model = None
@@ -56,31 +66,107 @@ def load_model(model_key):
             torch.cuda.empty_cache()
             gc.collect()
 
-    repo_id = MODELS_CONFIG[model_key]
-    tokenizer = AutoTokenizer.from_pretrained(repo_id)
+    model_id = MODELS_CONFIG[model_key]
+    
+    try:
+        # Gemma 2 strongly prefers BFloat16. Others tolerate Float16.
+        if "gemma" in model_key.lower():
+            dtype = torch.bfloat16
+        else:
+            dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
-    # Load model with quantization if on GPU
-    q_config = None
-    if device.type == "cuda":
-        q_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True
+        tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        
+        # device_map="auto" handles VRAM distribution for large models
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            dtype=dtype,
+            trust_remote_code=True
         )
 
-    model = AutoModelForCausalLM.from_pretrained(
-        repo_id,
-        quantization_config=q_config,
-        device_map="auto" if device.type == "cuda" else "cpu",
-        dtype=torch.float16 if device.type == "cuda" else torch.float32,
-        trust_remote_code=True,
-        use_cache=False,
-    )
-    
-    current_model_id = model_key
-    print(f"[INFO] {model_key} loaded on {device}")
+        model.eval()
+        current_model_id = model_key
+        print(f"[INFO] {model_key} loaded on {device}")
+        
+    except Exception as e:
+        print(f"Failed to load model {model_key}: {str(e)}")
+        raise e
 
+def get_generation_strategy(model_id, tokenizer):
+    """
+    Returns a dictionary of generation parameters optimized for the specific model.
+    """
+    # Default 
+    config = {
+        "max_new_tokens": 1024,
+        "do_sample": True,
+        "temperature": 0.7,
+        "top_p": 0.9,
+       # "pad_token_id": tokenizer.eos_token_id
+    }
+    
+    model_id_lower = model_id.lower()
+
+    if "llama-3.1" in model_id_lower:
+        # Handle the <|eot_id|> (128009) issue
+        terminators = [
+            tokenizer.eos_token_id,
+            tokenizer.convert_tokens_to_ids("<|eot_id|>")
+        ]
+        config.update({
+            "temperature": 0.6,
+            "terminators": terminators,
+            "repetition_penalty": 1.05  # Mild penalty for stability
+        })
+
+    elif "qwen2.5" in model_id_lower:
+        # Optimized for Coding: Low Entropy
+        config.update({
+            "temperature": 0.2,  # Low temp for syntax precision
+            "top_p": 0.8,
+            "top_k": 20,
+            "repetition_penalty": 1.1
+        })
+
+    elif "deepseek" in model_id_lower:
+        # Optimized for Logic: Greedy Decoding
+        config.update({
+            "do_sample": False,  
+            "eos_token_id": tokenizer.eos_token_id
+        })
+
+    elif "gemma-2" in model_id_lower:
+        # Optimized for Soft-Capped Logits
+        config.update({
+            "temperature": 1.0, # Default per Google
+            "top_p": 0.95,
+            "top_k": 50,
+        })
+        
+    return config
+
+def preprocess_messages(model_id, messages):
+    """
+    Middleware to adapt message structure to model constraints.
+    """
+    if isinstance(messages, str):
+        messages = [{"role": "user", "content": messages}]
+
+    processed_messages = [msg.copy() for msg in messages]
+    
+    # FIX GEMMA
+    if "gemma-2" in model_id.lower():
+        if processed_messages and processed_messages[0].get('role') == 'system':
+            system_msg = processed_messages.pop(0)
+            system_content = system_msg['content']
+            
+            if processed_messages and processed_messages[0].get('role') == 'user':
+                processed_messages[0]['content'] = f"{system_content}\n\n{processed_messages[0]['content']}"
+            else:
+                processed_messages.insert(0, {"role": "user", "content": system_content})
+                
+    return processed_messages
 
 def compute_perplexity(inputs):
 
@@ -110,6 +196,10 @@ def compute_perplexity(inputs):
 def health_check():
     return jsonify({"status": "ok"}), 200
 
+@app.route('/models', methods=['GET'])
+def list_models():
+    return jsonify({"available_models": list(MODELS_CONFIG.keys())})
+
 @app.route('/score', methods=['POST'])
 def score_text():
     data = request.json
@@ -134,17 +224,86 @@ def generate():
 
     try:
         load_model(model_id)
-        messages = [{"role": "user", "content": user_prompt}]
-        inputs = tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt").to(model.device)
+
+        if not model or not tokenizer:
+            return jsonify({"error": "Model not loaded"}), 503
+
+        final_messages = preprocess_messages(model_id, user_prompt)
+
+        print(f"[DEBUG] Final messages for {model_id}: {final_messages}")
         
-        outputs = model.generate(**inputs, max_new_tokens=512, pad_token_id=tokenizer.eos_token_id, do_sample=False)
-        full_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return jsonify({"model": model_id, "generated_text": full_text})
+        # add_generation_prompt=True adds the final token (e.g., <|start_header_id|>assistant) to signal the model to start generating.
+        prompt = tokenizer.apply_chat_template(
+            final_messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        
+        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+        
+        strategy = get_generation_strategy(model_id, tokenizer)
+
+        gen_params = {k: v for k, v in strategy.items() if v is not None}
+        # Remove sampling params if do_sample is False
+        if not gen_params.get("do_sample", True):
+            gen_params.pop("temperature", None)
+            gen_params.pop("top_p", None)
+            gen_params.pop("top_k", None)
+        
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                **gen_params
+            )
+            
+        # slice outputs to exclude the input prompt tokens
+        response_text = tokenizer.decode(outputs[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+        
+        return jsonify({
+            "model": model_id,
+            "response": response_text,
+        })
+
     except Exception as e:
-        print(f"[ERROR] Generate failed: {str(e)}")
+        print(f"Generation failed: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
+class FlaskAppTests(unittest.TestCase):
+    def setUp(self):
+        app.config['TESTING'] = True
+        self.client = app.test_client()
+
+    def test_health(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+
+    def test_generate(self):
+
+        def test_model(model_key):
+            payload = {
+                "model_id": model_key,
+                "prompt": "Scrivi una funzione C per sommare due numeri."
+            }
+            print(f"\n[TEST] Trying to generate with {model_key}...")
+            response = self.client.post('/generate', json=payload)
+            data = response.get_json()
+            
+            if response.status_code != 200:
+                print(f"[FAIL] Error received: {data.get('error')}")
+            
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("response", data)
+            print(data["response"][:200] + "...")
+            print(f"[SUCCESS] Response from {model_key} received successfully.")
+        
+        for model_key in MODELS_CONFIG.keys():
+            test_model(model_key)
+    
+   
+
 if __name__ == '__main__':
     download_all_models()
+
+    #unittest.main() TESTING
     app.run(host='0.0.0.0', port=8900)

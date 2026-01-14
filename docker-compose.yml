@@ -37,7 +37,7 @@ services:
     healthcheck:
       # Check the server
       test: ["CMD", "curl", "-f", "http://localhost:8900/"]
-      interval: 10s
+      interval: 30s
       retries: 10
       start_period: 300s
 

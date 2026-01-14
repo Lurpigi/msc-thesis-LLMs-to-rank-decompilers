@@ -18,12 +18,7 @@ LLM_API_URL = os.environ.get("LLM_API_URL", "http://localhost:8900")
 #LLM_API_GEN = f"{LLM_API_URL}/generate"
 LLM_API_SCORE = f"{LLM_API_URL}/score"
 MAX_WORKERS = int(os.environ.get("GHIDRA_WORKERS", 4))
-MODELS_TO_BENCHMARK = {
-    "llama3.2-1b",
-    "qwen2.5-1.5b",
-    "phi3.5-mini",
-    "gemma2-2b"
-}
+MODELS_TO_BENCHMARK = []
 
 def print_time(info=""):
     print(f"{info} - : ", subprocess.getoutput("date"))
@@ -100,7 +95,7 @@ def setup_ghidra_version(tag_or_pr, is_pr=False):
         raise FileNotFoundError("gradlew not found in Ghidra repo")
         
     #run_command("./gradlew -I gradle/support/fetchDependencies.gradle", cwd=cwd)
-    run_command("./gradlew buildGhidra -x test -x integrationTest -x javadoc -x check -x ip -x createJavadocs -x createJsondocs -x zipJavadocs ", cwd=cwd)
+    run_command("./gradlew buildGhidra --no-daemon -x test -x integrationTest -x javadoc -x check -x ip -x createJavadocs -x createJsondocs -x zipJavadocs ", cwd=cwd)
     
     dist_dir = os.path.join(cwd, "build", "dist")
     for f in os.listdir(dist_dir):
@@ -401,8 +396,8 @@ def fetch_decompiler_prs():
             items = data.get('items', [])
             pr_numbers = [str(item['number']) for item in items]
             print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
-            return pr_numbers
-            #return ['8834', '8827']
+            #return pr_numbers
+            return ['8834']
         elif response.status_code == 403:
             print("[WARN] GitHub API rate limit exceeded or access denied.")
             return []
@@ -414,7 +409,27 @@ def fetch_decompiler_prs():
         print(f"[ERR] Failed to fetch PRs: {e}")
         return []
 
+def get_models():
+    """
+    Returns the list of models to benchmark from the LLM server.
+    """
+    try:
+        resp = requests.get(f"{LLM_API_URL}/models", timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            models = data.get("available_models", [])
+            print(f"[INFO] Models available for benchmarking: {models}")
+            return models
+        else:
+            print(f"[WARN] Could not fetch models from LLM server: {resp.status_code}")
+            return []
+    except Exception as e:
+        print(f"[ERR] Failed to get models: {e}")
+        return []
+
 if __name__ == "__main__":
     if not os.path.exists(OUTPUT_DIR): os.makedirs(OUTPUT_DIR)
+
+    MODELS_TO_BENCHMARK = get_models()
 
     main(fetch_decompiler_prs())

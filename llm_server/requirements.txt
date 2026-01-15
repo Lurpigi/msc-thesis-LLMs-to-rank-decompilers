@@ -1,0 +1,6 @@
+flask
+transformers
+accelerate
+scipy
+torch
+huggingface-hub

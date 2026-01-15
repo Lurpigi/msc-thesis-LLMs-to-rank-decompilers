@@ -1,59 +1,90 @@
 services:
-  decompile:
-    build:
-      dockerfile: Dockerfile
-      context: ./dogbolt
-    user: "${UID_GID}"
-    volumes:
-      - ./dogbolt/src:/app/src
-    environment:
-      - HOST_UID=${UID:-1000}
-      - HOST_GID=${GID:-1000}
-    command: >
-      sh -c "
-      ./run.sh &&
-      cp -r /app/bin/src/* /app/src &&
-      chown -R \${HOST_UID}:\${HOST_GID} /app/src
-      "
+    decompile:
+        build:
+            dockerfile: Dockerfile
+            context: ./dogbolt
+        user: "${UID_GID}"
+        volumes:
+            - ./dogbolt/src:/app/src
+        environment:
+            - HOST_UID=${UID:-1000}
+            - HOST_GID=${GID:-1000}
+        command: >
+            sh -c "
+            ./run.sh &&
+            cp -r /app/bin/src/* /app/src &&
+            chown -R \${HOST_UID}:\${HOST_GID} /app/src
+            "
 
-  llm-server:
-    build:
-      context: ./llm_server
-      dockerfile: Dockerfile
-    ports:
-      - "8900:8900"
-    environment:
-      - HF_TOKEN=${TOKEN_HUGGINFACE_READ}
-    volumes:
-      # Map HuggingFace cache
-      - ~/.cache/huggingface:/root/.cache/huggingface
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    healthcheck:
-      # Check the server
-      test: ["CMD", "curl", "-f", "http://localhost:8900/"]
-      interval: 30s
-      retries: 10
-      start_period: 300s
+    llm-server:
+        build:
+            context: ./llm_server
+            dockerfile: Dockerfile
+        ports:
+            - "8900:8900"
+        environment:
+            - HF_TOKEN=${TOKEN_HUGGINFACE_READ}
+        volumes:
+            # Map HuggingFace cache
+            - ~/.cache/huggingface:/root/.cache/huggingface
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          count: all
+                          capabilities: [gpu]
+        healthcheck:
+            # Check the server
+            test: ["CMD", "curl", "-f", "http://localhost:8900/"]
+            interval: 30s
+            retries: 10
+            start_period: 300s
 
-  ghidra-bench:
-    image: ghidra-bench:latest
-    build:
-      context: ./ghidra_bench
-      dockerfile: Dockerfile
-    user: "${UID_GID}"
-    depends_on:
-      llm-server:
-        condition: service_healthy
-    environment:
-      - LLM_API_URL=http://llm-server:8900
-      - GHIDRA_BENCH_OUTPUT=/app/outputs
-    volumes:
-      - ./ghidra_bench/outputs:/app/outputs
-      - ./ghidra_bench/bin:/app/bin
-      - ./ghidra_bench/scripts:/app/scripts
+    ghidra-bench:
+        image: ghidra-bench:latest
+        build:
+            context: ./ghidra_bench
+            dockerfile: Dockerfile
+        user: "${UID_GID}"
+        depends_on:
+            llm-server:
+                condition: service_healthy
+        environment:
+            - LLM_API_URL=http://llm-server:8900
+            - GHIDRA_BENCH_OUTPUT=/app/outputs
+        volumes:
+            - ./ghidra_bench/outputs:/app/outputs
+            - ./ghidra_bench/bin:/app/bin
+            - ./ghidra_bench/scripts:/app/scripts
+
+    cadvisor:
+        image: gcr.io/cadvisor/cadvisor:latest
+        container_name: cadvisor
+        ports:
+            - "8080:8080" # UI raw metriche
+        volumes:
+            - /:/rootfs:ro
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+
+    prometheus:
+        image: prom/prometheus:latest
+        container_name: prometheus
+        ports:
+            - "9090:9090"
+        volumes:
+            - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+        depends_on:
+            - cadvisor
+
+    grafana:
+        image: grafana/grafana:latest
+        container_name: grafana
+        ports:
+            - "3000:3000"
+        environment:
+            - GF_SECURITY_ADMIN_PASSWORD=secret
+        depends_on:
+            - prometheus

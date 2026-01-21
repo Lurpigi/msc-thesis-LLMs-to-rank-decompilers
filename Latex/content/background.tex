@@ -1,0 +1,382 @@
+\chapter{Background}
+\label{ch:background}
+
+
+summary of all the things
+
+\section{The Ghidra Architecture}
+\label{sec:ghidra_arch}
+
+Ghidra, released by the \ac{NSA} in 2019, employs a bifurcated design
+that separates the user-facing interaction layer from the core analysis engine. This separation is
+not merely an implementation detail but a fundamental architectural constraint that dictates how data 
+flows during the reverse engineering process.
+
+The framework operates across two distinct memory spaces: a frontend implemented in Java and a backend
+analysis engine written in C++. The Java frontend is responsible for the \ac{GUI},
+project database management, and plugin orchestration. It provides the high-level API exposed to users
+and scripts (e.g., Python or Java scripts via the GhidraScript framework). However, the computationally
+intensive tasks of data-flow analysis, variable inference, and control flow structuring are offloaded to
+a native C++ executable, typically named \texttt{decomp} or \texttt{decomp\_dbg} (for debugging).
+These executables and the code are located at \texttt{Ghidra/Features/Decompiler/src/decompile/cpp}.
+
+
+Communication is mediated by the \texttt{ghidra.app.decompiler.DecompInterface}. 
+This interface manages a dedicated input/output stream to the native process, utilizing an XML-based protocol to exchange data.
+When a function decompilation is requested, the Java client does not simply invoke a library function; it serializes the request into
+an XML command (e.g., \texttt{<decompile\_at>}) and transmits it to the backend. The C++ process, holding its own representation
+of the function's data flow in \texttt{Funcdata} objects, performs the analysis and returns the results as a serialized XML stream
+describing the high-level code structure and syntax tokens.
+
+\section{SLEIGH and P-code}
+\label{sec:slap}
+
+As written in the documentation created by running \texttt{<make doc>} \cite{DOC:shareGhidraDecompiler} The 
+decompiler provides its own \ac{RTL}, referred to internally as p-code,
+which is designed specifically for reverse engineering applications. The disassembly of processor
+specific machine-code languages, and subsequent translation into p-code, forms a major sub-system 
+of the decompiler. There is a processor specification language, referred to as SLEIGH, which is 
+dedicated to this translation task, this piece of the code can be built as a standalone binary 
+translation library, for use by other applications.
+
+\subsection{P-code Semantics and Varnodes}
+Unlike intermediate languages in compilers, P-code is designed specifically for reverse engineering, prioritizing the explicit representation of memory and register modifications.
+
+The fundamental unit of data in P-code is the \textbf{Varnode}. A Varnode is defined by the triple $(Space, Offset, Size)$, representing a contiguous sequence of bytes in a specific address space.
+
+\begin{table}[ht]
+    \centering
+    \caption{Some P-code Operations and Semantics \texttt{opcodes.hh}\cite{DOC:shareGhidraDecompiler}\cite{DOC:spinselPCodeReference}}
+    \label{tab:pcode_ops}
+    \begin{tabular}{l p{0.25\textwidth} p{0.45\textwidth}}
+        \toprule
+        \textbf{Opcode} & \textbf{Operands} & \textbf{Semantics} \\
+        \midrule
+        \texttt{CPUI\_COPY } & $in_0 \rightarrow out$ & Copy one operand to another. \\
+        \texttt{CPUI\_LOAD } & $space, ptr \rightarrow out$ & Load from a pointer into a specific address. \\
+        \texttt{CPUI\_STORE} & $space, ptr, val$ & Store at a pointer into a specified address space. \\
+        \texttt{CPUI\_INT\_ADD} & $in_0, in_1 \rightarrow out$ & Integer addition, signed or unsigned. \\
+        \texttt{CPUI\_CBRANCH} & $dest, cond$ & Conditional jump to $dest$ if $cond$ is non-zero. \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+We must distinguish between two forms of P-code used during analysis:
+\begin{enumerate}
+    \item \textbf{Raw P-code:} The direct, unoptimized output of the SLEIGH translation. 
+    It is represented by the class \textbf{PcodeOpRaw} (or by unprocessed PcodeOp), 
+    and contains the bare essentials: an opcode, a sequence number (address), and 
+    the input/output Varnodes.
+    \item \textbf{High P-code:} The result of the analysis pipeline. In this form, 
+    the code has been converted to \ac{SSA} form (a form where every varnode is defined 
+    exactly once for each function, if a variable is assigned multiple times, each assignment 
+    is given a new instance called low-level variable), dead code has been eliminated, 
+    and high-level concepts like function calls (replacing jump-and-link semantics) 
+    have been recovered. It is represented by the class \textbf{HighVariable}; 
+    this is an abstraction that groups multiple low-level Varnodes (which may reside 
+    in different registers or stack locations during execution) into a single logical 
+    variable, similar to a variable in C code.
+\end{enumerate}
+
+The transformation from Raw to High P-code is where the majority of the decompilation logic resides.
+It is an inference process that attempts to raise the abstraction level of the code,
+often relying on heuristics that may fail in the presence of obfuscation
+or aggressive compiler optimizations.
+
+\section{The Decompilation Pipeline}
+\label{sec:pipeline}
+The C++ decompiler engine processes a function at a time through a series of iterative passes. 
+The architecture organizes these passes into \textbf{Actions} and \textbf{Rules}, 
+managed by the \texttt{ActionDatabase}.
+inside the \texttt{ActionDatabase::universalAction} we have two main types of objects:
+\begin{itemize}
+    \item \texttt{ActionGroup}: Represents a list of Actions that are applied sequentially. The group's properties (eg., rule\_repeatapply) influence how the contained actions are executed.
+    \item \texttt{ActionPool}: It is a pool of Rules that are applied simultaneously to every PcodeOp. Each Rule triggers on a specific localized data-flow configuration. The Rules are applied repeatedly until no Rule can make any additional transformations.
+\end{itemize}
+
+\subsection{Actions and Rules}
+Actions represent large-scale transformations applied to the graph of varnodes and operations. They are the base class for objects that make modifications to a function's (Funcdata) syntax tree. Their purpose is to manage complex stages of the workflow, such as recovering the control-flow structure or generating \ac{SSA} form.
+
+Rules, on the other hand, are a class designed to perform a single specific transformation on a PcodeOp or a Varnode. A Rule triggers when it recognizes a particular local configuration in the data flow and specifies a sequence of modification operations to transform it.
+
+\subsection{DefaultGroups}
+
+Actions and Rules are selected and activated according to the type of \textbf{DefaultGroup} they belong to.
+These groups represent standardized workflows for different analysis phases and are built by the method \texttt{ActionDatabase::buildDefaultGroups()}. The main groups are:
+
+\begin{itemize}
+    \item \textbf{decompile}: the standard workflow for full decompilation, composed of all of the phases.
+    \item \textbf{jumptable}: optimized for analyzing jump tables.
+    \item \textbf{normalize}: used for code normalization.
+    \item \textbf{paramid}: for parameter identification.
+    \item \textbf{register}: for register analysis.
+    \item \textbf{firstpass}: a first fast analysis pass.
+\end{itemize}
+
+Each DefaultGroup is a list of names that refer to specific \texttt{ActionGroup}, \texttt{ActionPool} or individual \texttt{Action} to execute in that configuration. These lists define subsets of all the Actions.
+
+The decompiler can be customized by selecting different DefaultGroups in java with the method \texttt{setSimplificationStyle()} of the decompiler interface but
+Only the group named \textbf{decompile} return C code to ghidra, since in \texttt{ghidra\_process.cc} we have:
+
+\begin{lstlisting}[language=C++, caption={ghidra\_process.cc}]
+    [...]
+      fd->encode(encoder,0,ghidra->getSendSyntaxTree());
+      if (ghidra->getSendCCode()&&
+	  (ghidra->allacts.getCurrentName() == "decompile"))  //HERE WE HAVE THE CHECK
+        ghidra->print->docFunction(fd);
+    [...]
+\end{lstlisting}
+
+\section{Logic of Control Flow Structuring}
+\label{sec:cfg_structuring}
+
+Recovering high-level control structures (loops, conditionals) from the unstructured \ac{CFG}
+is arguably the most challenging phase of decompilation. It is effectively a pattern-matching
+problem on a directed graph, aimed at finding subgraphs that correspond to structured programming constructs.
+
+\subsection{Basic Block Formulation}
+The decompiler first aggregates P-code operations into \textbf{BasicBlocks} sequences of instructions with a single entry point 
+and a single exit point (excluding internal calls). The \ac{CFG} is formed by the edges representing jumps and branches between these blocks. 
+Ghidra normalizes this graph to ensure a unique entry block, often inserting empty placeholder blocks to handle re-entrant loops or complex function entries.
+
+In this example we can see the basic blocks identified by Ghidra in the comments:
+
+\begin{lstlisting}
+    {
+  int a2_local;                       //block0
+  int a1_local;                       //block0
+  putchar(L'1');                      //block0
+  if ((a1 == 1) || (a2 != 2)) {       //block0 || //block1
+    putchar(L'2');                    //block2
+    if (a1 != a2) {                   //block2
+      putchar(L'4');                  //block3
+      goto LAB_001011e5;              //block3
+    }
+  }
+  else {
+    putchar(L'3');                    //block4
+  }
+  putchar(L'5');                      //block5
+LAB_001011e5:                         //block6
+  putchar(L'6');                      //block6
+  return;                             //block6
+}
+
+/*  TODO capire come stampare meglio
+Basic Block 4 0x001011b1-0x001011bb
+0x001011b6:33:	RSP(0x001011b6:33) = RSP(i) + #0xffffffffffffffe0
+0x001011b6:34:	*(ram,RSP(0x001011b6:33)) = #0x1011bb
+0x001011b6:6d:	u0x10000023:1(0x001011b6:6d) = *(ram,RSP(0x001011b6:33))
+0x001011b6:35:	call jputchar(free)(#0x33:4,u0x10000023:1(0x001011b6:6d))
+0x001011bb:36:	goto Block_5:0x001011db
+Basic Block 0 0x0010118d-0x001011a9
+0x0010118d:1:	RSP(0x0010118d:1) = RSP(i) + #0xfffffffffffffff8
+0x0010118d:2:	*(ram,RSP(0x0010118d:1)) = RBP(i)
+0x00101195:d:	u0x00004780(0x00101195:d) = RSP(i) + #0xfffffffffffffff4
+0x00101195:f:	*(ram,u0x00004780(0x00101195:d)) = EDI(i)
+0x00101198:10:	u0x00004780(0x00101198:10) = RSP(i) + #0xfffffffffffffff0
+0x00101198:12:	*(ram,u0x00004780(0x00101198:10)) = ESI(i)
+0x001011a0:14:	RSP(0x001011a0:14) = RSP(i) + #0xffffffffffffffe0
+0x001011a0:15:	*(ram,RSP(0x001011a0:14)) = #0x1011a5
+0x001011a0:67:	u0x10000008:1(0x001011a0:67) = *(ram,RSP(0x001011a0:14))
+0x001011a0:16:	call jputchar(free)(#0x31:4,u0x10000008:1(0x001011a0:67))
+0x001011a5:17:	u0x00004780(0x001011a5:17) = RSP(i) + #0xfffffffffffffff4
+0x001011a5:18:	u0x00011e80:4(0x001011a5:18) = *(ram,u0x00004780(0x001011a5:17))
+0x001011a5:1e:	ZF(0x001011a5:1e) = u0x00011e80:4(0x001011a5:18) == #0x1:4
+0x001011a9:23:	goto Block_2:0x001011bd if (ZF(0x001011a5:1e) != 0) else Block_1:0x001011ab
+Basic Block 1 0x001011ab-0x001011af
+0x001011ab:24:	u0x00004780(0x001011ab:24) = RSP(i) + #0xfffffffffffffff0
+0x001011ab:25:	u0x00011e80:4(0x001011ab:25) = *(ram,u0x00004780(0x001011ab:24))
+0x001011ab:2b:	ZF(0x001011ab:2b) = u0x00011e80:4(0x001011ab:25) != #0x2:4
+0x001011af:31:	goto Block_2:0x001011bd if (ZF(0x001011ab:2b) != 0) else Block_4:0x001011b1
+Basic Block 5 0x001011db-0x001011e0
+0x001011e0:38:	RSP(0x001011e0:38) = RSP(i) + #0xffffffffffffffe0
+0x001011e0:39:	*(ram,RSP(0x001011e0:38)) = #0x1011e5
+0x001011e0:6f:	u0x1000002c:1(0x001011e0:6f) = *(ram,RSP(0x001011e0:38))
+0x001011e0:3a:	call jputchar(free)(#0x35:4,u0x1000002c:1(0x001011e0:6f))
+Basic Block 6 0x001011e5-0x001011f1
+0x001011ea:3c:	RSP(0x001011ea:3c) = RSP(i) + #0xffffffffffffffe0
+0x001011ea:3d:	*(ram,RSP(0x001011ea:3c)) = #0x1011ef
+0x001011ea:71:	u0x10000035:1(0x001011ea:71) = *(ram,RSP(0x001011ea:3c))
+0x001011ea:3e:	call jputchar(free)(#0x36:4,u0x10000035:1(0x001011ea:71))
+0x001011f1:44:	return(#0x0)
+Basic Block 2 0x001011bd-0x001011cd
+0x001011c2:46:	RSP(0x001011c2:46) = RSP(i) + #0xffffffffffffffe0
+0x001011c2:47:	*(ram,RSP(0x001011c2:46)) = #0x1011c7
+0x001011c2:69:	u0x10000011:1(0x001011c2:69) = *(ram,RSP(0x001011c2:46))
+0x001011c2:48:	call jputchar(free)(#0x32:4,u0x10000011:1(0x001011c2:69))
+0x001011c7:49:	u0x00004780(0x001011c7:49) = RSP(i) + #0xfffffffffffffff4
+0x001011c7:4a:	u0x00011e80:4(0x001011c7:4a) = *(ram,u0x00004780(0x001011c7:49))
+0x001011ca:4d:	u0x00004780(0x001011ca:4d) = RSP(i) + #0xfffffffffffffff0
+0x001011ca:4e:	u0x00006a00:4(0x001011ca:4e) = *(ram,u0x00004780(0x001011ca:4d))
+0x001011ca:54:	ZF(0x001011ca:54) = u0x00011e80:4(0x001011c7:4a) == u0x00006a00:4(0x001011ca:4e)
+0x001011cd:59:	goto Block_3:0x001011cf if (ZF(0x001011ca:54) == 0) else Block_5:0x001011db
+Basic Block 3 0x001011cf-0x001011d9
+0x001011d4:5b:	RSP(0x001011d4:5b) = RSP(i) + #0xffffffffffffffe0
+0x001011d4:5c:	*(ram,RSP(0x001011d4:5b)) = #0x1011d9
+0x001011d4:6b:	u0x1000001a:1(0x001011d4:6b) = *(ram,RSP(0x001011d4:5b))
+0x001011d4:5d:	call jputchar(free)(#0x34:4,u0x1000001a:1(0x001011d4:6b))
+0x001011d9:5e:	goto Block_6:0x001011e5
+*/
+\end{lstlisting}
+
+Basicblocks are created in \texttt{flow.cc} by the function \texttt{FlowInfo::splitBasic()}. 
+The routine partitions the P-code instruction stream at control-flow boundaries: conditional and unconditional jumps, call sites that alter control flow, and return instructions.
+Each such instruction ends the current block and/or starts a new one (targets of jumps also begin blocks).
+
+\subsection{The Structuring Algorithm}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+To transform the \ac{CFG} into C statements, Ghidra employs a structuring algorithm implemented in the 
+\texttt{ActionBlockStructure} class. The process involves identifying regions of the graph that match known schemas (or patterns) of control flow:
+
+inside the apply method of \texttt{ActionBlockStructure} we have a call to collapseAll() that is the main loop of the algorithm:
+
+\begin{lstlisting}
+void CollapseStructure::collapseAll(void)
+{
+  int4 isolated_count;
+
+  finaltrace = false;
+  graph.clearVisitCount();
+  orderLoopBodies();
+
+  collapseConditions();
+
+  isolated_count = collapseInternal((FlowBlock *)0);
+  while(isolated_count < graph.getSize()) {
+    FlowBlock *targetbl = selectGoto();
+    isolated_count = collapseInternal(targetbl);
+  }
+}
+\end{lstlisting}
+
+The method implements a deterministic sequence of passes that progressively transform 
+the BasicBlocks into structured FlowBlocks and performs the following steps:
+
+\begin{enumerate}
+    \item \textbf{Preparation}\\
+        The algorithm first clears previous visitation state (\texttt{graph.clearVisitCount()}) 
+        and invokes \texttt{orderLoopBodies()}. This pass discovers loop headers and 
+        back-edges, establishing a partial ordering among loop bodies. 
+        Detecting loops early is essential to prevent later structuring passes 
+        from erroneously breaking loop semantics.
+
+    \item \textbf{Conditional simplification}\\
+        Next, \texttt{collapseConditions()} attempts to simplify complex boolean logic 
+        and fold adjacent blocks that form logical AND/OR patterns (for example, 
+        transforming sequences that represent \texttt{if (A \&\& B)} or \texttt{if (A || B)} 
+        into single conditional constructs). This phase applies local rules such as \texttt{ruleBlockOr} 
+        to reduce predicate complexity before higher-level structuring.
+
+    \item \textbf{Initial collapse}\\
+        The engine then calls \texttt{collapseInternal((FlowBlock *)0)}, which scans the graph 
+        and applies standard structuring rules (e.g. \texttt{ruleBlockIfElse}, \texttt{ruleBlockWhileDo}, 
+        \texttt{ruleBlockSwitch}) to collapse perfectly structured regions. 
+        The routine returns an \texttt{isolated\_count} indicating how many blocks have been 
+        fully resolved without introducing gotos.
+
+    \item \textbf{Unstructured flow handling}\\
+        If the graph is not fully collapsed (\texttt{isolated\_count < graph.getSize()}), 
+        the method iterates: it selects a problematic edge with \texttt{selectGoto()} and 
+        marks that edge as unstructured (to be emitted as a \texttt{goto}/\texttt{break}/\texttt{continue} 
+        in the final code). The selection is driven by heuristics  
+        to minimize disruption to surrounding structure. After marking the edge, 
+        \texttt{collapseInternal(targetbl)} is invoked again (often passing the target block of the newly created goto) 
+        so the structuring engine can resume collapsing other regions. This loop repeats until every block 
+        is resolved.
+\end{enumerate}
+
+in the \texttt{collapseInetrnal()} method we have the main pattern recognition method, 
+some patterns have precedence over others, since it may occur that a region matches 
+multiple schemas. For example, a \texttt{switch} may also match an \texttt{if-else} pattern. 
+
+These are the preferred patterns, in order:
+\begin{itemize}
+    \item \texttt{goto}
+    \item \texttt{cat} (block concatenation)
+    \item \texttt{proper if} (if without else)
+    \item \texttt{if-else}
+    \item \texttt{while-do}
+    \item \texttt{do-while}
+    \item \texttt{infinite loop}
+    \item \texttt{switch}
+\end{itemize}
+This "rules" are implemented inside a loop that tryes every pattern till no more changes are possible.
+
+in the \texttt{ruleBlockWhileDo()} method we can see how the pattern matching is done:
+
+\begin{lstlisting}
+
+bool CollapseStructure::ruleBlockWhileDo(FlowBlock *bl)
+
+{
+  FlowBlock *clauseblock;
+  int4 i;
+
+  if (bl->sizeOut() != 2) return false; // Must be binary condition
+  if (bl->isSwitchOut()) return false;
+  if (bl->getOut(0) == bl) return false; // No loops at this point
+  if (bl->getOut(1) == bl) return false;
+  if (bl->isInteriorGotoTarget()) return false;
+  if (bl->isGotoOut(0)) return false;
+  if (bl->isGotoOut(1)) return false;
+  for(i=0;i<2;++i) {
+    clauseblock = bl->getOut(i);
+    if (clauseblock->sizeIn() != 1) continue; // Nothing else must hit clause
+    if (clauseblock->sizeOut() != 1) continue; // Only one way out of clause
+    if (clauseblock->isSwitchOut()) continue;
+    if (clauseblock->getOut(0) != bl) continue; // Clause must loop back to bl
+
+    bool overflow = bl->isComplex(); // Check if we need to use overflow syntax
+    if ((i==0)!=overflow) {			// clause must be true out of bl unless we use overflow syntax
+      if (bl->negateCondition(true))
+	dataflow_changecount += 1;
+    }
+    BlockWhileDo *newbl = graph.newBlockWhileDo(bl,clauseblock);
+    if (overflow)
+      newbl->setOverflowSyntax();
+    return true;
+  }
+  return false;
+}
+\end{lstlisting}
+
+Firstly is checked that the block has exactly two outgoing edges (a binary condition) and is not already part of a switch or a loop. 
+Then, for each outgoing edge, it checks if the clauseblock (the potential loop body) has exactly one incoming edge (from the condition block) and one outgoing edge (back to the condition block). 
+If these conditions are met, it confirms the presence of a while-do loop structure.
+
+\subsection{The $for$ special case}
+
+
+\subsection{The $Goto$ Problem}
+A significant limitation of this approach arises when the \ac{CFG} contains irreducible control flow 
+that does not match any predefined schema. (This is common in binaries optimized with aggressive compiler 
+techniques or those containing manual assembly optimizations).
+
+When \texttt{ActionBlockStructure} fails to find a matching pattern, the jump inside the FlowBlock remains and it will be represented as a \textbf{goto} 
+statement to preserve semantic correctness, this phenomenon significantly degrades the readability of the output.
+Ghidra's reliance on generic schema matching means that it often produces convoluted \texttt{while(true)} 
+loops with internal \texttt{break}s or \texttt{goto}s when faced with complex control flow.
+
+\section{Code Emission}
+\label{sec:c_emission}
+
+The final phase of the pipeline is the translation of the structured High P-code into C syntax. 
+This is not a simple text dump but a structured generation of an Abstract Syntax Tree (AST) represented 
+by \texttt{}{ClangToken} objects.
+
+Before emission, the \textbf{ActionNameVars} pass attempts to assign meaningful names to the 
+recovered \texttt{HighVariable} objects. If debug symbols (DWARF, PDB) are available, 
+they are utilized. In their absence, Ghidra relies on heuristics based on variable usage 
+(e.g., loop counters named \texttt{i}, \texttt{j}) or storage location 
+(e.g., \texttt{iVar1}, \texttt{uVar2}). This process is highly stochastic and often results in generic, 
+non-descriptive identifiers.
+
+The C++ backend generates a stream of \texttt{ClangToken} objects representing the code structure. This tokenized representation is 
+sent to the Java frontend via the XML protocol. This structured data allows the Ghidra 
+\ac{GUI} to provide interactive features—such as cross-referencing and dynamic renaming—since the UI 
+elements remain linked to the underlying \texttt{Varnode} and \texttt{HighVariable} objects.
+
+\section{LLM}
+
+\subsection{perplexity}

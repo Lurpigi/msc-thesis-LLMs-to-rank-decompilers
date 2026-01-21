@@ -1,5 +1,5 @@
 scripts/__pycache__/
-outputs/*
+outputs/decomp/*
 
 !outputs/timestamps.log
 !outputs/final_report.json

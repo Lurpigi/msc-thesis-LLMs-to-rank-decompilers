@@ -46,8 +46,8 @@
 %%                   + all remaining report.cls default options
 
 \DeclareOption{final}{\renewcommand{\degreetext}{
-    MSc Computer Engineering\\
-    \small Software and Computing Platforms Curriculum}}
+    Computer Science MSc\\
+    \small Computer Security and Engineering Curriculum}}
 
 \DeclareOption{centerchapter,centrechapter}
    {\renewcommand{\@chapteralignment}{\centering}}
@@ -373,7 +373,7 @@
 \begin{titlepage}%
   {%
       \begin{tabular}[b]{l}
-        \includegraphics[width=.7\textwidth]{dibris_extended_black} \\
+        \includegraphics[width=.7\textwidth]{img/dibris_extended_black} \\
    \end{tabular} 
    
    %\hrulefill
@@ -390,7 +390,7 @@
    \vfill
 
    {\large
-    Master Thesis  %%\hfill {\bfseries DIBRIS-TH-\@submityear-\@technumber}
+    Master's Thesis  %%\hfill {\bfseries DIBRIS-TH-\@submityear-\@technumber}
     %%%Technical Reports Series \hfill {\bf DISI-TR-\@submityear-\@technumber}
    }
    %\hrulefill
@@ -399,8 +399,8 @@
 \vskip 50\p@
    {\normalsize
    Universit\`a di Genova, DIBRIS \\
-     Via Opera Pia, 13
-     16145 Genova, Italy\\
+     Via Dodecaneso, 35
+     16146 Genova, Italy\\
    \hfill \url{https://www.dibris.unige.it/}}}%
   \vfil\null
   \end{titlepage}%
@@ -408,7 +408,7 @@
       \begin{titlepage}\begin{center}
       \null\vfil
       \includegraphics[width=.2\textwidth]
-      {logo_verticale_BLACK}\vskip 40\p@
+      {img/logo_verticale_BLACK}\vskip 40\p@
       {\Large\bfseries 
                        \degreetext  
          \ifthenelse{\boolean{draftthesis}}
@@ -416,7 +416,7 @@
                     {\LARGE   \bfseries\@title \vskip 60\p@}
          {\Large 
            \@author \vskip 60\p@
-Advisor: \@advisor  \hskip \fill  Examiner: \@examiner \vskip 10\p@
+Advisors: \@advisor  \hskip \fill \newline Examiner: \@examiner \vskip 10\p@
          }     
       \vfill
           {\Large \@submitmonth, \@submityear}

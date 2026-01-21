@@ -1,51 +1,50 @@
-\documentclass{masterthesis}
+\documentclass{meta/masterthesis}
 % masterthesis for Computer Science
 % masterthesis_ceng for Computer Engineering
 % use the [nocoverpage] option to speed up compilation by skipping the cover page
 
 % the configuration is in the preamble.tex file, read it and modify it to change
 % the document appearance and included packages
-\input{preamble}
+\input{meta/preamble}
 
 % by default, we use the biblatex package to manage the bibliography
 % if you prefer to use bibtex, comment the following line and uncomment the
 % relevant lines at the end of the document
-\addbibresource{bib.bib}
+\addbibresource{meta/bib.bib}
 
-\input{acronyms}
+\input{meta/acronyms}
 
 \begin{document}
 
-\title{Template for Master's Theses at DIBRIS}
+\title{Using LLMs to Rank Decompiled Code Variants}
 
-\author{Matteo Dell'Amico}
+\author{Luigi Timossi}
 
 % important for when you'll submit your thesis: your advisor(s) are "relatore", and the examiner is "correlatore".
-\advisor{Advisor Name}
 
-\examiner{Examiner Name}
+\advisor{Matteo Dell'Amico, Giovanni Lagorio}
+
+\examiner{Marina Ribaudo}
 
 \maketitle
 
 \begin{abstract}
-This is a template for the Master's thesis in Computer Science at the University of Genoa.
-
-This document doubles as a guide for how to structure and write it. Please keep a copy of this advice and read it carefully while you write your thesis by replacing it with your material.
+This space will be occupied by the abstract, a summary of all the things that i have done in this thesis
 \end{abstract}
 
 \tableofcontents
 
-\include{introduction}
+\include{content/introduction}
 
-\include{background}
+\include{content/background}
 
-\include{related}
+\include{content/related}
 
-\include{method}
+\include{content/method}
 
-\include{results}
+\include{content/results}
 
-\include{conclusion}
+\include{content/conclusion}
 
 % Bibliography using biber; comment this and uncomment the following lines to use bibtex instead
 \printbibliography

@@ -1,0 +1,4 @@
+{
+  "credStore": "desktop.exe",
+  "credsStore": "desktop.exe"
+}

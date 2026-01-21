@@ -46,7 +46,7 @@ services:
         build:
             context: ./ghidra_bench
             dockerfile: Dockerfile
-        user: "${UID_GID}"
+        #user: "${UID_GID}"
         depends_on:
             llm-server:
                 condition: service_healthy

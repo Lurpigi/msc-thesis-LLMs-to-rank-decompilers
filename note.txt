@@ -429,3 +429,20 @@ LAB_001011e5:                         //block6
   putchar(L'6');                      //block6
   return;                             //block6
 }
+
+
+llm
+
+
+https://docs.api.nvidia.com/nim/reference/qwen-qwen2_5-coder-7b-instruct-infer
+https://docs.aimlapi.com/api-references/text-models-llm/meta/meta-llama-3.1-8b-instruct-turbo
+
+# Temperature ($T$): This parameter scales the logits before the softmax function.$T < 1.0$: Sharpens the distribution, exaggerating the difference between high and low probability tokens.
+# This effectively reduces the "entropy" or randomness of the system.$T > 1.0$: Flattens the distribution, allowing lower probability tokens to be selected.Domain Implication:
+# Code generation models (Qwen, DeepSeek) generally require low entropy ($T \approx 0.1$) because programming languages have strict syntactic rules where "creativity" equates to syntax errors.
+# 2 Conversational models (Llama 3.1) benefit from higher entropy ($T \approx 0.6$) to produce more natural, varied human speech.6Nucleus Sampling (Top-$P$): This strategy truncates the tail of the distribution.
+# The model considers only the smallest set of top tokens whose cumulative probability exceeds $P$.
+# This is generally safer than Temperature for controlling hallucinations, as it dynamically adapts to the model's confidence. If the model is unsure (flat distribution),
+# Top-$P$ includes more options. If sure (sharp distribution), it includes fewer.Stop Token Handling: This is the most frequent point of failure in production systems.
+# Models are trained to emit a specific token to signal the end of a turn. If the inference engine does not recognize this specific token ID, the model will continue generating,
+# often hallucinating a new user prompt and answering it, effectively talking to itself.7

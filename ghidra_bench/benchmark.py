@@ -1,4 +1,5 @@
 import os
+import random
 import subprocess
 import requests
 import concurrent.futures
@@ -6,6 +7,8 @@ import shutil
 import json
 import sys
 import re
+import lizard
+import random
 
 # CONFIGURATION
 GHIDRA_REPO = "https://github.com/NationalSecurityAgency/ghidra"
@@ -19,6 +22,7 @@ LLM_API_URL = os.environ.get("LLM_API_URL", "http://localhost:8900")
 # LLM_API_GEN = f"{LLM_API_URL}/generate"
 LLM_API_SCORE = f"{LLM_API_URL}/score"
 MAX_WORKERS = int(os.environ.get("GHIDRA_WORKERS", 4))
+GRADLE_INSTALL_ROOT = "/opt/gradle"
 MODELS_TO_BENCHMARK = []
 
 
@@ -29,8 +33,9 @@ def print_time(info=""):
 
 
 def run_command(cmd, cwd=None, env=None, input_text=None):
+    verbose = 0
     # subprocess.check_call(cmd, shell=True, cwd=cwd, env=env)
-    if os.environ.get("VERBOSE"):
+    if verbose:
         print(f"[CMD] Executing: {cmd}")
     sys.stdout.flush()
 
@@ -45,15 +50,84 @@ def run_command(cmd, cwd=None, env=None, input_text=None):
         text=True                  # Decode bytes to string
     )
 
-    if os.environ.get("VERBOSE"):
+    if verbose:
         if process.stdout:
             print(process.stdout)
 
     if process.returncode != 0:
         print(f"[FATAL] Command failed with return code {process.returncode}")
-        if not os.environ.get("VERBOSE") and process.stdout:
+        if not verbose and process.stdout:
             print(process.stdout)
         raise subprocess.CalledProcessError(process.returncode, cmd)
+
+
+def get_ghidra_properties(repo_dir):
+    """Reads application.properties to get Java and Gradle versions."""
+    prop_path = os.path.join(repo_dir, "Ghidra", "application.properties")
+    props = {
+        "java": "17",  # Default fallback
+        "gradle": "7.3"  # Default fallback
+    }
+
+    if not os.path.exists(prop_path):
+        print(f"[WARN] {prop_path} not found. Using defaults.")
+        return props
+
+    try:
+        with open(prop_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith("application.java.min="):
+                    props["java"] = line.split("=")[1].strip()
+                elif line.startswith("application.gradle.min="):
+                    props["gradle"] = line.split("=")[1].strip()
+    except Exception as e:
+        print(f"[ERR] Failed to read properties: {e}")
+
+    return props
+
+
+def ensure_gradle(gradle_version):
+    """Ensures the specified Gradle version is installed and returns the path to the binary."""
+    gradle_dir = os.path.join(GRADLE_INSTALL_ROOT, f"gradle-{gradle_version}")
+    gradle_bin = os.path.join(gradle_dir, "bin", "gradle")
+
+    if os.path.exists(gradle_bin):
+        return gradle_bin
+
+    print(f"[INFO] Installing Gradle {gradle_version}...")
+
+    os.makedirs(GRADLE_INSTALL_ROOT, exist_ok=True)
+
+    zip_name = f"gradle-{gradle_version}-bin.zip"
+    url = f"https://services.gradle.org/distributions/{zip_name}"
+    zip_path = os.path.join(GRADLE_INSTALL_ROOT, zip_name)
+
+    run_command(f"wget -q {url} -O {zip_path}")
+    run_command(f"unzip -q {zip_path} -d {GRADLE_INSTALL_ROOT}")
+
+    return gradle_bin
+
+
+def set_java_home(java_version):
+    """Sets JAVA_HOME environment variable based on version."""
+    java_dir = os.path.join(
+        # overkill but its cool
+        "/usr", "lib", "jvm", f"java-{java_version}-openjdk-amd64")
+    print("[JAVA] Setting JAVA_HOME to", java_dir)
+    if not os.path.exists(java_dir):
+        try:
+            run_command(
+                f"apt-get update &&apt-get install -y openjdk-{java_version}-jdk", "/")
+        except Exception as e:
+            print(f"[ERR] Failed to install OpenJDK {java_version}: {e}")
+            raise ValueError("Unsupported Java version")
+    # check now if exists
+    if not os.path.exists(java_dir):
+        raise ValueError("ERROR DOWNLOADING JAVA")
+    os.environ["JAVA_HOME"] = java_dir
+    os.environ["PATH"] = os.environ["JAVA_HOME"] + \
+        "/bin:" + os.environ["PATH"]
 
 
 def setup_ghidra_version(tag_or_pr, is_pr=False):
@@ -78,6 +152,8 @@ def setup_ghidra_version(tag_or_pr, is_pr=False):
 
     cwd = GHIDRA_REPO_DIR
 
+    run_command("rm -rf build/dist", cwd=cwd)
+
     if os.path.exists(GHIDRA_REPO_DIR):
         print(
             f"[INFO] Using pre-built Ghidra template from {GHIDRA_REPO_DIR}...")
@@ -96,24 +172,42 @@ def setup_ghidra_version(tag_or_pr, is_pr=False):
     else:
         run_command(f"git checkout {tag_or_pr}", cwd=cwd)
 
-    print(f"[BUILD] Building Ghidra for {tag_or_pr} (this takes time)...")
-    gradlew_path = os.path.join(cwd, "gradlew")
-    if not os.path.exists(gradlew_path):
-        print(
-            f"[FATAL] gradlew not found! - Ghidra can't be built for {tag_or_pr}.")
-        print_time(f"[SETUP] Failed setting up Ghidra for {tag_or_pr}")
-        raise FileNotFoundError("gradlew not found in Ghidra repo")
+    if os.path.exists(os.path.join(cwd, "gradlew")):
+        print("[JAVA] Using Java 21 for modern Ghidra")
+        set_java_home(21)
+        gradle_cmd = "./gradlew"
+    else:
+        props = get_ghidra_properties(cwd)
+        req_java = props["java"]
+        req_gradle = props["gradle"]
+        print(f"[JAVA] Using Java {req_java} for legacy Ghidra")
+        set_java_home(req_java)
+        gradle_cmd = ensure_gradle(req_gradle)
 
-    # run_command("./gradlew -I gradle/support/fetchDependencies.gradle", cwd=cwd)
-    run_command("./gradlew buildGhidra --no-daemon -x test -x integrationTest -x javadoc -x check -x ip -x createJavadocs -x createJsondocs -x zipJavadocs ", cwd=cwd)
+    print(f"[BUILD] Building Ghidra for {tag_or_pr} (this takes time)...")
+
+    run_command(
+        f"{gradle_cmd} -I gradle/support/fetchDependencies.gradle {'init' if gradle_cmd != './gradlew' else ''}", cwd=cwd)
+    run_command(f"{gradle_cmd} buildGhidra --build-cache --no-daemon -x test -x integrationTest -x javadoc -x check -x ip -x createJavadocs -x createJsondocs -x zipJavadocs", cwd=cwd)
 
     dist_dir = os.path.join(cwd, "build", "dist")
     for f in os.listdir(dist_dir):
         if f.endswith(".zip"):
+            print(f"[BUILD] Found build artifact: {f}")
             zip_path = os.path.join(dist_dir, f)
 
+            # delete all files in extracted dir
+            run_command(f"rm -rf \"{GHIDRA_EXTRACTED_DIR}/*\"", cwd="/")
+
             run_command(
-                f"unzip -o -q {zip_path} -d {GHIDRA_EXTRACTED_DIR}", cwd=dist_dir)
+                f"bsdtar -xf \"{zip_path}\" -s'|^ghidra_[^/]*/||' -C \"{GHIDRA_EXTRACTED_DIR}\"", cwd=dist_dir)
+
+            # inner_folders = [d for d in os.listdir(GHIDRA_EXTRACTED_DIR) if os.path.isdir(
+            #     os.path.join(GHIDRA_EXTRACTED_DIR, d))]
+            # if not inner_folders:
+            #     raise Exception(
+            #         "Unzip successful but no folder found inside zip!")
+
             ghidra_folder = GHIDRA_EXTRACTED_DIR
 
             # headless = os.path.join(ghidra_folder, "support", "analyzeHeadless")
@@ -131,7 +225,8 @@ def process_binary_task(binary, ghidra_home, version_tag):
     bin_path = os.path.join(BINARIES_DIR, binary)
     script_path = os.path.abspath("scripts")
 
-    unique_proj_dir = os.path.join(OUTPUT_DIR, f"proj_{version_tag}_{binary}")
+    unique_proj_dir = os.path.join(
+        OUTPUT_DIR, "decomp", f"proj_{version_tag}_{binary}")
     if not os.path.exists(unique_proj_dir):
         os.makedirs(unique_proj_dir)
 
@@ -143,17 +238,28 @@ def process_binary_task(binary, ghidra_home, version_tag):
     print(
         f"[INFO] [Parallel] Processing {binary} with version {version_tag}...")
 
-    cmd = (
-        f"{ghidra_home}/support/pyghidraRun --headless {unique_proj_dir} temp_{binary} "
-        f"-deleteProject "
-        f"-import {bin_path} -overwrite "
-        f"-scriptPath {script_path} -postScript extract.py "
-    )
-
     try:
+        cmd = (
+            f"chmod +x {ghidra_home}/support/pyghidraRun && "
+            f"{ghidra_home}/support/pyghidraRun --headless {unique_proj_dir} temp_{binary} "
+            f"-deleteProject "
+            f"-import {bin_path} -overwrite "
+            f"-scriptPath {script_path} -postScript extract.py "
+        )
         run_command(cmd, env=env, input_text="n\n")
     except Exception as e:
-        print(f"[ERR] Failed processing {binary}: {e}")
+        try:
+            print(f"[INFO] Falling back to analyzeHeadless for {binary}...")
+            cmd = (
+                f"chmod +x {ghidra_home}/support/analyzeHeadless && "
+                f"{ghidra_home}/support/analyzeHeadless {unique_proj_dir} temp_{binary} "
+                f"-deleteProject "
+                f"-import {bin_path} -overwrite "
+                f"-scriptPath {script_path} -postScript extract.py "
+            )
+            run_command(cmd, env=env, input_text="n\n")
+        except Exception as e:
+            print(f"[ERR] Failed processing {binary}: {e}")
     finally:
         if os.path.exists(unique_proj_dir):
             shutil.rmtree(unique_proj_dir, ignore_errors=True)
@@ -257,27 +363,68 @@ def get_llm_qualitative_analysis(base_code, pr_code, model_id):
         return {"error": str(e)}
 
 
-def evaluate_with_llm(base_data, pr_data, model_id="llama3.2-1b", base_metrics_cache=None):
+def get_cyclomatic_complexity(code_snippet):
+    """
+    Calculates the Cyclomatic Complexity (CCN) of a C function string using lizard.
+    Returns 0 if parsing fails.
+    """
+    try:
+        analysis = lizard.analyze_file.analyze_source_code(
+            "dummy_file.c", code_snippet)
+        if analysis.function_list:
+            return analysis.function_list[0].cyclomatic_complexity
+    except Exception as e:
+        print(f"[WARN] Lizard complexity check failed: {e}")
+    return 0
+
+
+def evaluate_with_llm(base_data, pr_data, model_id, test_binary_name, base_metrics_cache, MAX_SAMPLES=50):
     """Creates the prompt, calculates metrics, and calls the Flask server"""
     report = []
-    if base_metrics_cache is None:
-        base_metrics_cache = {}
 
     print_time("[EVAL] Starting LLM-based evaluation with model " + model_id)
 
-    for func_name, base_code in base_data.items():
-        pr_code = pr_data.get(func_name)
-        if not pr_code:
+    # 1. Identify common functions
+    all_funcs = list(set(base_data.keys()) & set(pr_data.keys()))
+
+    candidates = []
+
+    print_time(
+        f"[PRE-PROCESS] Analyzing complexity for {len(all_funcs)} functions...")
+
+    for func_name in all_funcs:
+        base_code = base_data[func_name]
+        pr_code = pr_data[func_name]
+
+        # Fast Skip
+        if base_code == pr_code:
             continue
 
-        # no change
-        if base_code.strip() == pr_code.strip():
-            # print(f"[SKIP] Function {func_name} is identical.")
-            continue
+        complexity = get_cyclomatic_complexity(pr_code)
+        candidates.append((func_name, complexity))
+
+    print_time(
+        f"[PRE-PROCESS] Calculated complexity for all changed functions.")
+    candidates.sort(key=lambda x: x[1], reverse=True)
+
+    top_candidates = candidates[:MAX_SAMPLES]
+
+    print_time(
+        f"[PRE-PROCESS] Selected top {len(top_candidates)} functions with highest complexity (Max CCN: {top_candidates[0][1] if top_candidates else 0})")
+
+    print("number of 0 complexity functions: ", len(
+        [1 for _, ccn in top_candidates if ccn == 0]))
+    print("total functions: ", len(candidates))
+
+    # 5. Evaluate the selected functions
+    for func_name, ccn_score in top_candidates:
+
+        base_code = base_data[func_name]
+        pr_code = pr_data[func_name]
 
         print(f"[EVAL] Evaluating change in {func_name}")
 
-        cache_key = (func_name, model_id)
+        cache_key = (func_name, model_id, test_binary_name)
         if cache_key in base_metrics_cache:
             base_metrics = base_metrics_cache[cache_key]
             # print(f"[CACHE] Using cached metrics for {func_name}")
@@ -300,6 +447,7 @@ def evaluate_with_llm(base_data, pr_data, model_id="llama3.2-1b", base_metrics_c
         print_time(f"Finished qualitative analysis for {func_name}")
 
         entry = {
+            "binary": test_binary_name,
             "function": func_name,
             "metrics": {
                 "base_ppl": base_metrics['perplexity'],
@@ -325,21 +473,59 @@ def main(prs_number=None):
     # pr_number = "8635"#"8718"#"8718"
     print_time("[START] Starting main process")
 
-    base_metrics_cache = {}
     base_headless = setup_ghidra_version("master")
-    extract_decompilation(base_headless, "base")
-    final_report = []
 
-    for pr_number in prs_number:
+    test_binary_name = None
+    for item in os.listdir(BINARIES_DIR):
+        if os.path.isfile(os.path.join(BINARIES_DIR, item)) and not item.startswith('.'):
+            test_binary_name = item
+            break
+
+    if test_binary_name:
+        base_json_path = os.path.join(
+            OUTPUT_DIR, "decomp", f"{test_binary_name}_base.json")
+        if os.path.exists(base_json_path):
+            print(f"[SKIP] Base already processed. Skipping...")
+        else:
+            extract_decompilation(base_headless, "base")
+    else:
+        print("[FATAL] No binary found in BINARIES_DIR.")
+        return
+
+    final_report = []
+    base_metrics_cache = {}
+    for i, pr_number in enumerate(prs_number):
         print("Timestamp: ", subprocess.getoutput("date"))
         print(f"[PROCESSING] PR #{pr_number}")
-        try:
-            pr_headless = setup_ghidra_version(pr_number, is_pr=True)
-        except FileNotFoundError as e:
-            print(f"[ERROR] {e}")
-            continue
-        extract_decompilation(pr_headless, "pr_"+pr_number)
+        print_time(f"[PROCESSING] Starting PR #{pr_number}")
 
+        # Check if PR has already been processed
+        pr_json_path = os.path.join(
+            OUTPUT_DIR, "decomp", f"{test_binary_name}_pr_{pr_number}.json")
+        if os.path.exists(pr_json_path):
+            print(f"[SKIP] PR #{pr_number} already processed. Skipping...")
+        else:
+            continue
+        # TODO: enable again
+            # try:
+            #     pr_headless = setup_ghidra_version(pr_number, is_pr=True)
+            #     extract_decompilation(pr_headless, f"pr_{pr_number}")
+            # except Exception as e:
+            #     print(f"[ERROR] {e}")
+            #     # if not i == len(prs_number) - 1: i dont remember why i put this
+            #     continue
+
+        pr_report_path = os.path.join(
+            OUTPUT_DIR, "reports", f"{pr_number}.json")
+        if os.path.exists(pr_report_path):
+            print(f"[SKIP] PR #{pr_number} already has a report. Skipping...")
+            try:
+                with open(pr_report_path, 'r') as f:
+                    final_report.append(json.load(f))
+            except json.JSONDecodeError:
+                print(
+                    f"[WARNING] Report for PR #{pr_number} was empty or corrupted. Re-processing might be needed.")
+            continue
         test_binary_name = None
         results = {model_id: [] for model_id in MODELS_TO_BENCHMARK}
         try:
@@ -348,16 +534,14 @@ def main(prs_number=None):
                     if os.path.isfile(os.path.join(BINARIES_DIR, item)) and not item.startswith('.'):
                         test_binary_name = item
                         base_json_path = os.path.join(
-                            OUTPUT_DIR, f"{test_binary_name}_base.json")
+                            OUTPUT_DIR, "decomp", f"{test_binary_name}_base.json")
                         pr_json_path = os.path.join(
-                            OUTPUT_DIR, f"{test_binary_name}_pr_{pr_number}.json")
+                            OUTPUT_DIR, "decomp", f"{test_binary_name}_pr_{pr_number}.json")
 
                         if not os.path.exists(base_json_path) or not os.path.exists(pr_json_path):
                             print(
-                                "[FATAL] Decompilation output files not found. Check Ghidra headless run.")
-                            print(f"Expected Base: {base_json_path}")
-                            print(f"Expected PR: {pr_json_path}")
-                            return
+                                f"[SKIP] Base or PR decompilation JSON not found, skipping for {test_binary_name} - {pr_number}.")
+                            continue
 
                         with open(base_json_path, 'r') as f:
                             base_data = json.load(f)
@@ -371,30 +555,34 @@ def main(prs_number=None):
                         #     return
 
                         results[model_id].extend(evaluate_with_llm(
-                            base_data, pr_data, model_id, base_metrics_cache))
+                            base_data, pr_data, model_id, test_binary_name, base_metrics_cache))
 
-            if not test_binary_name:
-                print("[FATAL] No binary found in BINARIES_DIR.")
-                return
-        except FileNotFoundError:
-            print(f"[FATAL] BINARIES_DIR ({BINARIES_DIR}) not found.")
+        except Exception as e:
+            print(f"[FATAL] {e}.")
             return
 
         # mean results
         mean_delta = sum(entry['metrics']['delta_ppl'] for entry in results[model_id]
                          ) / len(results[model_id]) if results[model_id] else 0
+        mean_perplexity_base = sum(entry['metrics']['base_ppl'] for entry in results[model_id]
+                                   ) / len(results[model_id]) if results[model_id] else 0
+        mean_perplexity_pr = sum(entry['metrics']['pr_ppl'] for entry in results[model_id]
+                                 ) / len(results[model_id]) if results[model_id] else 0
         print(
-            f"[FINAL RESULT] Mean delta perplexity across all functions: {mean_delta:.2f}")
-        print(
-            f"[FINAL RESULT] Overall improvement: {'YES' if mean_delta < 0 else 'NO' if mean_delta > 0 else 'NO CHANGE'}")
+            f"[FINAL RESULT] Overall improvement across all prs: {'YES' if mean_delta < 0 else 'NO' if mean_delta > 0 else 'NO CHANGE'}")
 
-        print_time(f"[PROCESSING] Finished PR #{pr_number}")
+        print_time(f"[PROCESSING] Finished model {model_id}")
 
-        final_report.append({
-            "pr_number": pr_number,
+        rep = {
+            "pr": pr_number,
             "mean_delta_perplexity": mean_delta,
+            "mean_perplexity_base": mean_perplexity_base,
+            "mean_perplexity_pr": mean_perplexity_pr,
             "results": results
-        })
+        }
+        final_report.append(rep)
+        with open(os.path.join(OUTPUT_DIR, "reports", f"{pr_number}.json"), "w") as f:
+            json.dump(rep, f, indent=2)
 
     with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
         json.dump(final_report, f, indent=2)
@@ -426,8 +614,8 @@ def fetch_decompiler_prs():
             items = data.get('items', [])
             pr_numbers = [str(item['number']) for item in items]
             print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
-            return pr_numbers
-            # return ['8834']
+            return pr_numbers  # 5554, '8834']  # pr_numbers
+            # return ['3299', '8597']
         elif response.status_code == 403:
             print("[WARN] GitHub API rate limit exceeded or access denied.")
             return []

@@ -1,9 +1,10 @@
 from flask import Flask, request, jsonify
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import torch
 import gc
 
 import unittest
+import threading
 
 from huggingface_hub import snapshot_download
 
@@ -30,6 +31,7 @@ current_model_id = None
 model = None
 tokenizer = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model_lock = threading.Lock()
 
 
 def download_all_models():
@@ -53,18 +55,25 @@ def download_all_models():
 def unload_current_model():
     global model, tokenizer, current_model_id
     if model is not None:
-        try:
-            del model
-            del tokenizer
-        except NameError:
-            pass
+        model = None
 
-        gc.collect()
+    if tokenizer is not None:
+        tokenizer = None
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+    gc.collect()
 
-        current_model_id = None
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+        torch.cuda.synchronize()
+
+    gc.collect()
+
+    current_model_id = None
+    print("[CLEANUP] GPU memory cleared.")
 
 
 def load_model(model_key):
@@ -86,20 +95,20 @@ def load_model(model_key):
     model_id = MODELS_CONFIG[model_key]
 
     try:
-        # Gemma 2 strongly prefers BFloat16. Others tolerate Float16.
-        if "gemma" in model_key.lower():
-            dtype = torch.bfloat16
-        else:
-            dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=torch.bfloat16
+        )
 
         tokenizer = AutoTokenizer.from_pretrained(
             model_id, trust_remote_code=True)
 
-        # device_map="auto" handles VRAM distribution for large models
         model = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
-            dtype=dtype,
+            quantization_config=bnb_config,
             trust_remote_code=True
         )
 
@@ -109,6 +118,7 @@ def load_model(model_key):
 
     except Exception as e:
         print(f"Failed to load model {model_key}: {str(e)}")
+        unload_current_model()
         raise e
 
 
@@ -118,7 +128,7 @@ def get_generation_strategy(model_id, tokenizer):
     """
     # Default
     config = {
-        "max_new_tokens": 1024,
+        "max_new_tokens": 2048,
         "do_sample": True,
         "temperature": 0.7,
         "top_p": 0.9,
@@ -128,7 +138,6 @@ def get_generation_strategy(model_id, tokenizer):
     model_id_lower = model_id.lower()
 
     if "llama-3.1" in model_id_lower:
-        # Handle the <|eot_id|> (128009) issue
         terminators = [
             tokenizer.eos_token_id,
             tokenizer.convert_tokens_to_ids("<|eot_id|>")
@@ -149,7 +158,6 @@ def get_generation_strategy(model_id, tokenizer):
         })
 
     elif "deepseek" in model_id_lower:
-        # Optimized for Logic: Greedy Decoding
         config.update({
             "do_sample": False,
             "eos_token_id": tokenizer.eos_token_id
@@ -216,8 +224,6 @@ def compute_perplexity(inputs):
         "mean_logbits": torch.mean(target_log_probs).item() if target_log_probs.numel() > 0 else 0.0
     }
 
-# healtcheck docker
-
 
 @app.route('/', methods=['GET'])
 def health_check():
@@ -234,15 +240,15 @@ def score_text():
     data = request.json
     model_id = data.get('model_id', 'llama3.2-1b')  # Default
     text = data.get('text')
-
-    try:
-        load_model(model_id)
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
-            model.device)  # model.config.max_position_embeddings
-        stats = compute_perplexity(inputs)
-        return jsonify(stats)
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    with model_lock:
+        try:
+            load_model(model_id)
+            inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
+                model.device)  # model.config.max_position_embeddings
+            stats = compute_perplexity(inputs)
+            return jsonify(stats)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
 
 @app.route('/generate', methods=['POST'])
@@ -252,53 +258,53 @@ def generate():
     model_id = data.get('model_id', 'llama3.2-1b')  # Default
     if not user_prompt:
         return jsonify({"error": "Missing 'prompt' field"}), 400
+    with model_lock:
+        try:
+            load_model(model_id)
 
-    try:
-        load_model(model_id)
+            if not model or not tokenizer:
+                return jsonify({"error": "Model not loaded"}), 503
 
-        if not model or not tokenizer:
-            return jsonify({"error": "Model not loaded"}), 503
+            final_messages = preprocess_messages(model_id, user_prompt)
 
-        final_messages = preprocess_messages(model_id, user_prompt)
+            # print(f"[DEBUG] Final messages for {model_id}: {final_messages}")
 
-        # print(f"[DEBUG] Final messages for {model_id}: {final_messages}")
-
-        # add_generation_prompt=True adds the final token (e.g., <|start_header_id|>assistant) to signal the model to start generating.
-        prompt = tokenizer.apply_chat_template(
-            final_messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
-
-        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-        strategy = get_generation_strategy(model_id, tokenizer)
-
-        gen_params = {k: v for k, v in strategy.items() if v is not None}
-        # Remove sampling params if do_sample is False
-        if not gen_params.get("do_sample", True):
-            gen_params.pop("temperature", None)
-            gen_params.pop("top_p", None)
-            gen_params.pop("top_k", None)
-
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                **gen_params
+            # add_generation_prompt=True adds the final token (e.g., <|start_header_id|>assistant) to signal the model to start generating.
+            prompt = tokenizer.apply_chat_template(
+                final_messages,
+                tokenize=False,
+                add_generation_prompt=True
             )
 
-        # slice outputs to exclude the input prompt tokens
-        response_text = tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-        return jsonify({
-            "model": model_id,
-            "response": response_text,
-        })
+            strategy = get_generation_strategy(model_id, tokenizer)
 
-    except Exception as e:
-        print(f"Generation failed: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+            gen_params = {k: v for k, v in strategy.items() if v is not None}
+            # Remove sampling params if do_sample is False
+            if not gen_params.get("do_sample", True):
+                gen_params.pop("temperature", None)
+                gen_params.pop("top_p", None)
+                gen_params.pop("top_k", None)
+
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    **gen_params
+                )
+
+            # slice outputs to exclude the input prompt tokens
+            response_text = tokenizer.decode(
+                outputs[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+
+            return jsonify({
+                "model": model_id,
+                "response": response_text,
+            })
+
+        except Exception as e:
+            print(f"Generation failed: {str(e)}")
+            return jsonify({"error": str(e)}), 500
 
 
 class FlaskAppTests(unittest.TestCase):

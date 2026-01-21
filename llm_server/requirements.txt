@@ -4,3 +4,4 @@ accelerate
 scipy
 torch
 huggingface-hub
+bitsandbytes

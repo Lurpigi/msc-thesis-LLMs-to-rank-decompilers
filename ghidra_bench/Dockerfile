@@ -1,33 +1,29 @@
-FROM gradle:jdk21-jammy
+FROM ubuntu:22.04
 
 USER root
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    bison \
-    flex \
-    git \
-    unzip \
-    wget \
-    python3 \
-    python3-pip \
-    python3-venv \
+    openjdk-21-jdk \
+    git unzip wget \
+    libarchive-tools \
+    python3 python3-pip \
+    build-essential bison flex \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel build requests pyghidra
+RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel build requests pyghidra lizard
 
-RUN mkdir -p /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app/outputs /opt/gradle_cache && \
-    chown -R gradle:gradle /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app /opt/gradle_cache
+RUN mkdir -p /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app/outputs /opt/gradle_cache /opt/java_versions /opt/gradle_versions
+    #chown -R gradle:gradle /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app /opt/gradle_cache
 
 #SPEEDING UP GRADLE
 ENV GRADLE_USER_HOME=/opt/gradle_cache
 RUN echo "org.gradle.caching=true\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" > /opt/gradle_cache/gradle.properties
-RUN chown -R gradle:gradle /opt/gradle_cache
+#RUN chown -R gradle:gradle /opt
 
 RUN git config --system --add safe.directory /opt/ghidra_src
 
-USER gradle
+#USER gradle
 
 WORKDIR /opt
 
@@ -50,14 +46,18 @@ RUN mkdir -p /opt/ghidra-dist && \
 
 WORKDIR /app
 
-COPY --chown=gradle:gradle . /app
+#COPY --chown=gradle:gradle . /app
+COPY . /app
 
 ENV GHIDRA_GIT_PATH=/opt/ghidra_src
 ENV GHIDRA_EXTRACTED_PATH=/opt/ghidra_exe
 ENV GHIDRA_BENCH_OUTPUT=/app/outputs
 ENV PYTHONUNBUFFERED=1
 
-RUN mkdir -p /app/outputs && \
-    chown -R gradle:gradle /app/outputs
+RUN mkdir -p /app/outputs 
+    #chown -R gradle:gradle /app/outputs
 
+RUN mkdir -p /opt/ghidra_src/dependencies/flatRepo
+#RUN chmod -R a+w /app /opt /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /opt/gradle_cache /opt/ghidra_src/dependencies/flatRepo
 CMD ["python3", "benchmark.py"]
+#In ~/.docker/config.json change credsStore to credStore

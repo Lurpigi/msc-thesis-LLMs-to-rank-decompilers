@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, request, jsonify
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import torch
@@ -273,7 +274,9 @@ def generate():
             prompt = tokenizer.apply_chat_template(
                 final_messages,
                 tokenize=False,
-                add_generation_prompt=True
+                add_generation_prompt=True,
+                truncation=True,
+                max_length=4096  # model.config.max_position_embeddings
             )
 
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)

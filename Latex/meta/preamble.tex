@@ -78,7 +78,7 @@
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 
 \lstset{frame=tb,
-  language=Java,
+  language=C++,
   aboveskip=3mm,
   belowskip=3mm,
   showstringspaces=false,
@@ -94,3 +94,24 @@
   tabsize=3
 }
 \lstloadlanguages{Python,C++}
+
+\definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\definecolor{pcodebg}{rgb}{0.90,0.90,0.95}
+
+\lstdefinestyle{CStyle}{
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    frame=none,
+    numbers=left,
+}
+
+\lstdefinestyle{PCodeStyle}{
+    backgroundcolor=\color{pcodebg},
+    basicstyle=\ttfamily\scriptsize, % Smaller font for verbose P-Code
+    frame=none,
+    keywordstyle=\color{purple},
+}
+
+\usepackage{longtable}
+\usepackage{array}

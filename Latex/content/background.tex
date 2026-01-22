@@ -2,7 +2,7 @@
 \label{ch:background}
 
 
-summary of all the things
+summary of all the things ghidra + llm
 
 \section{The Ghidra Architecture}
 \label{sec:ghidra_arch}
@@ -139,37 +139,40 @@ The decompiler first aggregates P-code operations into \textbf{BasicBlocks} sequ
 and a single exit point (excluding internal calls). The \ac{CFG} is formed by the edges representing jumps and branches between these blocks. 
 Ghidra normalizes this graph to ensure a unique entry block, often inserting empty placeholder blocks to handle re-entrant loops or complex function entries.
 
-In this example we can see the basic blocks identified by Ghidra in the comments:
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\textwidth]{img/cfg1.png}
+    \caption{Control Flow Graph of a function}
+    \label{img:cfg1}
+\end{figure}
 
-\begin{lstlisting}
-    {
-  int a2_local;                       //block0
-  int a1_local;                       //block0
-  putchar(L'1');                      //block0
-  if ((a1 == 1) || (a2 != 2)) {       //block0 || //block1
-    putchar(L'2');                    //block2
-    if (a1 != a2) {                   //block2
-      putchar(L'4');                  //block3
-      goto LAB_001011e5;              //block3
-    }
-  }
-  else {
-    putchar(L'3');                    //block4
-  }
-  putchar(L'5');                      //block5
-LAB_001011e5:                         //block6
-  putchar(L'6');                      //block6
-  return;                             //block6
-}
+In this example we have the C code of the function described in \ref{img:cfg1} and its corresponding P-code representation \footnote{
+    P-codes varies during all phases of the decompilation process; due to optimization rules, dead code elimination, and other transformations, the P-code shown here are taken from the \texttt{collapseInternal()} method using \texttt{printRaw()} of the FlowBlock class.
+    The BasicBlock order may not correspond directly to the original source code order
+}.
 
-/*  TODO capire come stampare meglio
-Basic Block 4 0x001011b1-0x001011bb
-0x001011b6:33:	RSP(0x001011b6:33) = RSP(i) + #0xffffffffffffffe0
-0x001011b6:34:	*(ram,RSP(0x001011b6:33)) = #0x1011bb
-0x001011b6:6d:	u0x10000023:1(0x001011b6:6d) = *(ram,RSP(0x001011b6:33))
-0x001011b6:35:	call jputchar(free)(#0x33:4,u0x10000023:1(0x001011b6:6d))
-0x001011bb:36:	goto Block_5:0x001011db
-Basic Block 0 0x0010118d-0x001011a9
+\begin{longtable}{|p{0.30\linewidth}|p{0.65\linewidth}|}
+    \hline
+    \textbf{Source Code (C)} & \textbf{P-Code / Basic Blocks} \\ 
+    \hline
+    \endhead % Ripete l'intestazione se cambia pagina
+
+    % --- ROW 1 (Block 0) ---
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm} % Piccolo padding superiore
+        \begin{lstlisting}[style=CStyle]
+int a2_local;
+int a1_local;
+putchar(L'1');
+if ((a1 == 1)
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage} 
+    & 
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \textbf{\scriptsize Basic Block 0}
+        \begin{lstlisting}[style=PCodeStyle]
 0x0010118d:1:	RSP(0x0010118d:1) = RSP(i) + #0xfffffffffffffff8
 0x0010118d:2:	*(ram,RSP(0x0010118d:1)) = RBP(i)
 0x00101195:d:	u0x00004780(0x00101195:d) = RSP(i) + #0xfffffffffffffff4
@@ -184,23 +187,47 @@ Basic Block 0 0x0010118d-0x001011a9
 0x001011a5:18:	u0x00011e80:4(0x001011a5:18) = *(ram,u0x00004780(0x001011a5:17))
 0x001011a5:1e:	ZF(0x001011a5:1e) = u0x00011e80:4(0x001011a5:18) == #0x1:4
 0x001011a9:23:	goto Block_2:0x001011bd if (ZF(0x001011a5:1e) != 0) else Block_1:0x001011ab
-Basic Block 1 0x001011ab-0x001011af
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage} 
+    \\ \hline
+
+    % --- ROW 2 (Block 1) ---
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \begin{lstlisting}[style=CStyle]
+|| (a2 != 2)){
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    & 
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \textbf{\scriptsize Basic Block 1}
+        \begin{lstlisting}[style=PCodeStyle]
 0x001011ab:24:	u0x00004780(0x001011ab:24) = RSP(i) + #0xfffffffffffffff0
 0x001011ab:25:	u0x00011e80:4(0x001011ab:25) = *(ram,u0x00004780(0x001011ab:24))
 0x001011ab:2b:	ZF(0x001011ab:2b) = u0x00011e80:4(0x001011ab:25) != #0x2:4
 0x001011af:31:	goto Block_2:0x001011bd if (ZF(0x001011ab:2b) != 0) else Block_4:0x001011b1
-Basic Block 5 0x001011db-0x001011e0
-0x001011e0:38:	RSP(0x001011e0:38) = RSP(i) + #0xffffffffffffffe0
-0x001011e0:39:	*(ram,RSP(0x001011e0:38)) = #0x1011e5
-0x001011e0:6f:	u0x1000002c:1(0x001011e0:6f) = *(ram,RSP(0x001011e0:38))
-0x001011e0:3a:	call jputchar(free)(#0x35:4,u0x1000002c:1(0x001011e0:6f))
-Basic Block 6 0x001011e5-0x001011f1
-0x001011ea:3c:	RSP(0x001011ea:3c) = RSP(i) + #0xffffffffffffffe0
-0x001011ea:3d:	*(ram,RSP(0x001011ea:3c)) = #0x1011ef
-0x001011ea:71:	u0x10000035:1(0x001011ea:71) = *(ram,RSP(0x001011ea:3c))
-0x001011ea:3e:	call jputchar(free)(#0x36:4,u0x10000035:1(0x001011ea:71))
-0x001011f1:44:	return(#0x0)
-Basic Block 2 0x001011bd-0x001011cd
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    \\ \hline
+
+    % --- ROW 3 (Block 2) ---
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \begin{lstlisting}[style=CStyle]
+putchar(L'2');
+if (a1 != a2) {
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    & 
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \textbf{\scriptsize Basic Block 2}
+        \begin{lstlisting}[style=PCodeStyle]
 0x001011c2:46:	RSP(0x001011c2:46) = RSP(i) + #0xffffffffffffffe0
 0x001011c2:47:	*(ram,RSP(0x001011c2:46)) = #0x1011c7
 0x001011c2:69:	u0x10000011:1(0x001011c2:69) = *(ram,RSP(0x001011c2:46))
@@ -211,21 +238,117 @@ Basic Block 2 0x001011bd-0x001011cd
 0x001011ca:4e:	u0x00006a00:4(0x001011ca:4e) = *(ram,u0x00004780(0x001011ca:4d))
 0x001011ca:54:	ZF(0x001011ca:54) = u0x00011e80:4(0x001011c7:4a) == u0x00006a00:4(0x001011ca:4e)
 0x001011cd:59:	goto Block_3:0x001011cf if (ZF(0x001011ca:54) == 0) else Block_5:0x001011db
-Basic Block 3 0x001011cf-0x001011d9
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    \\ \hline
+
+    % --- ROW 4 (Block 3) ---
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \begin{lstlisting}[style=CStyle]
+putchar(L'4');
+goto LAB_001011e5;
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    & 
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \textbf{\scriptsize Basic Block 3}
+        \begin{lstlisting}[style=PCodeStyle]
 0x001011d4:5b:	RSP(0x001011d4:5b) = RSP(i) + #0xffffffffffffffe0
 0x001011d4:5c:	*(ram,RSP(0x001011d4:5b)) = #0x1011d9
 0x001011d4:6b:	u0x1000001a:1(0x001011d4:6b) = *(ram,RSP(0x001011d4:5b))
 0x001011d4:5d:	call jputchar(free)(#0x34:4,u0x1000001a:1(0x001011d4:6b))
 0x001011d9:5e:	goto Block_6:0x001011e5
-*/
-\end{lstlisting}
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    \\ \hline
+
+    % --- ROW 5 (Block 4) ---
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \begin{lstlisting}[style=CStyle]
+} else {
+  putchar(L'3');
+}
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    & 
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \textbf{\scriptsize Basic Block 4}
+        \begin{lstlisting}[style=PCodeStyle]
+0x001011b6:33:	RSP(0x001011b6:33) = RSP(i) + #0xffffffffffffffe0
+0x001011b6:34:	*(ram,RSP(0x001011b6:33)) = #0x1011bb
+0x001011b6:6d:	u0x10000023:1(0x001011b6:6d) = *(ram,RSP(0x001011b6:33))
+0x001011b6:35:	call jputchar(free)(#0x33:4,u0x10000023:1(0x001011b6:6d))
+0x001011bb:36:	goto Block_5:0x001011db
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    \\ \hline
+
+    % --- ROW 6 (Block 5) ---
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \begin{lstlisting}[style=CStyle]
+putchar(L'5');
+}
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    & 
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \textbf{\scriptsize Basic Block 5}
+        \begin{lstlisting}[style=PCodeStyle]
+0x001011e0:38:	RSP(0x001011e0:38) = RSP(i) + #0xffffffffffffffe0
+0x001011e0:39:	*(ram,RSP(0x001011e0:38)) = #0x1011e5
+0x001011e0:6f:	u0x1000002c:1(0x001011e0:6f) = *(ram,RSP(0x001011e0:38))
+0x001011e0:3a:	call jputchar(free)(#0x35:4,u0x1000002c:1(0x001011e0:6f))
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    \\ \hline
+
+    % --- ROW 7 (Block 6) ---
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \begin{lstlisting}[style=CStyle]
+LAB_001011e5:
+putchar(L'6');
+return;
+}
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    & 
+    \begin{minipage}[t]{\linewidth}
+        \vspace{1mm}
+        \textbf{\scriptsize Basic Block 6}
+        \begin{lstlisting}[style=PCodeStyle]
+0x001011ea:3c:	RSP(0x001011ea:3c) = RSP(i) + #0xffffffffffffffe0
+0x001011ea:3d:	*(ram,RSP(0x001011ea:3c)) = #0x1011ef
+0x001011ea:71:	u0x10000035:1(0x001011ea:71) = *(ram,RSP(0x001011ea:3c))
+0x001011ea:3e:	call jputchar(free)(#0x36:4,u0x10000035:1(0x001011ea:71))
+0x001011f1:44:	return(#0x0)
+        \end{lstlisting}
+        \vspace{1mm}
+    \end{minipage}
+    \\ \hline
+
+\end{longtable}
 
 Basicblocks are created in \texttt{flow.cc} by the function \texttt{FlowInfo::splitBasic()}. 
 The routine partitions the P-code instruction stream at control-flow boundaries: conditional and unconditional jumps, call sites that alter control flow, and return instructions.
 Each such instruction ends the current block and/or starts a new one (targets of jumps also begin blocks).
 
 \subsection{The Structuring Algorithm}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\label{sec:stralg}
 To transform the \ac{CFG} into C statements, Ghidra employs a structuring algorithm implemented in the 
 \texttt{ActionBlockStructure} class. The process involves identifying regions of the graph that match known schemas (or patterns) of control flow:
 
@@ -342,21 +465,97 @@ bool CollapseStructure::ruleBlockWhileDo(FlowBlock *bl)
 \end{lstlisting}
 
 Firstly is checked that the block has exactly two outgoing edges (a binary condition) and is not already part of a switch or a loop. 
-Then, for each outgoing edge, it checks if the clauseblock (the potential loop body) has exactly one incoming edge (from the condition block) and one outgoing edge (back to the condition block). 
+Then, for each outgoing edge, it checks if the clauseblock (the potential loop body) has exactly one incoming edge 
+(from the condition block) and one outgoing edge (back to the condition block). 
 If these conditions are met, it confirms the presence of a while-do loop structure.
 
-\subsection{The $for$ special case}
+A condition is considered complex when the basic block that computes it contains too many instructions to be cleanly represented within a single conditional expression.
+The method \texttt{BlockBasic::isComplex()} performs this check.
 
+Criteria: the algorithm counts the number of \textbf{statements} in the block:
+\begin{itemize}
+    \item A conditional jump (branch) counts as 1 statement.
+    \item CALL instructions count as 1.
+    \item Operations that produce outputs used only inside the block or marker instructions do not count, 
+    but if a variable is used many times or is tied to memory, it contributes to the count.
+    \item Threshold: if the total number of statements in the block exceeds 2, the block is considered complex.
+\end{itemize}
+
+The overflow syntax (or \texttt{f\_whiledo\_overflow}) is a specific state assigned to a \texttt{BlockWhileDo} when its loop control condition is determined to be complex.
+It indicates that, although a logical \texttt{while} structure exists, the conditional block is too long or complicated to be emitted as a single boolean expression \texttt{while(condition)}.
+Instead of printing \texttt{while(<complex condition>)\{...\}}, the decompiler emits an alternative form, typically an infinite loop with an internal \texttt{break} to preserve semantics.
+
+\subsection{The $for$ special case}
+As can be seen in section \ref{sec:stralg}, the Ghidra decompiler does not have an explicit rule to recognize \texttt{for} loops. 
+Indeed, \texttt{for} loops in Ghidra are treated as special cases of \texttt{while-do} loops\footnote{The transformation is triggered only if the architecture option \texttt{analyze\_for\_loops} is enabled.}:
+The check is performed in the method \texttt{BlockWhileDo::finalTransform}, this method proceeds only if the block is not marked with overflow syntax.
+\begin{enumerate}
+    \item \textbf{Loop variable identification:} \texttt{findLoopVariable} is called to search for a variable controlling the iteration (e.g., \texttt{i} in \texttt{i < 10}). 
+    This variable must appear in the exit condition and be modified within the loop body.
+    \item \textbf{Initializer identification:} \texttt{findInitializer} searches for the instruction that initializes the variable (e.g., \texttt{i = 0}) 
+    in the block immediately preceding the loop.
+    \item \textbf{Opcode relocation:} If both an iterator (\texttt{iterateOp}) and an initializer (\texttt{initializeOp}) are found, 
+    the decompiler physically moves the P-code operations (using \texttt{opUninsert} / \texttt{opInsertAfter}) so they lie adjacent to the loop boundaries, 
+    preparing them for syntactic emission.
+    \item \textbf{Non-printing marking:} In \texttt{finalizePrinting} these operations are marked with \texttt{opMarkNonPrinting}. 
+    This instructs the emitter not to print them as separate statements inside the body or before the loop, but to include them in the \texttt{for(...)} header.
+\end{enumerate}
+
+\begin{lstlisting}
+{
+  // Simplification style
+  BlockGraph::finalTransform(data);
+  if (!data.getArch()->analyze_for_loops) return;
+  if (hasOverflowSyntax()) 
+      return; // Still too complex
+  FlowBlock *copyBl = getFrontLeaf();
+  if (copyBl == (FlowBlock *)0) return;
+  BlockBasic *head = (BlockBasic *)copyBl->subBlock(0);
+  if (head->getType() != t_basic) return;
+  PcodeOp *lastOp = getBlock(1)->lastOp();	// There must be a last op in body, for there to be an iterator statement
+  if (lastOp == (PcodeOp *)0) return;
+  BlockBasic *tail = lastOp->getParent();
+  if (tail->sizeOut() != 1) return;
+  if (tail->getOut(0) != head) return;
+  PcodeOp *cbranch = getBlock(0)->lastOp();
+  if (cbranch == (PcodeOp *)0 || cbranch->code() != CPUI_CBRANCH) return;
+  if (lastOp->isBranch()) {			// Convert lastOp to -point- iterateOp must appear after
+    lastOp = lastOp->previousOp();
+    if (lastOp == (PcodeOp *)0) return;
+  }
+
+  findLoopVariable(cbranch, head, tail, lastOp);
+  if (iterateOp == (PcodeOp *)0) return;
+
+  if (iterateOp != lastOp) {
+    data.opUninsert(iterateOp);
+    data.opInsertAfter(iterateOp, lastOp);
+  }
+
+  // Try to set up initializer statement
+  lastOp = findInitializer(head, tail->getOutRevIndex(0));
+  if (lastOp == (PcodeOp *)0) return;
+  if (!initializeOp->isMoveable(lastOp)) {
+    initializeOp = (PcodeOp *)0;		// Turn it off
+    return;
+  }
+  if (initializeOp != lastOp) {
+    data.opUninsert(initializeOp);
+    data.opInsertAfter(initializeOp, lastOp);
+  }
+}
+\end{lstlisting}
+
+If all conditions are met, the decompiler effectively transforms the \texttt{while-do} structure into a \texttt{for} loop by relocating and marking the relevant P-code operations.
 
 \subsection{The $Goto$ Problem}
 A significant limitation of this approach arises when the \ac{CFG} contains irreducible control flow 
 that does not match any predefined schema. (This is common in binaries optimized with aggressive compiler 
 techniques or those containing manual assembly optimizations).
 
-When \texttt{ActionBlockStructure} fails to find a matching pattern, the jump inside the FlowBlock remains and it will be represented as a \textbf{goto} 
+When \texttt{ActionBlockStructure} fails to find a matching pattern, the jump inside the FlowBlock remains and it 
+will be represented as a \textbf{goto} \footnote{Or a \texttt{break}/\texttt{continue} if it jumps out of/into a loop structure}.
 statement to preserve semantic correctness, this phenomenon significantly degrades the readability of the output.
-Ghidra's reliance on generic schema matching means that it often produces convoluted \texttt{while(true)} 
-loops with internal \texttt{break}s or \texttt{goto}s when faced with complex control flow.
 
 \section{Code Emission}
 \label{sec:c_emission}

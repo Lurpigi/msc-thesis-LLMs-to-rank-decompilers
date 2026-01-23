@@ -4,8 +4,8 @@
 
 summary of all the things ghidra + llm
 
-\section{The Ghidra Architecture}
-\label{sec:ghidra_arch}
+\section{Ghidra}
+\label{sec:ghidra}
 
 Ghidra, released by the \ac{NSA} in 2019, employs a bifurcated design
 that separates the user-facing interaction layer from the core analysis engine. This separation is
@@ -139,7 +139,7 @@ The decompiler first aggregates P-code operations into \textbf{BasicBlocks} sequ
 and a single exit point (excluding internal calls). The \ac{CFG} is formed by the edges representing jumps and branches between these blocks. 
 Ghidra normalizes this graph to ensure a unique entry block, often inserting empty placeholder blocks to handle re-entrant loops or complex function entries.
 
-\begin{figure}
+\begin{figure}[h]
     \centering
     \includegraphics[width=0.4\textwidth]{img/cfg1.png}
     \caption{Control Flow Graph of a function}
@@ -347,6 +347,16 @@ Basicblocks are created in \texttt{flow.cc} by the function \texttt{FlowInfo::sp
 The routine partitions the P-code instruction stream at control-flow boundaries: conditional and unconditional jumps, call sites that alter control flow, and return instructions.
 Each such instruction ends the current block and/or starts a new one (targets of jumps also begin blocks).
 
+The \ac{CFG} with the BasicBlocks can also be seen in ghidra by entering the \textbf{Display Function Graph} 
+window and enabling the \textbf{P-code} field in the layout of Instruction/Data (These Pcode are the final high-level Pcode). See figure \ref{img:cfg_ghidra}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/cfg_ghidra.png}
+    \caption{Control Flow Graph with P-code in Ghidra}
+    \label{img:cfg_ghidra}
+\end{figure}
+
 \subsection{The Structuring Algorithm}
 \label{sec:stralg}
 To transform the \ac{CFG} into C statements, Ghidra employs a structuring algorithm implemented in the 
@@ -478,12 +488,15 @@ Criteria: the algorithm counts the number of \textbf{statements} in the block:
     \item CALL instructions count as 1.
     \item Operations that produce outputs used only inside the block or marker instructions do not count, 
     but if a variable is used many times or is tied to memory, it contributes to the count.
-    \item Threshold: if the total number of statements in the block exceeds 2, the block is considered complex.
 \end{itemize}
+If the total number of statements in the block exceeds 2, the block is considered complex.
 
 The overflow syntax (or \texttt{f\_whiledo\_overflow}) is a specific state assigned to a \texttt{BlockWhileDo} when its loop control condition is determined to be complex.
 It indicates that, although a logical \texttt{while} structure exists, the conditional block is too long or complicated to be emitted as a single boolean expression \texttt{while(condition)}.
 Instead of printing \texttt{while(<complex condition>)\{...\}}, the decompiler emits an alternative form, typically an infinite loop with an internal \texttt{break} to preserve semantics.
+
+After identifying a structure in the next iteration of the main loop in \texttt{collapseInternal()}, the matched BasicBlocks are replaced with a single FlowBlock representing the high-level construct (e.g., a \texttt{BlockWhileDo} for a while loop). 
+This new block encapsulates the original blocks, maintaining their internal P-code operations while providing a structured interface for further processing and eventual emission.
 
 \subsection{The $for$ special case}
 As can be seen in section \ref{sec:stralg}, the Ghidra decompiler does not have an explicit rule to recognize \texttt{for} loops. 
@@ -501,7 +514,10 @@ The check is performed in the method \texttt{BlockWhileDo::finalTransform}, this
     This instructs the emitter not to print them as separate statements inside the body or before the loop, but to include them in the \texttt{for(...)} header.
 \end{enumerate}
 
+
 \begin{lstlisting}
+
+void BlockWhileDo::finalTransform(Funcdata &data)
 {
   // Simplification style
   BlockGraph::finalTransform(data);
@@ -554,7 +570,7 @@ that does not match any predefined schema. (This is common in binaries optimized
 techniques or those containing manual assembly optimizations).
 
 When \texttt{ActionBlockStructure} fails to find a matching pattern, the jump inside the FlowBlock remains and it 
-will be represented as a \textbf{goto} \footnote{Or a \texttt{break}/\texttt{continue} if it jumps out of/into a loop structure}.
+will be represented as a \textbf{goto}\footnote{Or a \texttt{break}/\texttt{continue} if it jumps out of/into a loop structure}.
 statement to preserve semantic correctness, this phenomenon significantly degrades the readability of the output.
 
 \section{Code Emission}
@@ -576,6 +592,168 @@ sent to the Java frontend via the XML protocol. This structured data allows the 
 \ac{GUI} to provide interactive features—such as cross-referencing and dynamic renaming—since the UI 
 elements remain linked to the underlying \texttt{Varnode} and \texttt{HighVariable} objects.
 
-\section{LLM}
+\section{Large Language Models}
+\label{sec:llm}
+The advent of \ac{LLM} marks a fundamental discontinuity in the history of artificial intelligence and \ac{NLP}. It is not merely an increase in computational capacity, 
+but an ontological redefinition of how machines process, represent, and generate semantic information. 
+At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani et al., which enabled overcoming the sequential 
+limitations of previous \ac{RNN} and \ac{LSTM} architectures\cite{Paper:vaswani2023attentionneed}.
 
-\subsection{perplexity}
+\subsection{Transformer}
+The shift from recurrent architectures to the Transformer was motivated by the need for parallelization 
+and the handling of long-range dependencies. Whereas \ac{RNN}s processed tokens sequentially $(t_1, t_2, \dots, t_n)$, 
+accumulating error and dispersing the gradient over long sequences, the Transformer processes the entire sequence simultaneously, 
+relying entirely on the attention mechanism.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{img/ModalNet-21.png}
+    \caption{The Transformer - model architecture\cite{Paper:vaswani2023attentionneed}}
+    \label{img:transformer}
+\end{figure}
+
+As shown in figure \ref{img:transformer}, the Transformer architecture consists of an encoder-decoder structure, 
+where both components are composed of multiple layers of self-attention mechanisms and feed-forward neural networks.
+
+[...]
+
+Most of the state of art \ac{LLM}s use an architecture with only the decoder part,
+omitting the encoder entirely. This design choice is particularly suited for generative tasks, 
+where the model's primary function is to produce coherent and contextually relevant text based on a given input prompt.
+
+\subsection{Tokens}
+
+In \ac{LLM}s, text is processed in chunks called \textbf{tokens}. A token can represent a word, a subword, or even a single character, depending on the tokenization scheme used.
+The choice of tokenization method significantly impacts the model's performance, as it affects how the model interprets and generates text.\cite{Paper:Mullen2018}
+
+We can see an example using \myhref{https://tiktokenizer.vercel.app/}{tiktokenizer}, a webtool for visualizing tokenization for differents models, to tokenize a sentence:
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{img/tiktokenizer.png}
+    \caption{Tokenization example using tiktokenizer}
+    \label{img:tokenization}
+\end{figure}
+
+As shown in figure \ref{img:tokenization}, the sentence "Hi i am Timossi Luigi" is tokenized into a sequence of tokens.
+Each token corresponds to a specific integer ID in the model's vocabulary.
+
+For this example, for the model \texttt{gpt-4o} the token " i" corrisponds to the ID 575.
+The tokenization process is crucial for \ac{LLM}s, as it transforms raw text into a format that the model can process.
+Different models use different tokenization values or schemes like \ac{BPE}.
+
+In the tokens we count also the special tokens like \texttt{$<|im\_start|>$} that indicates boundaries for roles messages like system, assistant, or user.
+in this case the token \texttt{$<|im\_start|>$} corrisponds to "input message start" after that we have the role then the token "input message separator" the message and finally the token "input message end".
+different models use different special tokens or does not use them at all.
+
+\subsection{Softmax}
+The \texttt{Softmax} function is used as an output function in the last layer of a neural networks to transform a vector of real values into a probability distribution.(see figure \ref{img:transformer})
+This function is a generalization of the logistic function for more than two variables: for each component of the vector it computes the exponential 
+normalized by the sum of the exponentials of all components, producing in output a vector of the same dimension with values in the interval [0,1] whose sum is 1. \cite{site:baeldungWhatTemperature}
+
+\[softmax(y_{i}) = \frac{e^{y_{i}}}{\sum_{j=1}^{n}e^{y_{j}}} \]
+
+where $y = (y_{1}, y_{2}, .., y_{n})$ is an input vector and values $y_{i}, (i=\overline{1,n})$ are in range from $-\infty$ to $+\infty$.
+
+\section{Decoding}
+When the model generates text, it produces a vector of raw scores, called \textbf{logits}, for each
+token in the vocabulary at each timestep. These logits represent the unnormalized likeli-hood of each token being the next token in the sequence.
+By applying the \texttt{Softmax} function to these logits, the model obtains a probability distribution over the vocabulary;
+Once the probability distribution is computed, the model must select the next token. 
+This process, called decoding, can be influenced by different strategies such as:\cite{site:ibmFoundationModel}
+
+\begin{itemize}
+    \item \textbf{Greedy decoding}: always select the token with the highest probability, produces output that closely matches 
+    the most common language in the model's pretraining data and in your prompt text, which is desirable in less creative or fact-based use cases. 
+    This can cause the model to produce repetitive or generic output.
+    \item \textbf{Sampling decoding}: the model chooses a subset of tokens, and then one token is chosen randomly from this subset 
+    to be added to the output text. Sampling adds variability and randomness to the decoding process, 
+    which can be desirable in creative use cases. This can cause the model to produce unexpected or incorrect output
+\end{itemize}
+
+\subsection{Temperature}
+
+Temperature ($T$) is a hyperparameter that acts directly on the \texttt{Softmax} function. 
+The \texttt{softmax} function with temperature becomes:
+
+\[ softmax(y_{i}) = \frac{e^{ (\frac{y_{i}}{T}) }}{\sum_{j=1}^{n}e^{ (\frac{y_{j}}{T}) }} \]
+
+where $T > 0$ is the temperature parameter. The temperature modifies the distribution of probabilities over the tokens:
+
+\begin{itemize}
+    \item $T < 1$ (Cooling): Differences between logits are amplified. The token with the highest logit receives a probability close to 1. 
+    The distribution becomes 'peaked', reducing variety and increasing determinism. Useful for logical or mathematical tasks.
+    \item $T > 1$ (Heating): Differences are flattened. The distribution tends toward uniformity. Tokens with lower logits gain probability mass, 
+    increasing 'creativity' but also the risk of incoherence (hallucinations).
+    \item $T \to 0$: Equivalent to the \texttt{Greedy decoding}, where always the single most probable token is chosen.
+\end{itemize}
+
+Miklos and Rebeka (both Junior Research)\cite{site:poltextlabParametersExplained}, in their study on the impact of temperature on text generation have tested different temperature settings
+using OpenAI GPT-4.1 with the prompt \texttt{Why do researchers use control groups in experiments?}; They send two times the same prompt with different temperature settings and analyzed the outputs:
+
+\begin{itemize}
+    \item At $T=0.1$, the output was identical for both runs and both answers offered a clear, textbook-style explanation
+    \item At $T=1.4$, the outputs varied between runs, providing more expressive, creative answers with illustrative examples.
+    \item At $T=2$, the outputs became incoherent and nonsensical with grammatical errors, illogical statements, and gibberish characters.
+\end{itemize}
+
+These results highlight how much temperature settings influence the balance between coherence and creativity in \ac{LLM} outputs.
+
+Even with an optimal temperature, the long tail of the distribution (thousands of tokens with infinitesimal but nonzero probability) can introduce errors if sampled.
+To mitigate this, techniques like \texttt{Top-k} and \texttt{Top-p} sampling are employed.
+
+\subsection{Top-p and Top-k}
+Top-p (nucleus) sampling is a stochastic decoding strategy that at each generation step restricts sampling to the smallest
+subset of tokens whose cumulative probability is at least a threshold $p$.\cite{site:wikipediaToppSampling}.
+
+Formally, given vocabulary $V$ and context $x_{<t}$, the nucleus $V^{(p)}$ is the minimal subset satisfying
+
+\[ V^{(p)} \subseteq V,\qquad \sum_{x\in V^{(p)}} P(x\mid x_{<t}) \ge p . \]
+
+Tokens outside \(V^{(p)}\) are assigned zero probability; probabilities inside the nucleus are renormalized
+
+Top-k sampling limits the candidate tokens to the k most probable ones at each step, nucleus sampling dynamically adjusts 
+the candidate set based on the cumulative probability threshold \(p\).
+
+The combined use of Temperature (to model the shape of the curve) and Top-p (to intelligently truncate the tail) represents the current 
+industry standard for high-quality text generation.
+
+\section{Perplexity}
+\label{sec:perplexity}
+Evaluating the quality of an \ac{LLM} is intrinsically challenging because language judgments are often subjective. 
+Nonetheless, there are rigorous quantitative metrics. \texttt{Perplexity} is the standard measure used during \ac{LLM} pre-training; 
+it stems from information theory and quantifies the model's uncertainty when predicting the next token.\cite{site:wikipediaPerplexityWikipedia}
+
+Mathematically, \texttt{perplexity} is the exponential of the average negative log-likelihood (i.e., the exponentiated cross-entropy) 
+of the predicted tokens. Exponentiating the cross-entropy restores the measure to probability-like units, yielding an intuitive 
+"effective branching factor" the average number of plausible next-token choices the model considers.\cite{site:cometPerplexityEvaluation}
+
+\[
+\mathrm{PPL}(X) = \exp\!\left( -\frac{1}{N} \sum_{i=1}^N \log P(x_i \mid x_{<i}) \right)
+\]
+
+A \texttt{perplexity} of K indicates that, on average, the model behaves as if it were choosing among K equally likely alternatives at each prediction step.\cite{site:UnderstandingPerplexity}
+\begin{itemize}
+    \item Relation to entropy: \(\mathrm{PPL} = 2^{H(P)}\), where \(H(P)\) denotes the Shannon entropy of the distribution.
+    \item Interpretation: Lower \texttt{perplexity} means the model assigns higher probability mass to the true tokens from the test set.
+\end{itemize}
+Note that a low \texttt{perplexity} reflects statistical predictability relative to the training corpus and does not guarantee factual accuracy or correctness.
+
+\section{Human-like}
+\ac{LLM} are designed to generate text that closely mimics human language, capturing nuances, context, and stylistic elements.
+This capability is achieved through extensive training on vast corpora of text, enabling the models to learn patterns and structures inherent in human communication.
+This mimic of human-like text generation has profound implications across various domains, including customer service, content creation, and education.
+since the generated text is often indistinguishable from that written by humans, \ac{LLM} we can use them to measure how "human-like" is a piece of text.
+If we have two C functions that perform the same task but generated with different decompilers (or different settings/version of the same decompiler), 
+we can probably assume that using an \ac{LLM} to measure how "human-like" is the generated code can be a good proxy for code quality/readability.
+
+Here we have two main path to measure the human-likeness of a piece of code:
+\begin{itemize}
+    \item Ask the \ac{LLM} directly via prompt to rate the human-likeness of the code. This approach can lead to subjective and inconsistent results, 
+    as the model's responses may vary based on the prompt phrasing, the context, and hallucinations.
+    \item Use \texttt{perplexity} as a quantitative metric to evaluate the human-likeness of the code. This approach leverages the statistical 
+    properties of the language model to assess how well the generated code aligns with patterns learned from human-written code.
+\end{itemize}
+As shown in section \ref{sec:perplexity}, \texttt{perplexity} measures how well a language model predicts a sequence of tokens. A lower \texttt{perplexity} indicates that the model finds the sequence more predictable, 
+which often correlates with human-like text. By calculating the \texttt{perplexity} of code snippets generated by different decompilers, we can objectively compare their human-likeness.
+For this reason, \texttt{perplexity} is used only to evaluate the Human-like quality of the decompiled code, it \textbf{does not} evaluate its functional correctness.

@@ -378,7 +378,7 @@ def get_cyclomatic_complexity(code_snippet):
     return 0
 
 
-def evaluate_with_llm(base_data, pr_data, model_id, test_binary_name, base_metrics_cache, MAX_SAMPLES=50):
+def evaluate_with_llm(base_data, pr_data, model_id, test_binary_name, base_metrics_cache, MAX_SAMPLES=10):
     """Creates the prompt, calculates metrics, and calls the Flask server"""
     report = []
 

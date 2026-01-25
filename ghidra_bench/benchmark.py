@@ -378,7 +378,7 @@ def get_cyclomatic_complexity(code_snippet):
     return 0
 
 
-def evaluate_with_llm(base_data, pr_data, model_id, test_binary_name, base_metrics_cache, MAX_SAMPLES=50):
+def evaluate_with_llm(base_data, pr_data, model_id, test_binary_name, base_metrics_cache, MAX_SAMPLES=10):
     """Creates the prompt, calculates metrics, and calls the Flask server"""
     report = []
 
@@ -614,7 +614,7 @@ def fetch_decompiler_prs():
             items = data.get('items', [])
             pr_numbers = [str(item['number']) for item in items]
             print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
-            return pr_numbers  # 5554, '8834']  # pr_numbers
+            return pr_numbers[::-1]  # 5554, '8834']  # pr_numbers
             # return ['3299', '8597']
         elif response.status_code == 403:
             print("[WARN] GitHub API rate limit exceeded or access denied.")

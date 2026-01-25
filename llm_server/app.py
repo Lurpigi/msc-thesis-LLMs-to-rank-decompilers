@@ -1,15 +1,31 @@
 import logging
+import time
 from flask import Flask, request, jsonify
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import torch
 import gc
+import psutil
+import os
 import unittest
 import threading
 from huggingface_hub import snapshot_download
+from contextlib import contextmanager
 
+# terminal logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# File logging
+metrics_logger = logging.getLogger('metrics')
+metrics_logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(
+    os.path.join(os.getenv("LOG_DIR"), 'llm_metrics.csv'))
+file_handler.setFormatter(logging.Formatter('%(asctime)s,%(message)s'))
+metrics_logger.addHandler(file_handler)
+if os.stat(os.path.join(os.getenv("LOG_DIR"), 'llm_metrics.csv')).st_size == 0:
+    metrics_logger.info(
+        "model_id,operation,duration_sec,peak_vram_gb,system_ram_gb")
 
 app = Flask(__name__)
 
@@ -28,6 +44,44 @@ MODELS_CONFIG = {
     "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
     "gemma2": "google/gemma-2-9b-it"
 }
+
+
+@contextmanager
+def monitor_execution(model_id, operation_name):
+    """
+    Misura tempo, picco VRAM e utilizzo RAM durante l'esecuzione del blocco.
+    """
+    # 1. Reset statistiche VRAM per catturare il picco di QUESTA operazione
+    if torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.empty_cache()  # Opzionale: pulisce frammentazione per lettura più pulita
+
+    start_time = time.time()
+
+    try:
+        yield  # Esegue il codice all'interno del `with`
+    finally:
+        end_time = time.time()
+        duration = end_time - start_time
+
+        # 2. Raccolta Metriche
+        peak_vram_gb = 0.0
+        if torch.cuda.is_available():
+            # max_memory_allocated ritorna il picco massimo di bytes allocati dai tensori
+            peak_vram_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
+
+        # Monitoraggio RAM di sistema (per vedere se c'è offloading/spillover)
+        # Se device_map="auto" sposta layer su CPU, vedrai la RAM salire.
+        process = psutil.Process(os.getpid())
+        ram_usage_gb = process.memory_info().rss / (1024 ** 3)  # Resident Set Size
+
+        # 3. Log su file CSV
+        log_msg = f"{model_id},{operation_name},{duration:.4f},{peak_vram_gb:.4f},{ram_usage_gb:.4f}"
+        metrics_logger.info(log_msg)
+
+        # Log anche su console per debug live
+        logger.info(
+            f"[METRICS] {model_id} | {operation_name} | {duration:.2f}s | VRAM Peak: {peak_vram_gb:.2f}GB | RAM: {ram_usage_gb:.2f}GB")
 
 
 class ModelEngine:
@@ -146,74 +200,77 @@ class ModelEngine:
     def compute_perplexity(self, text, model_id):
 
         with self.lock:
-            try:
-                self.load_model(model_id)
-                inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
-                    self.model.device)  # model.config.max_position_embeddings
-                input_ids = inputs["input_ids"]
-                attention_mask = inputs["attention_mask"]
+            with monitor_execution(model_id, "score"):
+                try:
+                    self.load_model(model_id)
+                    inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
+                        self.model.device)  # model.config.max_position_embeddings
+                    input_ids = inputs["input_ids"]
+                    attention_mask = inputs["attention_mask"]
 
-                with torch.no_grad():
-                    outputs = self.model(
-                        input_ids, attention_mask=attention_mask)
-                    logits = outputs.logits
+                    with torch.no_grad():
+                        outputs = self.model(
+                            input_ids, attention_mask=attention_mask)
+                        logits = outputs.logits
 
-                shift_logits = logits[:, :-1, :]
-                shift_labels = input_ids[:, 1:]
+                    shift_logits = logits[:, :-1, :]
+                    shift_labels = input_ids[:, 1:]
 
-                log_probs = torch.nn.functional.log_softmax(
-                    shift_logits, dim=-1)
-                target_log_probs = log_probs.gather(
-                    dim=-1, index=shift_labels.unsqueeze(-1)).squeeze(-1)
-                target_log_probs = target_log_probs * \
-                    attention_mask[:, 1:].to(log_probs.dtype)
-                negative_log_likelihood = - \
-                    target_log_probs.sum(dim=-1) / \
-                    attention_mask[:, 1:].sum(dim=-1)
-                perplexity = torch.exp(negative_log_likelihood)
+                    log_probs = torch.nn.functional.log_softmax(
+                        shift_logits, dim=-1)
+                    target_log_probs = log_probs.gather(
+                        dim=-1, index=shift_labels.unsqueeze(-1)).squeeze(-1)
+                    target_log_probs = target_log_probs * \
+                        attention_mask[:, 1:].to(log_probs.dtype)
+                    negative_log_likelihood = - \
+                        target_log_probs.sum(dim=-1) / \
+                        attention_mask[:, 1:].sum(dim=-1)
+                    perplexity = torch.exp(negative_log_likelihood)
 
-                return {
-                    "perplexity": perplexity.item(),
-                    "mean_logbits": torch.mean(target_log_probs).item() if target_log_probs.numel() > 0 else 0.0
-                }
-            except Exception as e:
-                logger.error(f"Error computing perplexity: {e}")
-                raise e
+                    return {
+                        "perplexity": perplexity.item(),
+                        "mean_logbits": torch.mean(target_log_probs).item() if target_log_probs.numel() > 0 else 0.0
+                    }
+                except Exception as e:
+                    logger.error(f"Error computing perplexity: {e}")
+                    raise e
 
     def generate(self, model_key, prompt):
         with self.lock:
-            self.load_model(model_key)
+            with monitor_execution(model_key, "generate"):
+                self.load_model(model_key)
 
-            # Preprocessing
-            messages = [{"role": "user", "content": prompt}]
-            text_input = self.tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
+                # Preprocessing
+                messages = [{"role": "user", "content": prompt}]
+                text_input = self.tokenizer.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
 
-            inputs = self.tokenizer(
-                text_input,
-                return_tensors="pt",
-                truncation=True,
-                max_length=32000  # Safety cap
-            ).to(self.device)
+                inputs = self.tokenizer(
+                    text_input,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=32000  # Safety cap
+                ).to(self.device)
 
-            strategy = self.get_generation_strategy(model_key)
+                strategy = self.get_generation_strategy(model_key)
 
-            gen_params = {k: v for k, v in strategy.items() if v is not None}
-            # Remove sampling params if do_sample is False
-            if not gen_params.get("do_sample", True):
-                gen_params.pop("temperature", None)
-                gen_params.pop("top_p", None)
-                gen_params.pop("top_k", None)
+                gen_params = {k: v for k, v in strategy.items()
+                              if v is not None}
+                # Remove sampling params if do_sample is False
+                if not gen_params.get("do_sample", True):
+                    gen_params.pop("temperature", None)
+                    gen_params.pop("top_p", None)
+                    gen_params.pop("top_k", None)
 
-            with torch.no_grad():
-                outputs = self.model.generate(**inputs, **gen_params)
+                with torch.no_grad():
+                    outputs = self.model.generate(**inputs, **gen_params)
 
-            response = self.tokenizer.decode(
-                outputs[0][inputs.input_ids.shape[1]:],
-                skip_special_tokens=True
-            )
-            return response
+                response = self.tokenizer.decode(
+                    outputs[0][inputs.input_ids.shape[1]:],
+                    skip_special_tokens=True
+                )
+                return response
 
 
 engine = ModelEngine()

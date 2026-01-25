@@ -17,6 +17,9 @@ COPY entrypoint.sh /app/entrypoint.sh
 
 RUN chmod +x /app/entrypoint.sh
 
+RUN mkdir -p /app/logs
+ENV LOG_DIR=/app/logs
+
 EXPOSE 8900
 
 ENV PYTHONUNBUFFERED=1

@@ -1,74 +1,74 @@
 \chapter{Related Work}
 \label{ch:related}
 
-This chapter is dedicated to the work that has been done by others in the field of your thesis.
-Don't write a mere list of papers with a summary of each. Instead, the goal is to give a picture
-of how your work is situated in the context of the work of others. In this case, you should
-think your skeptical reader is asking ``hasn't this been solved already?''.
-
-There will be two main kinds of work that you will need to discuss: similar work
-to yours, and work that is complementary to yours.
-
-Similar work will try to solve the same problem you are addressing, or a similar one.
-Here, focus on the differences: for example, you may write something along the
-lines of ``\textcite{DBLP:journals/x/Turing50} provides a naive definition of
-`intelligent machine', which has this and that limitation. Our work is similar to that of
-\citeauthor{DBLP:journals/x/Turing50}, but we address these problems by doing this and
-that.''\footnote{Do not be arrogant! I called the work of Turing naive as a joke.
-For sure your work will have limitations that other work may not have, and you should be honest about them.}
-
-Complementary work does not try to solve the same problem you are addressing, but it is
-important to get a full picture of your contribution. For example, if you are
-\emph{not} attempting to solve a particular problem (it is ``out of scope'' for your work),
-but the solution to that problem is necessary for your work to be useful, you should explain
-that here.
-
-The Related Work chapter may end up in other places of the document.
-Consider that it does two pieces of work at the same time:
-\begin{inparaenum}[\it (i)]
-    \item substantiating the claim you made in the \fullref{ch:introduction} that your problem is relevant, and
-    \item describe the context around your work to help understand its impact.
-\end{inparaenum}
-If the latter part is more important, it may make sense to move this section to the end of the document, just before the \fullref{ch:conclusion}.
-If the \fullref{ch:background} is not necessary to understand this chapter, it is also a good idea to move it just after the \fullref{ch:introduction}.
-
-\section{Sources}
-
-While doing your review of related work, \myhref{https://scholar.google.com}{Google Scholar}
-is probably the easiest search engine for academic papers. You can be mindful of some
-bibliometric tricks to understand which papers are likely to be most influential in the field.
-You can see on Scholar the number of citations of a paper;
-\myhref{https://portal.core.edu.au/conf-ranks/}{CORE} and
-\myhref{https://www.scimagojr.com}{Scimago} provide rankings of conferences and journals
-respectively. Non-peer-reviewed articles like those published only on
-\myhref{https://arxiv.org}{arXiv} may, of course, be important, but you should be more careful
-and skeptical about them. In case of doubt, ask for guidance from your advisor.
-
-Another tool that you should \emph{use with caution} is \myhref{https://www.semanticscholar.org/}{Semantic Scholar.} It provides you with \ac{LLM}-based tools to synthesize and ask questions about papers. Always double-check, because \acp{LLM} hallucinate and, as usual, you take responsibility for whatever you write in your document: treat \acp{LLM} as a useful tool you shouldn't trust.
-
-Wikipedia is a great source of information, but you shouldn't consider it as reliable.
-Wikipedia articles should always provide the sources of the information they contain; you
-should check it yourself, judge its reliability, and cite the source.
-
-In general, be careful about citing websites: make sure that they're authoritative, and when it's not obvious, justify why you consider them to be worth citing. Unlike this document, which I don't expect readers to print, your thesis must be readable in printed form: hence, make URLs readable in the text.
-
-If a paper is very important for your own piece of work, have a look at the papers
-that cited it, to see if there are more recent works that are relevant to your thesis.
-
-\section{Style}
-
-Here are a few tricks about how to cite other pieces of work:
+The intersection of \ac{LLM} and reverse engineering has rapidly evolved, 
+transforming how analysts interact with decompiled code. While recent 
+literature has indeed explored utilizing LLMs to assist in reverse engineering (using framework like MCP servers), 
+the vast majority of this work focuses on two distinct areas: 
 \begin{itemize}
-  \item If a paper is available in a peer-reviewed venue (journal or conference), cite that
-  version rather than the non-reviewed one. Sometimes papers are published in two similar
-  versions: one in a conference and an extended one in a journal. In that case, cite the
-  journal.
-  \item Use citations such as ``The Hamiltonian cycle problem is
-  NP-complete~\cite{DBLP:conf/coco/Karp72}'' or ``\textcite{DBLP:conf/coco/Karp72} showed
-  that the Hamiltonian cycle problem is NP-complete''. Do not write
-  ``\cite{DBLP:conf/coco/Karp72} showed that the Hamiltonian cycle problem is NP-complete''. Note, like in this case, that academics pretty much always refer to papers by citing authors' names rather than their titles.\footnote{If you use \LaTeX, check the source code for how to cite paper authors using the \texttt{\textbackslash textcite} command.}
-  \item \myhref{https://dblp.org}{DBLP} is a good source of quality Bibtex records for papers
-  you may want to cite.
-  \item You may have a doubt about whether to put a link in the text or use a reference in the bibliography. Use a reference if it is a document you want to refer to (even if it's not a text document, like a video or audio), use a link if you just want to refer to something but do not use it as a reference document.
-  \item If you decide to leave links, make it so that they're usable even in printed form. The \verb|\myhref| command of this document can be an example of how to do it.
+    \item Generative refinement of decompiler output
+    \item LLM-based evaluation and benchmarking of decompilation tools
 \end{itemize}
+
+Unlike generative approaches that aim to produce better code, our work focuses on 
+measuring the "humanness" of existing code using intrinsic model metrics like perplexity. 
+Furthermore, unlike broad benchmarking frameworks that rely on proprietary APIs to rank tools, 
+our research investigates the granular utility of local \ac{LLM} in distinguishing between specific versions (or pull requests) of the same codebase.
+
+\section{Generative Refinement of Decompiler Output}
+\label{sec:genref}
+The most prominent use of LLMs in this field is the attempt to improve the readability of the raw 
+output produced by traditional decompilers (like Ghidra or Hex-Rays). This body of work is complementary 
+to ours; while we do not attempt to modify the code, understanding the deficits of raw decompiler output 
+explains why our metrics (such as perplexity) are necessary to quantify "humanness."
+
+Some example of this approach are LLM4Decompile\cite{Paper:Tan_2024} wich is an \ac{LLM}-based framework
+that tries to decompile binary code into high-level language, act as a decompiler itself; or
+DeGPT \cite{Paper:Hu2024DeGPTOD}, which introduces an end-to-end 
+framework designed to optimize decompiler output directly employing a "three-role mechanism" 
+(Referee, Advisor, and Operator) to guide an LLM in renaming variables, appending comments, 
+and simplifying structure. 
+
+Their work demonstrates that LLMs can significantly reduce the 
+cognitive burden on analysts by rewriting code to be more idiomatic.
+
+\section{LLM-based Benchmarking}
+\label{sec:llmbench}
+
+Closer to our specific problem domain is the emerging field of using LLMs to evaluate code quality, 
+often referred to as "LLM-as-a-Judge." 
+DecompileBench \cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} is the state-of-the-art in this area. 
+
+It presents a comprehensive framework for evaluating decompilers, introducing the concept of using "LLM-as-a-Judge" to rate code 
+understandability across 12 specific dimensions (e.g., Variable Naming, Control Flow Clarity). 
+Their work validates that LLMs can align well with human experts in ranking different decompilers 
+(e.g., comparing Ghidra vs. Hex-Rays vs. LLM-based decompilers).
+While DecompileBench is similar to our work in its use of LLMs for assessment, differ from ours on the type of validation used: 
+DecompileBench relies only on prompting the model to output a score based on Function Source Code, Decompiler A’s Pseudo Code, and Decompiler B’s Pseudo Code to cal an ELO rating.
+In contrast, our work leverages also with intrinsic model metrics like \texttt{perplexity} to quantify code "humanness". 
+Perplexity provides a more objective, quantifiable measure of how "natural" the code appears to the model, 
+rather than relying on subjective ratings.[\ref{sec:perplexity}][\ref{sec:WhyPerp}]
+
+Our work also diverges from DecompileBench in its focus on evaluating code variants
+within the same codebase (e.g., different pull requests), rather than comparing entirely different decompilers. 
+This fine-grained analysis is crucial for real-world reverse engineering tasks, where analysts
+often need to assess incremental changes rather than wholesale tool comparisons.
+
+The last difference is that DecompileBench heavily utilizes proprietary, closed-source models like GPT-4 
+and Qwen-2.5 and closed source decompilers like Hex-Rays via API for its judgments. 
+Our work specifically explores the feasibility of running these evaluations on local hardware. 
+This addresses the privacy and cost constraints often present in security-sensitive reverse engineering tasks, 
+which large-scale benchmarks often overlook.
+
+\section{Why Perplexity}
+\label{sec:WhyPerp}
+If we accept that human source code is "natural" and predictable, we can model it stochastically 
+using neural (Transformer) language models. From this perspective, the decompiler acts as a noisy 
+channel that introduces distortions into the original signal. The goal of LLM-based evaluation is to 
+quantify how much the output signal (the decompiled code) deviates from the expected statistical 
+distribution of "natural" human code. 
+
+A language model trained on human source code learns a probability distribution $P$ over token sequences. 
+When this model observes a sequence of decompiled code $S = t_1, t_2, \ldots, t_N$, it assigns a probability to each token based on the preceding context. 
+If the decompiled code uses alien or "unnatural" constructs, the model, expecting human patterns, will assign these tokens a very low probability. 
+This statistical "surprise" is the foundation of perplexity.

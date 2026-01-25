@@ -1,8 +1,10 @@
 \chapter{Background}
 \label{ch:background}
 
-
-summary of all the things ghidra + llm
+This chapter provides the necessary background knowledge to understand how Ghidra works, in particular the decompilation process,
+with his architecture, main components, and the decompilation pipeline. The Decompiler of Ghidra is enormous and complex software, (over 200k lines of C++)
+so it will focus only on the parts that are relevant to this thesis.
+then it will introduce the main concepts behind \ac{LLM}s, their architecture, sampling, and metrics for evaluation.
 
 \section{Ghidra}
 \label{sec:ghidra}
@@ -32,8 +34,7 @@ describing the high-level code structure and syntax tokens.
 \label{sec:slap}
 
 As written in the documentation created by running \texttt{<make doc>} \cite{DOC:shareGhidraDecompiler} The 
-decompiler provides its own \ac{RTL}, referred to internally as p-code,
-which is designed specifically for reverse engineering applications. The disassembly of processor
+decompiler provides its own \ac{RTL}, referred internally as p-code. The disassembly of processor
 specific machine-code languages, and subsequent translation into p-code, forms a major sub-system 
 of the decompiler. There is a processor specification language, referred to as SLEIGH, which is 
 dedicated to this translation task, this piece of the code can be built as a standalone binary 
@@ -139,7 +140,7 @@ The decompiler first aggregates P-code operations into \textbf{BasicBlocks} sequ
 and a single exit point (excluding internal calls). The \ac{CFG} is formed by the edges representing jumps and branches between these blocks. 
 Ghidra normalizes this graph to ensure a unique entry block, often inserting empty placeholder blocks to handle re-entrant loops or complex function entries.
 
-\begin{figure}[h]
+\begin{figure}[ht]
     \centering
     \includegraphics[width=0.4\textwidth]{img/cfg1.png}
     \caption{Control Flow Graph of a function}
@@ -350,7 +351,7 @@ Each such instruction ends the current block and/or starts a new one (targets of
 The \ac{CFG} with the BasicBlocks can also be seen in ghidra by entering the \textbf{Display Function Graph} 
 window and enabling the \textbf{P-code} field in the layout of Instruction/Data (These Pcode are the final high-level Pcode). See figure \ref{img:cfg_ghidra}
 
-\begin{figure}[h]
+\begin{figure}[ht]
     \centering
     \includegraphics[width=0.9\textwidth]{img/cfg_ghidra.png}
     \caption{Control Flow Graph with P-code in Ghidra}
@@ -596,8 +597,8 @@ elements remain linked to the underlying \texttt{Varnode} and \texttt{HighVariab
 \label{sec:llm}
 The advent of \ac{LLM} marks a fundamental discontinuity in the history of artificial intelligence and \ac{NLP}. It is not merely an increase in computational capacity, 
 but an ontological redefinition of how machines process, represent, and generate semantic information. 
-At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani et al., which enabled overcoming the sequential 
-limitations of previous \ac{RNN} and \ac{LSTM} architectures\cite{Paper:vaswani2023attentionneed}.
+At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani \cite{Paper:vaswani2023attentionneed}, which enabled overcoming the sequential 
+limitations of previous \ac{RNN} and \ac{LSTM} architectures.
 
 \subsection{Transformer}
 The shift from recurrent architectures to the Transformer was motivated by the need for parallelization 
@@ -605,20 +606,30 @@ and the handling of long-range dependencies. Whereas \ac{RNN}s processed tokens 
 accumulating error and dispersing the gradient over long sequences, the Transformer processes the entire sequence simultaneously, 
 relying entirely on the attention mechanism.
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.6\textwidth]{img/ModalNet-21.png}
-    \caption{The Transformer - model architecture\cite{Paper:vaswani2023attentionneed}}
+    \caption{The Transformer - model architecture}
     \label{img:transformer}
 \end{figure}
 
 As shown in figure \ref{img:transformer}, the Transformer architecture consists of an encoder-decoder structure, 
 where both components are composed of multiple layers of self-attention mechanisms and feed-forward neural networks.
 
-[...]
+The \textbf{encoder} (left) ingests a token sequence $x=(x_1,\dots,x_n)$ and produces continuous representations
+$z=(z_1,\dots,z_n)$. The \textbf{decoder} (right) conditions on $z$ and generates the output tokens
+$y=(y_1,\dots,y_m)$ autoregressively, emitting one token per step. Both sides are built by stacking
+identical blocks composed of Multi-Head Attention and position-wise Feed-Forward layers, typically
+wrapped with residual connections and normalization. Inputs and targets are first embedded into a
+n-dimensional space, and a positional encoding is added to each embedding to encode token order,
+compensating for the absence of recurrence \cite{Paper:vaswani2023attentionneed}.
+
+At the core there is Multi-Head Attention, which allows the model to jointly attend to information from different representation
+subspaces at different positions. Each attention head computes scaled dot-product attention, enabling the model to
+focus on relevant parts of the input sequence when generating each output token.
 
 Most of the state of art \ac{LLM}s use an architecture with only the decoder part,
-omitting the encoder entirely. This design choice is particularly suited for generative tasks, 
+omitting the encoder entirely\cite{site:MostLLMs}. This design choice is particularly suited for generative tasks, 
 where the model's primary function is to produce coherent and contextually relevant text based on a given input prompt.
 
 \subsection{Tokens}
@@ -628,7 +639,7 @@ The choice of tokenization method significantly impacts the model's performance,
 
 We can see an example using \myhref{https://tiktokenizer.vercel.app/}{tiktokenizer}, a webtool for visualizing tokenization for differents models, to tokenize a sentence:
 
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{img/tiktokenizer.png}
     \caption{Tokenization example using tiktokenizer}
@@ -648,8 +659,8 @@ different models use different special tokens or does not use them at all.
 
 \subsection{Softmax}
 The \texttt{Softmax} function is used as an output function in the last layer of a neural networks to transform a vector of real values into a probability distribution.(see figure \ref{img:transformer})
-This function is a generalization of the logistic function for more than two variables: for each component of the vector it computes the exponential 
-normalized by the sum of the exponentials of all components, producing in output a vector of the same dimension with values in the interval [0,1] whose sum is 1. \cite{site:baeldungWhatTemperature}
+This function for each component of the vector it computes the exponential normalized by the sum of the exponentials of all components, 
+producing in output a vector of the same dimension with values in the interval [0,1] whose sum is 1. \cite{site:baeldungWhatTemperature}
 
 \[softmax(y_{i}) = \frac{e^{y_{i}}}{\sum_{j=1}^{n}e^{y_{j}}} \]
 

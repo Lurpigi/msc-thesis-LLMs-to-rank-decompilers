@@ -11,10 +11,9 @@ import threading
 from huggingface_hub import snapshot_download
 from contextlib import contextmanager
 
-# terminal logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from transformers import logging as transformers_logging
+transformers_logging.set_verbosity_error()
+transformers_logging.disable_progress_bar()
 
 # File logging
 metrics_logger = logging.getLogger('metrics')
@@ -71,7 +70,7 @@ def monitor_execution(model_id, operation_name):
         log_msg = f"{model_id},{operation_name},{duration:.4f},{peak_vram_gb:.4f},{ram_usage_gb:.4f}"
         metrics_logger.info(log_msg)
 
-        logger.info(
+        print(
             f"[METRICS] {model_id} | {operation_name} | {duration:.2f}s | VRAM Peak: {peak_vram_gb:.2f}GB | RAM: {ram_usage_gb:.2f}GB")
 
 
@@ -86,7 +85,7 @@ class ModelEngine:
 
     def _unload_model(self):
         if self.model:
-            logger.info(f"[CLEANUP] Unloading {self.current_model_id}...")
+            print(f"[CLEANUP] Unloading {self.current_model_id}...")
             del self.model
             del self.tokenizer
             self.model = None
@@ -101,7 +100,7 @@ class ModelEngine:
                 torch.cuda.synchronize()
 
             self.current_model_id = None
-            logger.info("[CLEANUP] VRAM cleared.")
+            print("[CLEANUP] VRAM cleared.")
 
     def load_model(self, model_key):
         if model_key not in MODELS_CONFIG:
@@ -110,7 +109,7 @@ class ModelEngine:
         if self.current_model_id == model_key:
             return
 
-        logger.info(f"[LOAD] Switching to {model_key}...")
+        print(f"[LOAD] Switching to {model_key}...")
 
         self._unload_model()
 
@@ -133,10 +132,10 @@ class ModelEngine:
             )
             self.model.eval()
             self.current_model_id = model_key
-            logger.info(f"[LOAD] {model_key} ready.")
+            print(f"[LOAD] {model_key} ready.")
 
         except Exception as e:
-            logger.error(f"[FATAL] Failed loading {model_key}: {e}")
+            print(f"[FATAL] Failed loading {model_key}: {e}")
             self._unload_model()
             raise e
 
@@ -150,86 +149,46 @@ class ModelEngine:
             # "pad_token_id": self.tokenizer.eos_token_id
         }
 
-        model_id_lower = model_id.lower()
-
-        if "llama-3.1" in model_id_lower:
-            terminators = [
-                self.tokenizer.eos_token_id,
-                self.tokenizer.convert_tokens_to_ids("<|eot_id|>")
-            ]
-            config.update({
-                "temperature": 0.6,
-                "terminators": terminators,
-                "repetition_penalty": 1.05  # Mild penalty for stability
-            })
-
-        elif "qwen2.5" in model_id_lower:
-            # Optimized for Coding: Low Entropy
-            config.update({
-                "temperature": 0.2,  # Low temp for syntax precision
-                "top_p": 0.8,
-                "top_k": 20,
-                "repetition_penalty": 1.1
-            })
-
-        elif "deepseek" in model_id_lower:
-            config.update({
-                "do_sample": False,
-                "eos_token_id": self.tokenizer.eos_token_id
-            })
-
-        elif "gemma-2" in model_id_lower:
-            # Optimized for Soft-Capped Logits
-            config.update({
-                "temperature": 1.0,  # Default per Google
-                "top_p": 0.95,
-                "top_k": 50,
-            })
-
         return config
 
     def compute_perplexity(self, text, model_id):
 
         with self.lock:
+            self.load_model(model_id)
             with monitor_execution(model_id, "score"):
-                try:
-                    self.load_model(model_id)
-                    inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
-                        self.model.device)  # model.config.max_position_embeddings
-                    input_ids = inputs["input_ids"]
-                    attention_mask = inputs["attention_mask"]
+                inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
+                    self.model.device)  # model.config.max_position_embeddings
+                input_ids = inputs["input_ids"]
+                attention_mask = inputs["attention_mask"]
 
-                    with torch.no_grad():
-                        outputs = self.model(
-                            input_ids, attention_mask=attention_mask)
-                        logits = outputs.logits
+                with torch.no_grad():
+                    outputs = self.model(
+                        input_ids, attention_mask=attention_mask)
+                    logits = outputs.logits
 
-                    shift_logits = logits[:, :-1, :]
-                    shift_labels = input_ids[:, 1:]
+                shift_logits = logits[:, :-1, :]
+                shift_labels = input_ids[:, 1:]
 
-                    log_probs = torch.nn.functional.log_softmax(
-                        shift_logits, dim=-1)
-                    target_log_probs = log_probs.gather(
-                        dim=-1, index=shift_labels.unsqueeze(-1)).squeeze(-1)
-                    target_log_probs = target_log_probs * \
-                        attention_mask[:, 1:].to(log_probs.dtype)
-                    negative_log_likelihood = - \
-                        target_log_probs.sum(dim=-1) / \
-                        attention_mask[:, 1:].sum(dim=-1)
-                    perplexity = torch.exp(negative_log_likelihood)
+                log_probs = torch.nn.functional.log_softmax(
+                    shift_logits, dim=-1)
+                target_log_probs = log_probs.gather(
+                    dim=-1, index=shift_labels.unsqueeze(-1)).squeeze(-1)
+                target_log_probs = target_log_probs * \
+                    attention_mask[:, 1:].to(log_probs.dtype)
+                negative_log_likelihood = - \
+                    target_log_probs.sum(dim=-1) / \
+                    attention_mask[:, 1:].sum(dim=-1)
+                perplexity = torch.exp(negative_log_likelihood)
 
-                    return {
-                        "perplexity": perplexity.item(),
-                        "mean_logbits": torch.mean(target_log_probs).item() if target_log_probs.numel() > 0 else 0.0
-                    }
-                except Exception as e:
-                    logger.error(f"Error computing perplexity: {e}")
-                    raise e
+                return {
+                    "perplexity": perplexity.item(),
+                    "mean_logbits": torch.mean(target_log_probs).item() if target_log_probs.numel() > 0 else 0.0
+                }
 
     def generate(self, model_key, prompt):
         with self.lock:
+            self.load_model(model_key)
             with monitor_execution(model_key, "generate"):
-                self.load_model(model_key)
 
                 # Preprocessing
                 messages = [{"role": "user", "content": prompt}]
@@ -318,7 +277,7 @@ def generate():
         response_text = engine.generate(model_id, prompt)
         return jsonify({"model": model_id, "response": response_text})
     except Exception as e:
-        logger.error(f"Error processing request: {e}")
+        print(f"Error processing request: {e}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -331,31 +290,31 @@ class FlaskAppTests(unittest.TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
 
-    def test_generate(self):
+    # def test_generate(self):
 
-        def test_model(model_key):
-            payload = {
-                "model_id": model_key,
-                "prompt": "Scrivi una funzione C per sommare due numeri."
-            }
-            print(f"\n[TEST] Trying to generate with {model_key}...")
-            response = self.client.post('/generate', json=payload)
-            data = response.get_json()
+    #     def test_model(model_key):
+    #         payload = {
+    #             "model_id": model_key,
+    #             "prompt": "Scrivi una funzione C per sommare due numeri."
+    #         }
+    #         print(f"\n[TEST] Trying to generate with {model_key}...")
+    #         response = self.client.post('/generate', json=payload)
+    #         data = response.get_json()
 
-            if response.status_code != 200:
-                print(f"[FAIL] Error received: {data.get('error')}")
+    #         if response.status_code != 200:
+    #             print(f"[FAIL] Error received: {data.get('error')}")
 
-            self.assertEqual(response.status_code, 200)
-            self.assertIn("response", data)
-            print(data["response"][:200] + "...")
-            print(
-                f"[SUCCESS] Response from {model_key} received successfully.")
+    #         self.assertEqual(response.status_code, 200)
+    #         self.assertIn("response", data)
+    #         print(data["response"][:200] + "...")
+    #         print(
+    #             f"[SUCCESS] Response from {model_key} received successfully.")
 
-        for model_key in MODELS_CONFIG.keys():
-            test_model(model_key)
+    #     for model_key in MODELS_CONFIG.keys():
+    #         test_model(model_key)
 
     def test_score(self):
-        sample_text = "def somma(a, b):\n    return a + b"
+        sample_text = "\n/* WARNING: Unknown calling convention -- yet parameter storage is locked */\n\nvoid __assert_fail(char *__assertion, char *__file, uint __line, char *__function)\n\n{\n  (*(code *)PTR___assert_fail_00125dc8)();\n  return;\n}\n\n"
         for model_key in MODELS_CONFIG.keys():
             payload = {
                 "model_id": model_key,
@@ -376,4 +335,5 @@ class FlaskAppTests(unittest.TestCase):
 
 if __name__ == '__main__':
     # unittest.main()  # TESTING
-    app.run(host='0.0.0.0', port=8900)
+    # app.run(host='0.0.0.0', port=8900)
+    ...

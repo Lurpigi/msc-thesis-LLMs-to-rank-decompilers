@@ -451,3 +451,14 @@ https://docs.aimlapi.com/api-references/text-models-llm/meta/meta-llama-3.1-8b-i
 # Top-$P$ includes more options. If sure (sharp distribution), it includes fewer.Stop Token Handling: This is the most frequent point of failure in production systems.
 # Models are trained to emit a specific token to signal the end of a turn. If the inference engine does not recognize this specific token ID, the model will continue generating,
 # often hallucinating a new user prompt and answering it, effectively talking to itself.7
+
+
+
+
+
+
+scrivere quantization
+
+results
+
+

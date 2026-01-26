@@ -22,9 +22,10 @@ output produced by traditional decompilers (like Ghidra or Hex-Rays). This body 
 to ours; while we do not attempt to modify the code, understanding the deficits of raw decompiler output 
 explains why our metrics (such as perplexity) are necessary to quantify "humanness."
 
-Some example of this approach are LLM4Decompile\cite{Paper:Tan_2024} wich is an \ac{LLM}-based framework
-that tries to decompile binary code into high-level language, act as a decompiler itself; or
-DeGPT \cite{Paper:Hu2024DeGPTOD}, which introduces an end-to-end 
+Some example of this approach are LLM4Decompile\cite{Paper:Tan_2024} wich is an \ac{LLM} model
+that was trained to decompile binary code into high-level language, acting as a decompiler itself 
+(LLM4Decompile-End is the model to decompile, LLM4Decompile-Ref is the model to refine another decompiler output); 
+or DeGPT \cite{Paper:Hu2024DeGPTOD}, which introduces an end-to-end 
 framework designed to optimize decompiler output directly employing a "three-role mechanism" 
 (Referee, Advisor, and Operator) to guide an LLM in renaming variables, appending comments, 
 and simplifying structure. 
@@ -35,27 +36,26 @@ cognitive burden on analysts by rewriting code to be more idiomatic.
 \section{LLM-based Benchmarking}
 \label{sec:llmbench}
 
-Closer to our specific problem domain is the emerging field of using LLMs to evaluate code quality, 
-often referred to as "LLM-as-a-Judge." 
-DecompileBench \cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} is the state-of-the-art in this area. 
+Closer to our specific problem domain is the emerging field of using \ac{LLM}s to evaluate code quality, 
+using \ac{LLM}s to scale and automatize human evaluation, this technique is often referred to as "LLM-as-a-Judge." \cite{Paper:li2025generationjudgmentopportunitieschallenges}
 
+DecompileBench \cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} is the state-of-the-art in this area,
 It presents a comprehensive framework for evaluating decompilers, introducing the concept of using "LLM-as-a-Judge" to rate code 
 understandability across 12 specific dimensions (e.g., Variable Naming, Control Flow Clarity). 
 Their work validates that LLMs can align well with human experts in ranking different decompilers 
 (e.g., comparing Ghidra vs. Hex-Rays vs. LLM-based decompilers).
 While DecompileBench is similar to our work in its use of LLMs for assessment, differ from ours on the type of validation used: 
-DecompileBench relies only on prompting the model to output a score based on Function Source Code, Decompiler A’s Pseudo Code, and Decompiler B’s Pseudo Code to cal an ELO rating.
+DecompileBench relies only on prompting the model to output a score based on Function Source Code, Decompiler A’s Pseudo Code, and Decompiler B’s Pseudo Code to calculate an ELO rating.
 In contrast, our work leverages also with intrinsic model metrics like \texttt{perplexity} to quantify code "humanness". 
 Perplexity provides a more objective, quantifiable measure of how "natural" the code appears to the model, 
 rather than relying on subjective ratings.[\ref{sec:perplexity}][\ref{sec:WhyPerp}]
 
 Our work also diverges from DecompileBench in its focus on evaluating code variants
 within the same codebase (e.g., different pull requests), rather than comparing entirely different decompilers. 
-This fine-grained analysis is crucial for real-world reverse engineering tasks, where analysts
-often need to assess incremental changes rather than wholesale tool comparisons.
+This fine-grained analysis is crucial on cases where its required to assess incremental changes rather than wholesale tool comparisons (es. GitHub Actions \cite{site:githubGitHubActions}).
 
-The last difference is that DecompileBench heavily utilizes proprietary, closed-source models like GPT-4 
-and Qwen-2.5 and closed source decompilers like Hex-Rays via API for its judgments. 
+The last difference is that DecompileBench heavily utilizes proprietary, closed-source models (like GPT-4 
+or Claude-3.5) and licensed decompilers (like Hex-Rays or Bininja). 
 Our work specifically explores the feasibility of running these evaluations on local hardware. 
 This addresses the privacy and cost constraints often present in security-sensitive reverse engineering tasks, 
 which large-scale benchmarks often overlook.

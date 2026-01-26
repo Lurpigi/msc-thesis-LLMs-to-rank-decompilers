@@ -621,16 +621,15 @@ $z=(z_1,\dots,z_n)$. The \textbf{decoder} (right) conditions on $z$ and generate
 $y=(y_1,\dots,y_m)$ autoregressively, emitting one token per step. Both sides are built by stacking
 identical blocks composed of Multi-Head Attention and position-wise Feed-Forward layers, typically
 wrapped with residual connections and normalization. Inputs and targets are first embedded into a
-n-dimensional space, and a positional encoding is added to each embedding to encode token order,
-compensating for the absence of recurrence \cite{Paper:vaswani2023attentionneed}.
+n-dimensional space, and a positional encoding is added to each embedding to encode token order \cite{Paper:vaswani2023attentionneed}.
 
 At the core there is Multi-Head Attention, which allows the model to jointly attend to information from different representation
 subspaces at different positions. Each attention head computes scaled dot-product attention, enabling the model to
 focus on relevant parts of the input sequence when generating each output token.
 
 Most of the state of art \ac{LLM}s use an architecture with only the decoder part,
-omitting the encoder entirely\cite{site:MostLLMs}. This design choice is particularly suited for generative tasks, 
-where the model's primary function is to produce coherent and contextually relevant text based on a given input prompt.
+omitting the encoder entirely\cite{site:MostLLMs}. This design choice is preferred for its simplicity,
+its good zero-shot generalization, and cheaper training cost to attain a reasonable performance.
 
 \subsection{Tokens}
 
@@ -665,6 +664,8 @@ producing in output a vector of the same dimension with values in the interval [
 \[softmax(y_{i}) = \frac{e^{y_{i}}}{\sum_{j=1}^{n}e^{y_{j}}} \]
 
 where $y = (y_{1}, y_{2}, .., y_{n})$ is an input vector and values $y_{i}, (i=\overline{1,n})$ are in range from $-\infty$ to $+\infty$.
+
+\subsection{Quantization}
 
 \section{Decoding}
 When the model generates text, it produces a vector of raw scores, called \textbf{logits}, for each

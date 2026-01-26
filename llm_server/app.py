@@ -48,38 +48,29 @@ MODELS_CONFIG = {
 
 @contextmanager
 def monitor_execution(model_id, operation_name):
-    """
-    Misura tempo, picco VRAM e utilizzo RAM durante l'esecuzione del blocco.
-    """
-    # 1. Reset statistiche VRAM per catturare il picco di QUESTA operazione
+    # 1. Reset Statics
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
-        torch.cuda.empty_cache()  # Opzionale: pulisce frammentazione per lettura più pulita
-
+        torch.cuda.empty_cache()
     start_time = time.time()
 
     try:
-        yield  # Esegue il codice all'interno del `with`
+        yield  # Execute with
     finally:
         end_time = time.time()
         duration = end_time - start_time
 
-        # 2. Raccolta Metriche
         peak_vram_gb = 0.0
         if torch.cuda.is_available():
-            # max_memory_allocated ritorna il picco massimo di bytes allocati dai tensori
+            # max_memory_allocated returns the peak bytes allocated by tensors
             peak_vram_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
 
-        # Monitoraggio RAM di sistema (per vedere se c'è offloading/spillover)
-        # Se device_map="auto" sposta layer su CPU, vedrai la RAM salire.
+        # Monitor system RAM
         process = psutil.Process(os.getpid())
         ram_usage_gb = process.memory_info().rss / (1024 ** 3)  # Resident Set Size
-
-        # 3. Log su file CSV
         log_msg = f"{model_id},{operation_name},{duration:.4f},{peak_vram_gb:.4f},{ram_usage_gb:.4f}"
         metrics_logger.info(log_msg)
 
-        # Log anche su console per debug live
         logger.info(
             f"[METRICS] {model_id} | {operation_name} | {duration:.2f}s | VRAM Peak: {peak_vram_gb:.2f}GB | RAM: {ram_usage_gb:.2f}GB")
 

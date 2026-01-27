@@ -1,5 +1,5 @@
 scripts/__pycache__/
-outputs/decomp/*
+#outputs/decomp/*
 old_res/
 
 !outputs/timestamps.log

@@ -365,8 +365,7 @@ def get_llm_qualitative_analysis(base_code, pr_code, model_id):
 
 def get_cyclomatic_complexity(code_snippet):
     """
-    Calculates the Cyclomatic Complexity (CCN) of a C function string using lizard.
-    Returns 0 if parsing fails.
+    Calculates the Cyclomatic Complexity (CCN)
     """
     try:
         analysis = lizard.analyze_file.analyze_source_code(

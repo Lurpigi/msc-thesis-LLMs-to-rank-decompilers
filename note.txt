@@ -457,8 +457,3 @@ https://docs.aimlapi.com/api-references/text-models-llm/meta/meta-llama-3.1-8b-i
 
 
 
-scrivere quantization
-
-results
-
-

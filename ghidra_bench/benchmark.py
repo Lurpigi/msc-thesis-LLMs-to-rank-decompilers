@@ -6,7 +6,6 @@ from utils.ghidra import setup_ghidra_version, extract_decompilation
 from utils.llm import evaluate_with_llm
 from utils.com import fetch_decompiler_prs, get_models, get_cc
 
-#sas
 def already_processed(file, n_pr=None, is_pr=False):
     json_path = os.path.join(
         OUTPUT_DIR, "decomp", f"{file}_pr_{n_pr}.json") if is_pr else os.path.join(OUTPUT_DIR, "decomp", f"{file}_base.json")

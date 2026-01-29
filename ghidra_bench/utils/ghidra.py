@@ -1,6 +1,6 @@
 import os
-from .const import GHIDRA_REPO, GHIDRA_REPO_DIR, GHIDRA_EXTRACTED_DIR, BINARIES_DIR, MAX_WORKERS, GRADLE_INSTALL_ROOT, OUTPUT_DIR
-from .com import run_command
+from .const import DATASET_PATH, GHIDRA_REPO, GHIDRA_REPO_DIR, GHIDRA_EXTRACTED_DIR, BINARIES_DIR, MAX_WORKERS, GRADLE_INSTALL_ROOT, OUTPUT_DIR
+from .com import get_func_name, run_command
 import concurrent.futures
 import shutil
 
@@ -162,19 +162,10 @@ def setup_ghidra_version(tag_or_pr, is_pr=False):
     raise Exception("Build failed or artifact not found")
 
 
-def extract_decompilation(ghidra_home, version_tag):
+def extract_decompilation(ghidra_home, version_tag, binaries):
     """
     Runs pyghidraRun --headless in parallel on the binaries.
     """
-
-    binaries = [
-        f for f in os.listdir(BINARIES_DIR)
-        if os.path.isfile(os.path.join(BINARIES_DIR, f)) and not f.startswith('.')
-    ]
-
-    if not binaries:
-        print("[WARN] No binaries found to process.")
-        return
 
     workers = int(MAX_WORKERS)
     print(f"[INFO] Starting extraction with {workers} parallel workers...")
@@ -209,6 +200,7 @@ def process_binary_task(binary, ghidra_home, version_tag):
     env["GHIDRA_BENCH_OUTPUT"] = OUTPUT_DIR
     env["GHIDRA_BENCH_TAG"] = version_tag
     # env["GHIDRA_INSTALL_DIR"] = ghidra_home
+    env["GHIDRA_BENCH_TARGETS"] = get_func_name(binary, DATASET_PATH)
 
     print(
         f"[INFO] [Parallel] Processing {binary} with version {version_tag}...")

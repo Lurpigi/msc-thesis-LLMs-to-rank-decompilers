@@ -2,6 +2,8 @@ import subprocess
 import sys
 import requests
 import lizard
+import os
+import datasets
 import tree_sitter_c
 from tree_sitter import Language, Parser
 from .const import LLM_API_URL
@@ -137,6 +139,54 @@ def get_ast(code):
     traverse(tree.root_node)
     return "".join(structure)
 
+def get_func_name(bin, dataset_path):
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(f"Error: Dataset path '{dataset_path}' does not exist.")
+
+    try:
+        ds = datasets.load_from_disk(dataset_path)
+    except Exception as e:
+        raise RuntimeError(f"Error loading dataset: {e}")
+
+    for _, row in enumerate(ds):
+        if bin in row.get('path'):
+            return row.get('file')
+    raise ValueError(f"Function name for binary '{bin}' not found in dataset.")
+
+def get_source_code(bin, dataset_path):
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(f"Error: Dataset path '{dataset_path}' does not exist.")
+
+    try:
+        ds = datasets.load_from_disk(dataset_path)
+    except Exception as e:
+        raise RuntimeError(f"Error loading dataset: {e}")
+
+    for _, row in enumerate(ds):
+        if bin in row.get('path'):
+            return row.get('func')
+    raise ValueError(f"Source code for binary '{bin}' not found in dataset.")
+
+def get_dataset_info(dataset_path):
+    
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(f"Error: Dataset path '{dataset_path}' does not exist.")
+
+    try:
+        ds = datasets.load_from_disk(dataset_path)
+    except Exception as e:
+        raise RuntimeError(f"Error loading dataset: {e}")
+
+    print(f"Found {len(ds)} items.\n")
+
+    (func, path, source) = ([], [], [])
+    for _, row in enumerate(ds):
+        func.append(row.get('file'))
+        path.append(row.get('path'))
+        source.append(row.get('func'))
+    
+    return (func, path, source)
+
 
 def get_cc(code):
     """
@@ -175,7 +225,7 @@ def fetch_decompiler_prs():
             items = data.get('items', [])
             pr_numbers = [str(item['number']) for item in items]
             print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
-            return pr_numbers[::-1]  # 5554, '8834']  # pr_numbers
+            return pr_numbers  # 5554, '8834']  # pr_numbers
             # return ['3299', '8597']
         elif response.status_code == 403:
             print("[WARN] GitHub API rate limit exceeded or access denied.")

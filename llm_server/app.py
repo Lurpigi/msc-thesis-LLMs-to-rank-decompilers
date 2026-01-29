@@ -24,7 +24,7 @@ file_handler.setFormatter(logging.Formatter('%(asctime)s,%(message)s'))
 metrics_logger.addHandler(file_handler)
 if os.stat(os.path.join(os.getenv("LOG_DIR"), 'llm_metrics.csv')).st_size == 0:
     metrics_logger.info(
-        "model_id,operation,duration_sec,peak_vram_gb,system_ram_gb")
+        "model_id,operation,duration_sec,peak_vram_gb,system_ram_gb,prompt_tokens,generated_tokens")
 
 app = Flask(__name__)
 
@@ -47,31 +47,36 @@ MODELS_CONFIG = {
 
 @contextmanager
 def monitor_execution(model_id, operation_name):
-    # 1. Reset Statics
+    # 1. Reset Stats
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.empty_cache()
     start_time = time.time()
 
+    stats = {"prompt_tokens": 0, "generated_tokens": 0}
+
     try:
-        yield  # Execute with
+        yield stats
     finally:
         end_time = time.time()
         duration = end_time - start_time
 
         peak_vram_gb = 0.0
         if torch.cuda.is_available():
-            # max_memory_allocated returns the peak bytes allocated by tensors
             peak_vram_gb = torch.cuda.max_memory_allocated() / (1024 ** 3)
 
-        # Monitor system RAM
         process = psutil.Process(os.getpid())
-        ram_usage_gb = process.memory_info().rss / (1024 ** 3)  # Resident Set Size
-        log_msg = f"{model_id},{operation_name},{duration:.4f},{peak_vram_gb:.4f},{ram_usage_gb:.4f}"
+        ram_usage_gb = process.memory_info().rss / (1024 ** 3)
+
+        log_msg = (f"{model_id},{operation_name},{duration:.4f},{peak_vram_gb:.4f},"
+                   f"{ram_usage_gb:.4f},{stats['prompt_tokens']},{stats['generated_tokens']}")
         metrics_logger.info(log_msg)
 
         print(
-            f"[METRICS] {model_id} | {operation_name} | {duration:.2f}s | VRAM Peak: {peak_vram_gb:.2f}GB | RAM: {ram_usage_gb:.2f}GB")
+            f"[METRICS] {model_id} | {operation_name} | {duration:.2f}s | "
+            f"VRAM: {peak_vram_gb:.2f}GB | RAM: {ram_usage_gb:.2f}GB | "
+            f"Tokens: {stats['prompt_tokens']} in / {stats['generated_tokens']} out"
+        )
 
 
 class ModelEngine:
@@ -155,11 +160,14 @@ class ModelEngine:
 
         with self.lock:
             self.load_model(model_id)
-            with monitor_execution(model_id, "score"):
+            with monitor_execution(model_id, "score") as metrics:
                 inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
                     self.model.device)  # model.config.max_position_embeddings
                 input_ids = inputs["input_ids"]
                 attention_mask = inputs["attention_mask"]
+
+                metrics['prompt_tokens'] = input_ids.shape[1]
+                metrics['generated_tokens'] = 0
 
                 with torch.no_grad():
                     outputs = self.model(
@@ -188,7 +196,7 @@ class ModelEngine:
     def generate(self, model_key, prompt):
         with self.lock:
             self.load_model(model_key)
-            with monitor_execution(model_key, "generate"):
+            with monitor_execution(model_key, "generate") as metrics:
 
                 # Preprocessing
                 messages = [{"role": "user", "content": prompt}]
@@ -203,6 +211,9 @@ class ModelEngine:
                     max_length=32000  # Safety cap
                 ).to(self.device)
 
+                input_token_len = inputs.input_ids.shape[1]
+                metrics['prompt_tokens'] = input_token_len
+
                 strategy = self.get_generation_strategy(model_key)
 
                 gen_params = {k: v for k, v in strategy.items()
@@ -215,6 +226,9 @@ class ModelEngine:
 
                 with torch.no_grad():
                     outputs = self.model.generate(**inputs, **gen_params)
+
+                metrics['generated_tokens'] = outputs[0].shape[0] - \
+                    input_token_len
 
                 response = self.tokenizer.decode(
                     outputs[0][inputs.input_ids.shape[1]:],
@@ -290,31 +304,31 @@ class FlaskAppTests(unittest.TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
 
-    # def test_generate(self):
+    def test_generate(self):
 
-    #     def test_model(model_key):
-    #         payload = {
-    #             "model_id": model_key,
-    #             "prompt": "Scrivi una funzione C per sommare due numeri."
-    #         }
-    #         print(f"\n[TEST] Trying to generate with {model_key}...")
-    #         response = self.client.post('/generate', json=payload)
-    #         data = response.get_json()
+        def test_model(model_key):
+            payload = {
+                "model_id": model_key,
+                "prompt": "Scrivi una funzione C per sommare due numeri."
+            }
+            print(f"\n[TEST] Trying to generate with {model_key}...")
+            response = self.client.post('/generate', json=payload)
+            data = response.get_json()
 
-    #         if response.status_code != 200:
-    #             print(f"[FAIL] Error received: {data.get('error')}")
+            if response.status_code != 200:
+                print(f"[FAIL] Error received: {data.get('error')}")
 
-    #         self.assertEqual(response.status_code, 200)
-    #         self.assertIn("response", data)
-    #         print(data["response"][:200] + "...")
-    #         print(
-    #             f"[SUCCESS] Response from {model_key} received successfully.")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("response", data)
+            print(data["response"][:200] + "...")
+            print(
+                f"[SUCCESS] Response from {model_key} received successfully.")
 
-    #     for model_key in MODELS_CONFIG.keys():
-    #         test_model(model_key)
+        for model_key in MODELS_CONFIG.keys():
+            test_model(model_key)
 
     def test_score(self):
-        sample_text = "\n/* WARNING: Unknown calling convention -- yet parameter storage is locked */\n\nvoid __assert_fail(char *__assertion, char *__file, uint __line, char *__function)\n\n{\n  (*(code *)PTR___assert_fail_00125dc8)();\n  return;\n}\n\n"
+        sample_text = "void sum(int a, int b) { return a + b; }"
         for model_key in MODELS_CONFIG.keys():
             payload = {
                 "model_id": model_key,
@@ -335,5 +349,4 @@ class FlaskAppTests(unittest.TestCase):
 
 if __name__ == '__main__':
     # unittest.main()  # TESTING
-    # app.run(host='0.0.0.0', port=8900)
-    ...
+    app.run(host='0.0.0.0', port=8900)

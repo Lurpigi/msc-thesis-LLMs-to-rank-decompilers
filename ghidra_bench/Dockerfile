@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y \
     build-essential bison flex \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir --upgrade pip setuptools wheel build requests pyghidra lizard
+COPY requirements.txt /requirements.txt 
+RUN pip3 install --no-cache-dir --upgrade -r /requirements.txt
 
 RUN mkdir -p /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app/outputs /opt/gradle_cache /opt/java_versions /opt/gradle_versions
     #chown -R gradle:gradle /opt/ghidra_src /opt/ghidra_exe /opt/ghidra-dist /app /opt/gradle_cache

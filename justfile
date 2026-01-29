@@ -47,5 +47,5 @@ destroy:
     docker stop $(docker ps -aq) 2>/dev/null || true
     docker system prune -a --volumes -f
 
-metrics:
-    docker compose up -d --build grafana
+dataset:
+    docker compose up -d --build dataset-maker && docker logs -f tesi-dataset-maker-1

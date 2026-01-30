@@ -52,7 +52,7 @@ echo "[*] Loading Docker images (this will take time)..."
 curl -sL https://cloud.vul337.team:8443/public.php/dav/files/br9qNTzwnmGgagF/base-runner.tar.gz | docker load
 curl -sL https://cloud.vul337.team:8443/public.php/dav/files/br9qNTzwnmGgagF/base-builder.tar.gz | docker load
 
-echom "[*] Installing Python dependencies..."
+echo "[*] Installing Python dependencies..."
 pip3 install -r requirements.txt
 
 
@@ -60,12 +60,11 @@ echo "[*] Compiling dummy library..."
 docker run --rm -w /work -v $(pwd):/work gcr.io/oss-fuzz-base/base-builder bash -c "clang dummy.c -o libfunction.so -O2 -fPIC -shared && clang ld.c -o ld.so -shared -fPIC -O2"
 
 echo "[*] Running extract_functions.py..."
-# python3 extract_functions.py --worker-count 96 --project file,libprotobuf-mutator
-python3 extract_functions.py
+python3 extract_functions.py --project file
+# python3 extract_functions.py
 
-echo "[*] Installing final Python dependencies..."
-pip3 uninstall -y clang
-pip3 install libclang
+# pip3 uninstall -y clang
+pip3 install libclang==18.1.1
 
 echo "[*] Starting final compilation to $dataset_path..."
 #export LIBCLANG_PATH="/usr/lib/llvm-18/lib/libclang-18.so.1"
@@ -73,5 +72,3 @@ echo "[*] Starting final compilation to $dataset_path..."
 python3 compile_ossfuzz.py --output "$dataset_path"
 
 echo "[SUCCESS] Process completed! You can find the data in the ./Dataset folder on your host."
-
-tail -f /dev/null

@@ -3,7 +3,7 @@ import json
 import re
 from .com import get_ast, get_func_name, get_source_code
 from .prompt import get_quality_prompt, get_ast_prompt
-from .const import DATASET_PATH, LLM_API_GEN, LLM_API_SCORE
+from .const import LLM_API_GEN, LLM_API_SCORE
 
 
 def get_code_metrics(code_snippet, model_id):
@@ -23,6 +23,13 @@ def get_code_metrics(code_snippet, model_id):
 
 def get_llm_analysis(base_code, pr_code, model_id, source=None):
     """Call the LLM to get analysis"""
+
+    if source is not None and base_code == pr_code:
+        return {
+            "winner": "TIE",
+            "motivation": "BASE and PR AST are identical; no differences to evaluate."
+        }
+
 
     prompt = get_quality_prompt(base_code, pr_code) if source is None else get_ast_prompt(
         base_code, pr_code, source)
@@ -55,7 +62,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, base_metri
 
     print("[EVAL] Starting LLM-based evaluation with model " + model_id)
 
-    func_name = get_func_name(test_binary_name, DATASET_PATH)
+    func_name = get_func_name(test_binary_name)
 
     print(f"[EVAL] Evaluating change in {func_name}")
 

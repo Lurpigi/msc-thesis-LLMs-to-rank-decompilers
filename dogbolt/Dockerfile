@@ -1,9 +1,6 @@
-FROM ubuntu:22.04
+FROM alpine:latest
 
-RUN apt-get update && \
-    apt-get install -y curl jq && \
-    apt-get install -y tree && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache bash curl jq tree coreutils
     
 WORKDIR /app
 

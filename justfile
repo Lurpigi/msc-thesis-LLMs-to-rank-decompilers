@@ -9,11 +9,8 @@ stop:
 make:
     cd C_projects && bash build.sh
 
-decompile:
-    #cp -r ./C_projects/bin/calculator ./dogbolt/bin/ #./C_projects/bin/*
-    docker compose build decompile
-    UID_GID="$(id -u):$(id -g)" docker compose up decompile
-    cd dogbolt && bash decompress.sh
+dogbolt:
+    UID_GID="$(id -u):$(id -g)" docker compose up --build -d dogbolt && docker logs -f tesi-dogbolt-1
 
 ownership:
     sudo chown -R $(whoami):$(whoami) ./C_projects/bin

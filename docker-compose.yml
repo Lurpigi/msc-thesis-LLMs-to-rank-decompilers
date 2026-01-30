@@ -1,20 +1,21 @@
 services:
-  decompile:
+  dogbolt:
     build:
       dockerfile: Dockerfile
       context: ./dogbolt
     user: "${UID_GID}"
     volumes:
       - ./dogbolt/src:/app/src
-    environment:
-      - HOST_UID=${UID:-1000}
-      - HOST_GID=${GID:-1000}
-    command: >
-      sh -c "
-      ./run.sh &&
-      cp -r /app/bin/src/* /app/src &&
-      chown -R \${HOST_UID}:\${HOST_GID} /app/src
-      "
+      - ./Dataset_maker/Dataset/binary:/app/bin
+    # environment:
+    #   - HOST_UID=${UID:-1000}
+    #   - HOST_GID=${GID:-1000}
+    # command: >
+    #   sh -c "
+    #   ./run.sh &&
+    #   cp -r /app/bin/src/* /app/src &&
+    #   chown -R \${HOST_UID}:\${HOST_GID} /app/src
+    #   "
 
   llm-server:
     build:
@@ -58,6 +59,7 @@ services:
       - ./ghidra_bench/outputs:/app/outputs
       - ./ghidra_bench/bin:/app/bin
       - ./ghidra_bench/scripts:/app/scripts
+      - ./Dataset_maker/Dataset:/app/Dataset
 
   dataset-maker:
     build:
@@ -67,5 +69,5 @@ services:
     environment:
       - dataset_path=/app/Dataset
     volumes:
-      - ./ghidra_bench/Dataset:/app/Dataset
+      - ./Dataset_maker/Dataset:/app/Dataset
     tty: true

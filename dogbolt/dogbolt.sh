@@ -48,7 +48,7 @@ fi
 echo "binary path: $file_path"
 
 # check binary size: limit is 2 MB
-file_size=$(stat -c%s "$file_path")
+file_size=$(stat -L -c%s "$file_path")
 echo "binary size: $file_size"
 # $ expr 2 \* 1024 \* 1024
 # 2097152
@@ -86,7 +86,13 @@ fi
 if [ -z "$binary_id" ]; then
   echo uploading binary
   # the "binary id" seems to be a random uuid, not related to the file hashes produced by rhash
-  binary_id="$(curl -s -X POST --form "file=@$file_path" https://dogbolt.org/api/binaries/ | jq -r .id)"
+  upload_response="$(curl -s -X POST --form "file=@$file_path" https://dogbolt.org/api/binaries/)"
+  # echo "upload_response: $upload_response"
+  if ! binary_id="$(jq -r .id <<<"$upload_response")"; then
+    # upload_response can be a non-json string like "Request Entity Too Large"
+    echo "error: failed to decode json from upload_response: $upload_response"
+    exit 1
+  fi
 
   # write cache
   mkdir -p "$(dirname "$binary_id_cache_path")"
@@ -107,7 +113,7 @@ decompilers_json="$(
 decompilers_json="$(echo "$decompilers_json" | jq 'del(.["rev.ng"])')"
 
 # keep only the desired decompilers
-decompilers_json="$(echo "$decompilers_json" | jq 'with_entries(select(.key | IN("Hex-Rays", "BinaryNinja", "Ghidra")) )')"
+decompilers_json="$(echo "$decompilers_json" | jq 'with_entries(select(.key | IN("Hex-Rays", "BinaryNinja", "Ghidra", "RetDec")) )')"
 
 decompilers_names="$(echo "$decompilers_json" | jq -r 'keys | join("\n")')"
 decompilers_count=$(echo "$decompilers_names" | wc -l)
@@ -138,12 +144,12 @@ for ((retry_step=0; retry_step<retry_count; retry_step++)); do
     decompiler_version=$(echo "$result_json" | jq -r .decompiler.version)
 
     case "$decompiler_name" in
-    "Hex-Rays"|"BinaryNinja"|"Ghidra")
+    "Hex-Rays"|"BinaryNinja"|"Ghidra"|"RetDec")
       ;; # allowed
     *)
       continue
       ;;
-  esac
+    esac
 
     decompiler_key="$decompiler_name-$decompiler_version"
     if [[ " $done_decompiler_keys " =~ " $decompiler_key " ]]; then
@@ -165,11 +171,11 @@ for ((retry_step=0; retry_step<retry_count; retry_step++)); do
       fi
     fi
 
-    output_path="$(dirname "./$file_path")/src/$decompiler_name-$decompiler_version/"
+    output_path="$(dirname "./$file_path")/../src/$decompiler_name-$decompiler_version/"
     output_path+="$(basename "$file_path" | sed -E 's/\.(exe|dll|o|so)$//').$output_extension"
     output_path=$(echo "$output_path" | sed 's|^\./||')
 
-    error_path="$(dirname "$file_path")/src/$decompiler_name-$decompiler_version/error.txt"
+    error_path="$(dirname "$file_path")/../src/$decompiler_name-$decompiler_version/error.txt"
     error_path=$(echo "$error_path" | sed 's|^\./||')
 
     result_hashes=""

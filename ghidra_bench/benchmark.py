@@ -3,7 +3,7 @@ import json
 import subprocess
 from utils.const import MAX_SAMPLES, OUTPUT_DIR, MODELS_TO_BENCHMARK, BINARIES_DIR
 from utils.ghidra import setup_ghidra_version, extract_decompilation
-from utils.llm import evaluate_with_llm
+from utils.llm import evaluate_with_llm, free_llm_model
 from utils.com import fetch_decompiler_prs, get_models, get_cc
 
 
@@ -146,6 +146,7 @@ def main(prs_number=None):
 
     print(f"[END] Timestamp: {subprocess.getoutput('date')}")
     print("[END] Finished all processing")
+    free_llm_model()
 
 
 if __name__ == "__main__":

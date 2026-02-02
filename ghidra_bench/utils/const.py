@@ -11,6 +11,7 @@ TARGET_FUNCTIONS = ["main", "test1", "test2", "test3", "test4"]
 LLM_API_URL = os.environ.get("LLM_API_URL", "http://localhost:8900")
 LLM_API_GEN = f"{LLM_API_URL}/generate"
 LLM_API_SCORE = f"{LLM_API_URL}/score"
+LLM_API_FREE = f"{LLM_API_URL}/free"
 MAX_WORKERS = int(os.environ.get("GHIDRA_WORKERS", 4))
 GRADLE_INSTALL_ROOT = "/opt/gradle"
 MODELS_TO_BENCHMARK = []

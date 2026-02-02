@@ -138,6 +138,7 @@ def get_ast(code):
     traverse(tree.root_node)
     return "".join(structure)
 
+
 def get_code_metrics(code_snippet, model_id):
     """Calls the /score endpoint to obtain raw perplexity of the code)"""
     try:
@@ -212,6 +213,20 @@ def get_source_code(bin, dataset_path=DATASET_PATH):
         if bin in row.get('path'):
             return row.get('func')
     raise ValueError(f"Source code for binary '{bin}' not found in dataset.")
+
+
+def free_llm_model():
+    """Calls the /free endpoint to unload the model from memory"""
+    try:
+        resp = requests.post(LLM_API_URL+"/free")
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"[WARN] Free API error: {resp.status_code}")
+            return {"status": "error"}
+    except Exception as e:
+        print(f"[ERR] Failed to free model: {e}")
+        return {"status": "error"}
 
 ####################################
 
@@ -410,7 +425,7 @@ def main():
                         item.get_func_decomp(d1), model_id=model)['perplexity']
                     perp_2 = get_code_metrics(
                         item.get_func_decomp(d2), model_id=model)['perplexity']
-                    
+
                     perp_ast_source = get_code_metrics(
                         source_ast, model_id=model)['perplexity']
                     perp_ast_1 = get_code_metrics(
@@ -456,6 +471,7 @@ def main():
     print(f"Saving {len(results)} comparisons to {output_file}...")
     with open(output_file, "w", encoding='utf-8') as f:
         json.dump(results, f, indent=2)
+    free_llm_model()
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import json
 import re
 from .com import get_ast, get_func_name, get_source_code
 from .prompt import get_quality_prompt, get_ast_prompt
-from .const import LLM_API_GEN, LLM_API_SCORE
+from .const import LLM_API_FREE, LLM_API_GEN, LLM_API_SCORE
 
 
 def get_code_metrics(code_snippet, model_id):
@@ -112,3 +112,17 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, base_metri
     print(f"[EVAL] Evaluated change in {func_name}")
 
     return report
+
+
+def free_llm_model():
+    """Calls the /free endpoint to unload the model from memory"""
+    try:
+        resp = requests.post(LLM_API_FREE)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"[WARN] Free API error: {resp.status_code}")
+            return {"status": "error"}
+    except Exception as e:
+        print(f"[ERR] Failed to free model: {e}")
+        return {"status": "error"}

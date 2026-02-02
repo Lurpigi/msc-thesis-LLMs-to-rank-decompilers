@@ -33,7 +33,7 @@ def main(prs_number=None):
         print(f"[SKIP] Base already processed. Skipping...")
 
     final_report = []
-    base_metrics_cache = {}
+    metrics_cache = {}
     for i, pr_number in enumerate(prs_number):
         test_binary_name = []
         print("Timestamp: ", subprocess.getoutput("date"))
@@ -112,7 +112,7 @@ def main(prs_number=None):
                         f"[PROCESSING] Evaluating PR #{pr_number} on binary {bin} with model {model_id}...")
 
                     results[model_id].extend(evaluate_with_llm(
-                        base_code, pr_code, model_id, bin, base_metrics_cache))
+                        base_code, pr_code, model_id, bin, metrics_cache))
 
         except Exception as e:
             print(f"[FATAL] {e}.")
@@ -125,8 +125,17 @@ def main(prs_number=None):
                                    ) / len(results[model_id]) if results[model_id] else 0
         mean_perplexity_pr = sum(entry['metrics']['pr_ppl'] for entry in results[model_id]
                                  ) / len(results[model_id]) if results[model_id] else 0
+        mean_perplexity_source = sum(entry['metrics']['source_ppl'] for entry in results[model_id]
+                                    ) / len(results[model_id]) if results[model_id] else 0
+        mean_perplexity_base_ast = sum(entry['metrics']['base_ast_ppl'] for entry in results[model_id]
+                                       ) / len(results[model_id]) if results[model_id] else 0
+        mean_perplexity_source_ast = sum(entry['metrics']['source_ast_ppl'] for entry in results[model_id]
+                                         ) / len(results[model_id]) if results[model_id] else 0
+        mean_perplexity_pr_ast = sum(entry['metrics']['pr_ast_ppl'] for entry in results[model_id]
+                                     ) / len(results[model_id]) if results[model_id] else 0
+
         print(
-            f"[FINAL RESULT] Overall improvement across all prs: {'YES' if mean_delta < 0 else 'NO' if mean_delta > 0 else 'NO CHANGE'}")
+            f"[FINAL RESULT] Overall improvement: {'YES' if mean_delta < 0 else 'NO' if mean_delta > 0 else 'NO CHANGE'}")
 
         print(f"[PROCESSING] Finished model {model_id}")
 
@@ -135,6 +144,10 @@ def main(prs_number=None):
             "mean_delta_perplexity": mean_delta,
             "mean_perplexity_base": mean_perplexity_base,
             "mean_perplexity_pr": mean_perplexity_pr,
+            "mean_perplexity_source": mean_perplexity_source,
+            "mean_perplexity_base_ast": mean_perplexity_base_ast,
+            "mean_perplexity_pr_ast": mean_perplexity_pr_ast,
+            "mean_perplexity_source_ast": mean_perplexity_source_ast,
             "results": results
         }
         final_report.append(rep)

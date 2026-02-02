@@ -55,7 +55,7 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None):
         return {"error": str(e)}
 
 
-def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, base_metrics_cache):
+def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_cache):
     """Creates the prompt, calculates metrics, and calls the Flask server"""
     report = []
 
@@ -65,22 +65,58 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, base_metri
 
     print(f"[EVAL] Evaluating change in {func_name}")
 
-    cache_key = (func_name, model_id, test_binary_name)
-    if cache_key in base_metrics_cache:
-        base_metrics = base_metrics_cache[cache_key]
+    cache_key = (func_name, model_id, test_binary_name, "base")
+    if cache_key in metrics_cache:
+        base_metrics = metrics_cache[cache_key]
         # print(f"[CACHE] Using cached metrics for {func_name}")
     else:
         print(f"Computing base metrics for {func_name}")
         base_metrics = get_code_metrics(base_code, model_id=model_id)
-        base_metrics_cache[cache_key] = base_metrics
+        metrics_cache[cache_key] = base_metrics
         print(f"Finished base metrics for {func_name}")
 
+    source_code = get_source_code(test_binary_name)
+    cache_key = (func_name, model_id, test_binary_name, "source")
+    if cache_key in metrics_cache:
+        source_metrics = metrics_cache[cache_key]
+        # print(f"[CACHE] Using cached source metrics for {func_name}")
+    else:
+        print(f"Computing metrics for Source - {func_name}")
+        source_metrics = get_code_metrics(source_code, model_id=model_id)
+        metrics_cache[cache_key] = source_metrics
+        print(f"Finished metrics for Source - {func_name}")
+    
+    source_ast = get_ast(source_code)
+    base_ast = get_ast(base_code)
+    pr_ast = get_ast(pr_code)
+
+    cache_key = (func_name, model_id, test_binary_name, "base_ast")
+    if cache_key in metrics_cache:
+        base_ast_metrics = metrics_cache[cache_key]
+        # print(f"[CACHE] Using cached AST metrics for {func_name}")
+    else:
+        print(f"Computing AST metrics for Base - {func_name}")
+        base_ast_metrics = get_code_metrics(base_ast, model_id=model_id)
+        metrics_cache[cache_key] = base_ast_metrics
+        print(f"Finished AST metrics for Base - {func_name}")
+    
+    cache_key = (func_name, model_id, test_binary_name, "source_ast")
+    if cache_key in metrics_cache:
+        source_ast_metrics = metrics_cache[cache_key]
+        # print(f"[CACHE] Using cached AST metrics for {func_name}")
+    else:
+        print(f"Computing AST metrics for Source - {func_name}")
+        source_ast_metrics = get_code_metrics(source_ast, model_id=model_id)
+        metrics_cache[cache_key] = source_ast_metrics
+        print(f"Finished AST metrics for Source - {func_name}")
+       
     print(f"Computing metrics for PR - {func_name}")
     pr_metrics = get_code_metrics(pr_code, model_id=model_id)
-
-    print(f"Finished metrics for {func_name}")
+    pr_ast_metrics = get_code_metrics(pr_ast, model_id=model_id)
 
     ppl_delta = pr_metrics['perplexity'] - base_metrics['perplexity']
+
+    print(f"Finished metrics for {func_name}")
 
     print(f"Getting qualitative analysis for {func_name}")
     qualitative_analysis = get_llm_analysis(
@@ -88,14 +124,24 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, base_metri
     print(f"Finished qualitative analysis for {func_name}")
     print(f"Getting AST analysis for {func_name}")
     ast_analysis = get_llm_analysis(
-        get_ast(base_code), get_ast(pr_code), model_id=model_id, source=get_ast(get_source_code(test_binary_name)))
+        base_ast, pr_ast, model_id=model_id, source=source_ast)
     print(f"Finished AST analysis for {func_name}")
     entry = {
         "binary": test_binary_name,
         "function": func_name,
+        "source_code": source_code,
+        "function_base": base_code,
+        "function_pr": pr_code,
+        "source_ast": source_ast,
+        "base_ast": base_ast,
+        "pr_ast": pr_ast,
         "metrics": {
+            "source_ppl": source_metrics['perplexity'],
             "base_ppl": base_metrics['perplexity'],
             "pr_ppl": pr_metrics['perplexity'],
+            "source_ast_ppl": source_ast_metrics['perplexity'],
+            "base_ast_ppl": base_ast_metrics['perplexity'],
+            "pr_ast_ppl": pr_ast_metrics['perplexity'],
             # < 0 means PR improved (lowered) perplexity
             "delta_ppl": ppl_delta,
         },
@@ -104,7 +150,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, base_metri
     }
 
     print(
-        f"   > PPL Base: {base_metrics['perplexity']:.2f} | PPL PR: {pr_metrics['perplexity']:.2f} | Delta: {ppl_delta:.2f}")
+        f"   > PPL Source: {source_metrics['perplexity']:.2f} | PPL Base: {base_metrics['perplexity']:.2f} | PPL PR: {pr_metrics['perplexity']:.2f} | Delta: {ppl_delta:.2f}")
     print(
         f"   > Better version: {'PR' if ppl_delta < 0 else 'Base' if ppl_delta > 0 else 'No Change'}")
 

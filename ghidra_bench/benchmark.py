@@ -6,13 +6,17 @@ from utils.ghidra import setup_ghidra_version, extract_decompilation
 from utils.llm import evaluate_with_llm
 from utils.com import fetch_decompiler_prs, get_models, get_cc
 
+
 def already_processed(file, n_pr=None, is_pr=False):
     json_path = os.path.join(
         OUTPUT_DIR, "decomp", f"{file}_pr_{n_pr}.json") if is_pr else os.path.join(OUTPUT_DIR, "decomp", f"{file}_base.json")
     return os.path.exists(json_path)
 
+
 def main(prs_number=None):
     # pr_number = "8635"#"8718"#"8718"
+
+    print("Prs to process:", prs_number)
     print("[START] Starting main process")
 
     base_headless = setup_ghidra_version("master")
@@ -47,7 +51,8 @@ def main(prs_number=None):
         else:
             try:
                 pr_headless = setup_ghidra_version(pr_number, True)
-                extract_decompilation(pr_headless, f"pr_{pr_number}", test_binary_name)
+                extract_decompilation(
+                    pr_headless, f"pr_{pr_number}", test_binary_name)
             except Exception as e:
                 print(f"[ERROR] {e}")
                 continue
@@ -88,18 +93,21 @@ def main(prs_number=None):
                             base_code = base_data[func_name]
                             pr_code = pr_data[func_name]
                             if base_code == None or pr_code == None:
-                                raise ValueError("Decompiled code is None") #should not happen
-                            if base_code != pr_code: 
-                                bin_cc.append((bin,(base_code, pr_code), get_cc(pr_code)))
+                                # should not happen
+                                raise ValueError("Decompiled code is None")
+                            if base_code != pr_code:
+                                bin_cc.append(
+                                    (bin, (base_code, pr_code), get_cc(pr_code)))
                                 break  # only one func
-            
-            print(f"[INFO] Total binaries with changes in PR #{pr_number}: {len(bin_cc)}")
+
+            print(
+                f"[INFO] Total binaries with changes in PR #{pr_number}: {len(bin_cc)}")
             bin_cc.sort(key=lambda x: x[2], reverse=True)
 
             bin_cc = bin_cc[:MAX_SAMPLES]
 
             for model_id in MODELS_TO_BENCHMARK:
-                for bin, (base_code, pr_code), _ in bin_cc:  
+                for bin, (base_code, pr_code), _ in bin_cc:
                     print(
                         f"[PROCESSING] Evaluating PR #{pr_number} on binary {bin} with model {model_id}...")
 
@@ -146,4 +154,4 @@ if __name__ == "__main__":
 
     MODELS_TO_BENCHMARK = get_models()
 
-    main(fetch_decompiler_prs())    #PR study
+    main(fetch_decompiler_prs())  # PR study

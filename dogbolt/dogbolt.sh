@@ -65,6 +65,9 @@ file_sha256=$(sha256sum "$file_path" | cut -d' ' -f1)
 
 echo "binary hash: sha256:$file_sha256"
 
+# Remove trailing "/" from $HOME if present
+HOME="${HOME%/}"
+
 # keep a local mapping from binary hash to binary id
 # to avoid repeating binary uploads
 binary_id_cache_path="$HOME/.cache/dogbolt/binary_id.txt"
@@ -113,7 +116,7 @@ decompilers_json="$(
 decompilers_json="$(echo "$decompilers_json" | jq 'del(.["rev.ng"])')"
 
 # keep only the desired decompilers
-decompilers_json="$(echo "$decompilers_json" | jq 'with_entries(select(.key | IN("Hex-Rays", "BinaryNinja", "Ghidra", "RetDec")) )')"
+decompilers_json="$(echo "$decompilers_json" | jq 'with_entries(select(.key | IN("Hex-Rays", "BinaryNinja", "Ghidra")) )')"
 
 decompilers_names="$(echo "$decompilers_json" | jq -r 'keys | join("\n")')"
 decompilers_count=$(echo "$decompilers_names" | wc -l)
@@ -144,7 +147,7 @@ for ((retry_step=0; retry_step<retry_count; retry_step++)); do
     decompiler_version=$(echo "$result_json" | jq -r .decompiler.version)
 
     case "$decompiler_name" in
-    "Hex-Rays"|"BinaryNinja"|"Ghidra"|"RetDec")
+    "Hex-Rays"|"BinaryNinja"|"Ghidra")
       ;; # allowed
     *)
       continue

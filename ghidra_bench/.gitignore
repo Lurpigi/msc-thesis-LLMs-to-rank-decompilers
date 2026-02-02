@@ -1,6 +1,7 @@
 scripts/__pycache__/
 outputs/decomp/*
 old_res/
+old_bin/
 Dataset/
 !outputs/timestamps.log
 !outputs/final_report.json

@@ -168,11 +168,21 @@ def extract_decompilation(ghidra_home, version_tag, binaries):
     """
 
     workers = int(MAX_WORKERS)
+
+    print(f"[INFO] Pre-loading function targets to avoid file locks...")
+    binary_targets_map = {}
+    for binary in binaries:
+        try:
+            targets = get_func_name(binary, DATASET_PATH)
+            binary_targets_map[binary] = targets
+        except Exception as e:
+            print(f"[WARN] Skipping {binary}: Could not load targets ({e})")
+
     print(f"[INFO] Starting extraction with {workers} parallel workers...")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         future_to_bin = {
-            executor.submit(process_binary_task, binary, ghidra_home, version_tag): binary
+            executor.submit(process_binary_task, binary, ghidra_home, version_tag, binary_targets_map[binary]): binary
             for binary in binaries
         }
 
@@ -184,7 +194,7 @@ def extract_decompilation(ghidra_home, version_tag, binaries):
                 print(f"[FATAL] {binary} generated an exception: {exc}")
 
 
-def process_binary_task(binary, ghidra_home, version_tag):
+def process_binary_task(binary, ghidra_home, version_tag, targets):
     """
     Function executed by the worker to process a single binary.
     """
@@ -200,7 +210,7 @@ def process_binary_task(binary, ghidra_home, version_tag):
     env["GHIDRA_BENCH_OUTPUT"] = OUTPUT_DIR
     env["GHIDRA_BENCH_TAG"] = version_tag
     # env["GHIDRA_INSTALL_DIR"] = ghidra_home
-    env["GHIDRA_BENCH_TARGETS"] = get_func_name(binary, DATASET_PATH)
+    env["GHIDRA_BENCH_TARGETS"] = targets
 
     print(
         f"[INFO] [Parallel] Processing {binary} with version {version_tag}...")

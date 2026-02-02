@@ -8,13 +8,14 @@ import itertools
 import tree_sitter_c
 from tree_sitter import Language, Parser
 import datasets
+import random
 
 
 DATASET_PATH = os.path.abspath('Dataset/compiled_ds')
 LLM_API_URL = os.environ.get("LLM_API_URL", "http://localhost:8900")
 OUTPUT_DIR = os.path.abspath('outputs')
 MODELS_TO_BENCHMARK = []
-DATASET_CACHE = {}
+
 
 def get_models():
     """
@@ -34,6 +35,7 @@ def get_models():
     except Exception as e:
         print(f"[ERR] Failed to get models: {e}")
         return []
+
 
 def get_ast(code):
     C_LANGUAGE = Language(tree_sitter_c.language())
@@ -142,6 +144,8 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None):
 
     prompt = get_ast_prompt(base_code, pr_code, source)
 
+    # print("[AAA] prompt:", prompt)
+
     try:
         resp = requests.post(LLM_API_URL+"/generate", json={
                              "prompt": prompt, "model_id": model_id})
@@ -164,21 +168,13 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None):
         return {"error": str(e)}
 
 
-def load_dataset(path=DATASET_PATH):
-    if not DATASET_CACHE:
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Dataset not found at {path}")
+def get_func_name(bin, dataset_path=DATASET_PATH):
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(
+            f"Error: Dataset path '{dataset_path}' does not exist.")
 
-        ds = datasets.load_from_disk(path)
-        for row in ds:
-            path_str = row.get('path', '')
-            key = os.path.basename(path_str)
-            DATASET_CACHE[key] = row
-    return DATASET_CACHE
-
-def get_func_name(bin):
     try:
-        ds = load_dataset()
+        ds = datasets.load_from_disk(dataset_path)
     except Exception as e:
         raise RuntimeError(f"Error loading dataset: {e}")
 
@@ -187,10 +183,14 @@ def get_func_name(bin):
             return row.get('file')
     raise ValueError(f"Function name for binary '{bin}' not found in dataset.")
 
-def get_source_code(bin):
+
+def get_source_code(bin, dataset_path=DATASET_PATH):
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(
+            f"Error: Dataset path '{dataset_path}' does not exist.")
 
     try:
-        ds = load_dataset()
+        ds = datasets.load_from_disk(dataset_path)
     except Exception as e:
         raise RuntimeError(f"Error loading dataset: {e}")
 
@@ -200,6 +200,7 @@ def get_source_code(bin):
     raise ValueError(f"Source code for binary '{bin}' not found in dataset.")
 
 ####################################
+
 
 def get_ast_prompt(base_ast, pr_ast, source_ast):
     return (
@@ -235,19 +236,20 @@ def get_ast_prompt(base_ast, pr_ast, source_ast):
         "}"
     )
 
+
 SRC_PATH = os.path.abspath('src')
 
+
 class binary_item:
-    source_func = ""
-    funcs = {}
-    binary_name = ""
+
     def __init__(self, binary_name):
         self.source_func = get_source_code(binary_name)
         self.binary_name = binary_name
+        self.funcs = {}
 
     def set_func(self, code, decompiler_name):
-        name = get_func_name(self.binary_name)
-        start_str = f"{name}("
+        self.name = get_func_name(self.binary_name)
+        start_str = f"{self.name}("
         start_idx = code.find(start_str)
         if start_idx == -1:
             raise ValueError("Function start not found")
@@ -271,27 +273,29 @@ class binary_item:
     def get_ast(self, decompiler_name):
         func = self.funcs.get(decompiler_name, "")
         if func == "":
-            raise ValueError(f"Function not set for decompiler {decompiler_name}")
+            raise ValueError(
+                f"Function not set for decompiler {decompiler_name}")
         return get_ast(func)
-    
+
+    def get_func_name(self):
+        return self.name
+
+    def get_binary_name(self):
+        return self.binary_name
+
     def get_source_ast(self):
         return get_ast(self.source_func)
-    
+
     def get_func_decomp(self, decompiler_name):
         return self.funcs[decompiler_name]
-    
+
     def get_decompilers(self):
         return list(self.funcs.keys())
+
 
 def main():
     output_file = os.path.join(OUTPUT_DIR, "dogbolt_report.json")
     results = {model_id: [] for model_id in MODELS_TO_BENCHMARK}
-
-    try:
-        load_dataset(DATASET_PATH)
-    except Exception as e:
-        print(f"Critical Error: {e}")
-        return
 
     #  { filename_task: { decompiler_name: full_path } }
     tasks_map = {}
@@ -300,45 +304,65 @@ def main():
         d_path = os.path.join(SRC_PATH, d_dir)
         if not os.path.isdir(d_path):
             continue
-            
+
         num_decompilers += 1
-        
+
         for fname in os.listdir(d_path):
             if not fname.endswith(".c"):
                 continue
-            
+
             if fname not in tasks_map:
                 tasks_map[fname] = {}
-            
+
             tasks_map[fname][d_dir] = os.path.join(d_path, fname)
 
-    
-    valid_tasks = [t for t, decomps in tasks_map.items() if len(decomps) >= num_decompilers]
-    
-    print(f"Found {len(tasks_map)} tasks. Processing {len(valid_tasks)} common tasks...")
+    valid_tasks = [t for t, decomps in tasks_map.items() if len(
+        decomps) >= num_decompilers]
+
+    print(
+        f"Found {len(tasks_map)} tasks. Processing {len(valid_tasks)} common tasks...")
     items_binary = []
     for task_filename in valid_tasks:
-        
+
         binary_name = task_filename.replace(".c", "")
-            
+
         try:
             items_binary.append(binary_item(binary_name))
             for d_key, d_path in tasks_map[task_filename].items():
                 with open(d_path, 'r', encoding='utf-8', errors='ignore') as f:
                     code = f.read()
-                decomp_name = d_key.split('-')[:-1]
+                decomp_name_parts = d_key.split('-')[:-1]
+                decomp_name = "-".join(decomp_name_parts)
                 items_binary[-1].set_func(code, decomp_name)
         except Exception as e:
             print(f"Error for {binary_name}: {e}")
             continue
 
-    print(f"Starting pairwise comparison for {len(items_binary)} valid items...")
+    # SAMPLE_SIZE = 25
+
+    # if len(items_binary) > SAMPLE_SIZE:
+    #     print(
+    #         f"Sampling {SAMPLE_SIZE} items from {len(items_binary)} total...")
+    #     random.seed(0)
+    #     items_binary = random.sample(items_binary, SAMPLE_SIZE)
+
+    print(
+        f"Starting pairwise comparison for {len(items_binary)} valid items...")
 
     decompilers = items_binary[0].get_decompilers()
     pairs = list(itertools.combinations(decompilers, 2))
-
+    print(f"Comparing {len(pairs)} decompiler pairs: {pairs}")
     for model in MODELS_TO_BENCHMARK:
+        print(f"Benchmarking model: {model}...")
+        if os.path.exists(os.path.join(OUTPUT_DIR, "_"+model+".json")):
+            print(
+                f"Output for model {model} already exists. Skipping benchmarking.")
+            res = json.load(
+                open(os.path.join(OUTPUT_DIR, "_"+model+".json"), "r"))
+            results[model] = res
+            continue
         for item in items_binary:
+            print(f"Processing binary: {item.get_binary_name()}...")
             try:
                 source_ast = item.get_source_ast()
                 if not source_ast:
@@ -362,14 +386,9 @@ def main():
                         source=source_ast
                     )
 
-                    for row in DATASET_CACHE.values():
-                        if item.binary_name in row.get('path', ''):
-                            func_name = row.get('file', 'unknown')
-                            break
-                   
                     entry = {
-                        "binary": item.binary_name,
-                        "function": func_name,
+                        "binary": item.get_binary_name(),
+                        "function": item.get_func_name(),
                         "decompiler_A": d1,
                         "decompiler_B": d2,
                         "winner": analysis.get("winner", "Error"),
@@ -378,13 +397,17 @@ def main():
                         "ast_B": ast_2,
                         "ast_Source": source_ast
                     }
-                    
+
                     results[model].append(entry)
-                    print(f"[{item.binary_name}] {d1} vs {d2} -> Winner: {entry['winner']}")
+                    print(
+                        f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner: {entry['winner']}")
 
                 except Exception as e:
-                    print(f"Error comparing {d1} vs {d2} on {item.binary_name}: {e}")
-
+                    print(
+                        f"Error comparing {d1} vs {d2} on {item.get_binary_name()}: {e}")
+        print(f"Completed benchmarking for model: {model}.")
+        with open(os.path.join(OUTPUT_DIR, "_"+model+".json"), "w", encoding='utf-8') as f:
+            json.dump(results[model], f, indent=2)
     print(f"Saving {len(results)} comparisons to {output_file}...")
     with open(output_file, "w", encoding='utf-8') as f:
         json.dump(results, f, indent=2)

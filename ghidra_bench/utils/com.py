@@ -8,7 +8,6 @@ import tree_sitter_c
 from tree_sitter import Language, Parser
 from .const import LLM_API_URL, DATASET_PATH
 
-DATASET_CACHE = {}
 
 def run_command(cmd, cwd=None, env=None, input_text=None):
     verbose = 0
@@ -140,21 +139,14 @@ def get_ast(code):
     traverse(tree.root_node)
     return "".join(structure)
 
-def load_dataset():
-    if not DATASET_CACHE:
-        if not os.path.exists(DATASET_PATH):
-            raise FileNotFoundError(f"Dataset not found at {DATASET_PATH}")
 
-        ds = datasets.load_from_disk(DATASET_PATH)
-        for row in ds:
-            path_str = row.get('path', '')
-            key = os.path.basename(path_str)
-            DATASET_CACHE[key] = row
-    return DATASET_CACHE
+def get_func_name(bin, dataset_path=DATASET_PATH):
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(
+            f"Error: Dataset path '{dataset_path}' does not exist.")
 
-def get_func_name(bin):
     try:
-        ds = load_dataset()
+        ds = datasets.load_from_disk(dataset_path)
     except Exception as e:
         raise RuntimeError(f"Error loading dataset: {e}")
 
@@ -163,10 +155,14 @@ def get_func_name(bin):
             return row.get('file')
     raise ValueError(f"Function name for binary '{bin}' not found in dataset.")
 
-def get_source_code(bin):
+
+def get_source_code(bin, dataset_path=DATASET_PATH):
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(
+            f"Error: Dataset path '{dataset_path}' does not exist.")
 
     try:
-        ds = load_dataset()
+        ds = datasets.load_from_disk(dataset_path)
     except Exception as e:
         raise RuntimeError(f"Error loading dataset: {e}")
 
@@ -176,11 +172,12 @@ def get_source_code(bin):
     raise ValueError(f"Source code for binary '{bin}' not found in dataset.")
 
 
-#just reference
+# just reference
 def get_dataset_info():
-    
+
     if not os.path.exists(DATASET_PATH):
-        raise FileNotFoundError(f"Error: Dataset path '{DATASET_PATH}' does not exist.")
+        raise FileNotFoundError(
+            f"Error: Dataset path '{DATASET_PATH}' does not exist.")
 
     try:
         ds = datasets.load_from_disk(DATASET_PATH)
@@ -194,7 +191,7 @@ def get_dataset_info():
         func.append(row.get('file'))
         path.append(row.get('path'))
         source.append(row.get('func'))
-    
+
     return (func, path, source)
 
 
@@ -235,7 +232,8 @@ def fetch_decompiler_prs():
             items = data.get('items', [])
             pr_numbers = [str(item['number']) for item in items]
             print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
-            return ['8752','8635','8629','8628','8587','8312', '8161','7253','6722','6718']#pr_numbers  # 5554, '8834']  # pr_numbers
+            # pr_numbers  # 5554, '8834']  # pr_numbers
+            return ['8752', '8635', '8629', '8628', '8587', '8312', '8161', '7253', '6722', '6718']
             # return ['3299', '8597']
         elif response.status_code == 403:
             print("[WARN] GitHub API rate limit exceeded or access denied.")

@@ -60,7 +60,7 @@ echo "[*] Compiling dummy library..."
 docker run --rm -w /work -v $(pwd):/work gcr.io/oss-fuzz-base/base-builder bash -c "clang dummy.c -o libfunction.so -O2 -fPIC -shared && clang ld.c -o ld.so -shared -fPIC -O2"
 
 echo "[*] Running extract_functions.py..."
-python3 extract_functions.py --project file
+python3 extract_functions.py --project file,libxls,readstat,xz
 # python3 extract_functions.py
 
 # pip3 uninstall -y clang

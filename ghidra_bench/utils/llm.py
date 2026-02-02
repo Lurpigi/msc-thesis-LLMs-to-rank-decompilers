@@ -30,7 +30,6 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None):
             "motivation": "BASE and PR AST are identical; no differences to evaluate."
         }
 
-
     prompt = get_quality_prompt(base_code, pr_code) if source is None else get_ast_prompt(
         base_code, pr_code, source)
 
@@ -89,7 +88,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, base_metri
     print(f"Finished qualitative analysis for {func_name}")
     print(f"Getting AST analysis for {func_name}")
     ast_analysis = get_llm_analysis(
-        get_ast(base_code), get_ast(pr_code), model_id=model_id, source=get_ast(get_source_code(base_code)))
+        get_ast(base_code), get_ast(pr_code), model_id=model_id, source=get_ast(get_source_code(test_binary_name)))
     print(f"Finished AST analysis for {func_name}")
     entry = {
         "binary": test_binary_name,

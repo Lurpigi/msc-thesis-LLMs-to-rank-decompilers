@@ -12,6 +12,9 @@ make:
 dogbolt:
     UID_GID="$(id -u):$(id -g)" docker compose up --build -d dogbolt && docker logs -f tesi-dogbolt-1
 
+dogbolt_bench:
+    UID_GID="$(id -u):$(id -g)" docker compose up --build -d dogbolt-bench && docker logs -f tesi-dogbolt-bench-1
+
 ownership:
     sudo chown -R $(whoami):$(whoami) ./C_projects/bin
     sudo chown -R $(whoami):$(whoami) ./dogbolt/src

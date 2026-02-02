@@ -19,7 +19,7 @@ python3 -c "from app import download_all_models; download_all_models()"
 echo "[START] Starting Gunicorn WSGI Server..."
 exec gunicorn --workers 1 \
               --threads 1 \
-              --timeout 300 \
+              --timeout 600 \
               --bind 0.0.0.0:8900 \
               --access-logfile - \
               --error-logfile - \

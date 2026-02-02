@@ -12,6 +12,7 @@ COPY dogbolt.sh .
 COPY run.sh .
 COPY decompress.sh .
 
-RUN chmod +x dogbolt.sh run.sh decompress.sh
+RUN dos2unix dogbolt.sh run.sh decompress.sh && \
+    chmod +x dogbolt.sh run.sh decompress.sh
 
 CMD ["bash", "./run.sh"]

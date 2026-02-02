@@ -242,6 +242,10 @@ SRC_PATH = os.path.abspath('src')
 
 class binary_item:
 
+    source_func: str
+    binary_name: str
+    funcs: dict
+
     def __init__(self, binary_name):
         self.source_func = get_source_code(binary_name)
         self.binary_name = binary_name
@@ -285,6 +289,9 @@ class binary_item:
 
     def get_source_ast(self):
         return get_ast(self.source_func)
+
+    def get_source_func(self):
+        return self.source_func
 
     def get_func_decomp(self, decompiler_name):
         return self.funcs[decompiler_name]
@@ -378,6 +385,10 @@ def main():
 
                     if not ast_1 or not ast_2:
                         raise ValueError("One of the ASTs is empty")
+
+                    # print("source code:", item.get_source_func())
+                    # print("decompiler A code:", item.get_func_decomp(d1))
+                    # print("decompiler B code:", item.get_func_decomp(d2))
 
                     analysis = get_llm_analysis(
                         base_code=ast_1,

@@ -88,6 +88,26 @@ class ModelEngine:
             "cuda" if torch.cuda.is_available() else "cpu")
         self.lock = threading.Lock()
 
+        self.last_activity_time = time.time()
+        self.idle_timeout_seconds = 600  # 10 minutes
+        self.monitor_thread = threading.Thread(
+            target=self._idle_monitor, daemon=True)
+        self.monitor_thread.start()
+
+    def _update_activity(self):
+        self.last_activity_time = time.time()
+
+    def _idle_monitor(self):
+        while True:
+            time.sleep(30)  # Check every 30 seconds
+            with self.lock:
+                if self.model is not None:
+                    idle_duration = time.time() - self.last_activity_time
+                    if idle_duration > self.idle_timeout_seconds:
+                        print(
+                            f"[IDLE] No activity for {int(idle_duration)}s. Unloading model...")
+                        self._unload_model()
+
     def _unload_model(self):
         if self.model:
             print(f"[CLEANUP] Unloading {self.current_model_id}...")
@@ -157,7 +177,7 @@ class ModelEngine:
         return config
 
     def compute_perplexity(self, text, model_id):
-
+        self._update_activity()
         with self.lock:
             self.load_model(model_id)
             with monitor_execution(model_id, "score") as metrics:
@@ -194,6 +214,7 @@ class ModelEngine:
                 }
 
     def generate(self, model_key, prompt):
+        self._update_activity()
         with self.lock:
             self.load_model(model_key)
             with monitor_execution(model_key, "generate") as metrics:

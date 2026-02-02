@@ -138,6 +138,20 @@ def get_ast(code):
     traverse(tree.root_node)
     return "".join(structure)
 
+def get_code_metrics(code_snippet, model_id):
+    """Calls the /score endpoint to obtain raw perplexity of the code)"""
+    try:
+        resp = requests.post(LLM_API_URL+"/score", json={
+                             "text": code_snippet, "model_id": model_id}, timeout=300)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"[WARN] Score API error: {resp.status_code}")
+            return {"perplexity": -1, "mean_logbits": 0}
+    except Exception as e:
+        print(f"[ERR] Failed to get metrics: {e}")
+        return {"perplexity": -1, "mean_logbits": 0}
+
 
 def get_llm_analysis(base_code, pr_code, model_id, source=None):
     """Call the LLM to get analysis"""
@@ -390,6 +404,20 @@ def main():
                     # print("decompiler A code:", item.get_func_decomp(d1))
                     # print("decompiler B code:", item.get_func_decomp(d2))
 
+                    perp_source = get_code_metrics(
+                        item.get_source_func(), model_id=model)['perplexity']
+                    perp_1 = get_code_metrics(
+                        item.get_func_decomp(d1), model_id=model)['perplexity']
+                    perp_2 = get_code_metrics(
+                        item.get_func_decomp(d2), model_id=model)['perplexity']
+                    
+                    perp_ast_source = get_code_metrics(
+                        source_ast, model_id=model)['perplexity']
+                    perp_ast_1 = get_code_metrics(
+                        ast_1, model_id=model)['perplexity']
+                    perp_ast_2 = get_code_metrics(
+                        ast_2, model_id=model)['perplexity']
+
                     analysis = get_llm_analysis(
                         base_code=ast_1,
                         pr_code=ast_2,
@@ -406,7 +434,13 @@ def main():
                         "motivation": analysis.get("motivation", ""),
                         "ast_A": ast_1,
                         "ast_B": ast_2,
-                        "ast_Source": source_ast
+                        "ast_Source": source_ast,
+                        "perplexity_source": perp_source,
+                        "perplexity_A": perp_1,
+                        "perplexity_B": perp_2,
+                        "perplexity_ast_source": perp_ast_source,
+                        "perplexity_ast_A": perp_ast_1,
+                        "perplexity_ast_B": perp_ast_2,
                     }
 
                     results[model].append(entry)

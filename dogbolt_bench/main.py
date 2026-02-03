@@ -176,6 +176,15 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None):
                     return json.loads(match.group(0))
                 return {"winner": "Unknown", "motivation": generated_text}
             except:
+                winner_match = re.search(
+                    r'"winner"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+                motivation_match = re.search(
+                    r'"motivation"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+                if winner_match and motivation_match:
+                    return {
+                        "winner": winner_match.group(1),
+                        "motivation": motivation_match.group(1)
+                    }
                 return {"winner": "Error", "motivation": generated_text}
         else:
             return {"error": f"API Error: {resp.status_code}"}
@@ -282,15 +291,42 @@ class binary_item:
 
     def set_func(self, code, decompiler_name):
         self.name = get_func_name(self.binary_name)
-        start_str = f"{self.name}("
-        start_idx = code.find(start_str)
-        if start_idx == -1:
-            raise ValueError("Function start not found")
-        # find the opening brace {
-        brace_idx = code.find("{", start_idx)
-        if brace_idx == -1:
-            raise ValueError("Function opening brace not found")
-        # find the matching closing brace }
+        search_str = f"{self.name}("
+
+        start_idx = -1
+        brace_idx = -1
+        search_pos = 0
+        while True:
+            start_idx = code.find(search_str, search_pos)
+            if start_idx == -1:
+                raise ValueError(
+                    f"Function definition for '{self.name}' not found")
+
+            curr_idx = start_idx + len(self.name)
+            paren_count = 0
+            args_closed = False
+
+            while curr_idx < len(code):
+                if code[curr_idx] == '(':
+                    paren_count += 1
+                elif code[curr_idx] == ')':
+                    paren_count -= 1
+                    if paren_count == 0:
+                        args_closed = True
+                        curr_idx += 1
+                        break
+                curr_idx += 1
+
+            if not args_closed:
+                raise ValueError("Unmatched parentheses in function arguments")
+            while curr_idx < len(code) and code[curr_idx].isspace():
+                curr_idx += 1
+
+            if curr_idx < len(code) and code[curr_idx] == '{':
+                brace_idx = curr_idx
+                break
+            else:
+                search_pos = curr_idx
         brace_count = 1
         end_idx = brace_idx + 1
         while end_idx < len(code) and brace_count > 0:
@@ -299,8 +335,12 @@ class binary_item:
             elif code[end_idx] == "}":
                 brace_count -= 1
             end_idx += 1
+
         if brace_count != 0:
             raise ValueError("Unmatched braces in function code")
+
+        # print(f"[INFO] Extracted function {self.name} from decompiler {decompiler_name}")
+        # print(f"[DEBUG] Function code:\n{code[start_idx:end_idx]}")
         self.funcs[decompiler_name] = code[start_idx:end_idx]
 
     def get_ast(self, decompiler_name):
@@ -369,6 +409,7 @@ def main():
                     code = f.read()
                 decomp_name_parts = d_key.split('-')[:-1]
                 decomp_name = "-".join(decomp_name_parts)
+                # print(f"Setting function for binary {binary_name} decompiler {decomp_name}...")
                 items_binary[-1].set_func(code, decomp_name)
         except Exception as e:
             print(f"Error for {binary_name}: {e}")
@@ -384,7 +425,6 @@ def main():
 
     print(
         f"Starting pairwise comparison for {len(items_binary)} valid items...")
-
     decompilers = items_binary[0].get_decompilers()
     pairs = list(itertools.combinations(decompilers, 2))
     print(f"Comparing {len(pairs)} decompiler pairs: {pairs}")

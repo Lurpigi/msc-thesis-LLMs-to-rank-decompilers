@@ -48,6 +48,15 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None):
                     return json.loads(match.group(0))
                 return {"winner": "Unknown", "motivation": generated_text}
             except:
+                winner_match = re.search(
+                    r'"winner"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+                motivation_match = re.search(
+                    r'"motivation"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+                if winner_match and motivation_match:
+                    return {
+                        "winner": winner_match.group(1),
+                        "motivation": motivation_match.group(1)
+                    }
                 return {"winner": "Error", "motivation": generated_text}
         else:
             return {"error": f"API Error: {resp.status_code}"}

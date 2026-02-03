@@ -51,14 +51,14 @@ def monitor_execution(model_id, operation_name):
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.empty_cache()
-    start_time = time.time()
+    start_time = time.perf_counter()
 
     stats = {"prompt_tokens": 0, "generated_tokens": 0}
 
     try:
         yield stats
     finally:
-        end_time = time.time()
+        end_time = time.perf_counter()
         duration = end_time - start_time
 
         peak_vram_gb = 0.0
@@ -165,6 +165,9 @@ class ModelEngine:
                     self.model.device)  # model.config.max_position_embeddings
                 input_ids = inputs["input_ids"]
                 attention_mask = inputs["attention_mask"]
+                valid_tokens = attention_mask[:, 1:].sum(dim=-1)
+                if valid_tokens.item() == 0:
+                    return {"perplexity": -1, "mean_logbits": 0.0}
 
                 metrics['prompt_tokens'] = input_ids.shape[1]
                 metrics['generated_tokens'] = 0

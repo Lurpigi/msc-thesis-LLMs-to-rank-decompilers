@@ -10,7 +10,7 @@ def get_code_metrics(code_snippet, model_id):
     """Calls the /score endpoint to obtain raw perplexity of the code)"""
     try:
         resp = requests.post(LLM_API_SCORE, json={
-                             "text": code_snippet, "model_id": model_id}, timeout=300)
+                             "text": code_snippet, "model_id": model_id})
         if resp.status_code == 200:
             return resp.json()
         else:
@@ -85,7 +85,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
         source_metrics = get_code_metrics(source_code, model_id=model_id)
         metrics_cache[cache_key] = source_metrics
         print(f"Finished metrics for Source - {func_name}")
-    
+
     source_ast = get_ast(source_code)
     base_ast = get_ast(base_code)
     pr_ast = get_ast(pr_code)
@@ -99,7 +99,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
         base_ast_metrics = get_code_metrics(base_ast, model_id=model_id)
         metrics_cache[cache_key] = base_ast_metrics
         print(f"Finished AST metrics for Base - {func_name}")
-    
+
     cache_key = (func_name, model_id, test_binary_name, "source_ast")
     if cache_key in metrics_cache:
         source_ast_metrics = metrics_cache[cache_key]
@@ -109,7 +109,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
         source_ast_metrics = get_code_metrics(source_ast, model_id=model_id)
         metrics_cache[cache_key] = source_ast_metrics
         print(f"Finished AST metrics for Source - {func_name}")
-       
+
     print(f"Computing metrics for PR - {func_name}")
     pr_metrics = get_code_metrics(pr_code, model_id=model_id)
     pr_ast_metrics = get_code_metrics(pr_ast, model_id=model_id)

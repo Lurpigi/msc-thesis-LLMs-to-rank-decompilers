@@ -1,88 +1,89 @@
 services:
-    dogbolt:
-        build:
-            dockerfile: Dockerfile
-            context: ./dogbolt
-        user: "${UID_GID}"
-        volumes:
-            - ./dogbolt/src:/app/src
-            - ./Dataset_maker/Dataset/binary:/app/bin
-        # environment:
-        #   - HOST_UID=${UID:-1000}
-        #   - HOST_GID=${GID:-1000}
-        # command: >
-        #   sh -c "
-        #   ./run.sh &&
-        #   cp -r /app/bin/src/* /app/src &&
-        #   chown -R \${HOST_UID}:\${HOST_GID} /app/src
-        #   "
+  dogbolt:
+    build:
+      dockerfile: Dockerfile
+      context: ./dogbolt
+    user: "${UID_GID}"
+    volumes:
+      - ./dogbolt/src:/app/src
+      - ./Dataset_maker/Dataset/binary:/app/bin
+    # environment:
+    #   - HOST_UID=${UID:-1000}
+    #   - HOST_GID=${GID:-1000}
+    # command: >
+    #   sh -c "
+    #   ./run.sh &&
+    #   cp -r /app/bin/src/* /app/src &&
+    #   chown -R \${HOST_UID}:\${HOST_GID} /app/src
+    #   "
 
-    llm-server:
-        build:
-            context: ./llm_server
-            dockerfile: Dockerfile
-        ports:
-            - "8900:8900"
-        environment:
-            - HF_TOKEN=${TOKEN_HUGGINFACE_READ}
-        volumes:
-            # Map HuggingFace cache
-            - ~/.cache/huggingface:/root/.cache/huggingface
-            - ./llm_server/logs:/app/logs
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                          count: all
-                          capabilities: [gpu]
-        healthcheck:
-            # Check the server
-            test: ["CMD", "curl", "-f", "http://localhost:8900/"]
-            interval: 120s
-            retries: 10
-            start_period: 300s
+  llm-server:
+    build:
+      context: ./llm_server
+      dockerfile: Dockerfile
+    ports:
+      - "8900:8900"
+    environment:
+      - HF_TOKEN=${TOKEN_HUGGINFACE_READ}
+    volumes:
+      # Map HuggingFace cache
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ./llm_server/logs:/app/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      # Check the server
+      test: ["CMD", "curl", "-f", "http://localhost:8900/"]
+      interval: 120s
+      retries: 10
+      start_period: 300s
 
-    ghidra-bench:
-        image: ghidra-bench:latest
-        build:
-            context: ./ghidra_bench
-            dockerfile: Dockerfile
-        #user: "${UID_GID}"
-        depends_on:
-            llm-server:
-                condition: service_healthy
-        environment:
-            - LLM_API_URL=http://llm-server:8900
-            - GHIDRA_BENCH_OUTPUT=/app/outputs
-        volumes:
-            - ./ghidra_bench/outputs:/app/outputs
-            - ./ghidra_bench/bin:/app/bin
-            - ./ghidra_bench/scripts:/app/scripts
-            - ./Dataset_maker/Dataset:/app/Dataset
+  ghidra-bench:
+    image: ghidra-bench:latest
+    build:
+      context: ./ghidra_bench
+      dockerfile: Dockerfile
+    #user: "${UID_GID}"
+    depends_on:
+      llm-server:
+        condition: service_healthy
+    environment:
+      - LLM_API_URL=http://llm-server:8900
+      - GHIDRA_BENCH_OUTPUT=/app/outputs
+    volumes:
+      - ./ghidra_bench/outputs:/app/outputs
+      - ./ghidra_bench/bin:/app/bin
+      - ./ghidra_bench/scripts:/app/scripts
+      - ./Dataset_maker/Dataset:/app/Dataset
 
-    dataset-maker:
-        build:
-            context: ./Dataset_maker
-            dockerfile: Dockerfile
-        privileged: true
-        environment:
-            - dataset_path=/app/Dataset
-        volumes:
-            - ./Dataset_maker/Dataset:/app/Dataset
-        tty: true
+  dataset-maker:
+    build:
+      context: ./Dataset_maker
+      dockerfile: Dockerfile
+    privileged: true
+    environment:
+      - dataset_path=/app/Dataset
+    volumes:
+      - ./Dataset_maker/Dataset:/app/Dataset
+    tty: true
 
-    dogbolt-bench:
-        build:
-            context: ./dogbolt_bench
-            dockerfile: Dockerfile
-        user: "${UID_GID}"
-        depends_on:
-            llm-server:
-                condition: service_healthy
-        environment:
-            - LLM_API_URL=http://llm-server:8900
-        volumes:
-            - ./dogbolt_bench/outputs:/app/outputs
-            - ./dogbolt/src:/app/src
-            - ./Dataset_maker/Dataset:/app/Dataset
+  dogbolt-bench:
+    build:
+      context: ./dogbolt_bench
+      dockerfile: Dockerfile
+    user: "${UID_GID}"
+    depends_on:
+      llm-server:
+        condition: service_healthy
+    environment:
+      - LLM_API_URL=http://llm-server:8900
+    volumes:
+      - ./dogbolt_bench/outputs:/app/outputs
+      - ./dogbolt/src:/app/src
+      - ./Dataset_maker/Dataset:/app/Dataset
+      - ./ghidra_bench/utils/:/app/utils/

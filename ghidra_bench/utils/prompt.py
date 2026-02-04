@@ -1,69 +1,72 @@
-
-def get_quality_prompt(base_code, pr_code):
+def get_quality_prompt(source_code, code_a, code_b):
     return (
-        "You are a Senior Reverse Engineering Analyst and C Code Auditor.\n"
-        "Your goal is to compare two decompiled versions of the same function and determine "
-        "which one is more human, structurally sound, readable, and idiomatic.\n\n"
+        "You are a Lead Compiler Engineer and C Code Auditor specializing in Decompilation correctness.\n"
+        "Your goal is to evaluate two anonymous decompiled versions ('Candidate A' and 'Candidate B') "
+        "against the original 'Ground Truth' Source Code.\n\n"
 
-        "### INSTRUCTIONS\n"
-        "1. **Ignore Semantics**: Do not judge variable names (e.g., `iVar1` vs `index`) or whitespace styles.\n"
-        "2. **Focus on Structure**: Evaluate strictly the Control Flow Graph (CFG) recovery and C expression logic.\n"
-        "3. **Compare**: Version A is the 'BASE' (current), Version B is the 'PR' (proposed).\n\n"
+        "### TASK & BIAS WARNING\n"
+        "1. **Neutrality**: Candidate A and Candidate B are from different tools. Do not assume one is the 'original' or 'improved' version.\n"
+        "2. **Ground Truth is King**: Readability is important, but semantic equivalence to the Source Code is the primary requirement. A readable hallucination is a failure.\n"
+        "3. **Chain of Verification**: You must verify the control flow of each candidate against the source before deciding.\n\n"
 
         "### EVALUATION CRITERIA\n"
-        "Compare BASE and PR based on these factors:\n"
-        "- **Control Flow Reconstruction**: Does the code use high-level loops (`while`, `for`) and structured `switch` cases? "
-        "Heavily penalize `goto`, arbitrary `label:` jumps, and spaghetti logic.\n"
-        "- **Expression Logic**: Are pointers and arithmetic clean (e.g., `arr[i]`) or raw/messy (e.g., `*(int *)(p + 4)`)? "
-        "Prefer standard C idioms over raw byte manipulation.\n"
-        "- **Dead Code/Redundancy**: Penalize unnecessary temporary variables, redundant casts, or dead assignments.\n"
-        "- **Conditionals**: Are `if/else` chains logical, or artificially flattened/nested?\n\n"
+        "- **Structural Fidelity**: Does the candidate recover the exact loop types (`for` vs `while`) and conditional nesting of the Source? \n"
+        "- **Expression Logic**: Are the arithmetic and pointer operations semantically identical to the Source? Penalize raw casts that obscure the original logic.\n"
+        "- **Readability vs. Accuracy**: If both are accurate, prefer the one using standard C idioms. If one is accurate but ugly, and the other is readable but wrong, the accurate one wins.\n"
+        "- **Dead Code**: Penalize variables or assignments not present in the Source.\n\n"
 
         "### INPUT DATA\n"
-        "--- VERSION A (BASE) ---\n"
-        f"```c\n{base_code}\n```\n\n"
-        "--- VERSION B (PR) ---\n"
-        f"```c\n{pr_code}\n```\n\n"
+        "--- GROUND TRUTH (ORIGINAL SOURCE) ---\n"
+        f"```c\n{source_code}\n```\n\n"
+        "--- CANDIDATE A ---\n"
+        f"```c\n{code_a}\n```\n\n"
+        "--- CANDIDATE B ---\n"
+        f"```c\n{code_b}\n```\n\n"
 
         "### OUTPUT FORMAT\n"
-        "Analyze the code step-by-step internally. Then, provide the final verdict ONLY in this JSON format:\n"
+        "Perform a Chain of Verification analysis internally, then output only strictly valid JSON:\n"
         "{\n"
-        '  "winner": "BASE" | "PR" | "TIE",\n'
-        '  "motivation": "Concise justification focusing on structural differences (e.g., \'PR successfully recovered the for-loop structure that BASE missed\').",\n'
+        '  "verification_analysis": {\n'
+        '       "source_structure": "Brief summary of key loops/switch in source",\n'
+        '       "candidate_a_discrepancies": "List structural deviations from source found in A",\n'
+        '       "candidate_b_discrepancies": "List structural deviations from source found in B"\n'
+        '   },\n'
+        '  "winner": "A" | "B" | "TIE",\n'
+        '  "motivation": "Concise conclusion based on the verification steps."\n'
         "}"
     )
 
-
-def get_ast_prompt(base_ast, pr_ast, source_ast):
+def get_ast_prompt(ast_a, ast_b, source_ast):
     return (
-        "You are an expert compiler engineer and static analysis specialist.\n"
-        "Your task is to evaluate which of two decompiled Control Flow AST skeletons "
-        "better preserves the structural intent of the original Source Code.\n\n"
+        "You are a Static Analysis Expert specializing in Abstract Syntax Tree comparison.\n"
+        "Your task is to determine which of two Control Flow Skeletons better preserves the topological structure of the Original Source.\n\n"
 
-        "### CONTEXT\n"
-        "You will be provided with three AST skeletons representing the control flow of a C function.\n"
-        "These skeletons contain ONLY control structures (if, while, switch, goto, etc.) "
-        "and function calls, stripped of variables and expressions.\n"
-        "1. **SOURCE (Ground Truth)**: The original, human-written structure.\n"
-        "2. **BASE (Decompiler A)**: Current decompiler output.\n"
-        "3. **PR (Decompiler B)**: Proposed improved decompiler output.\n\n"
+        "### INSTRUCTIONS\n"
+        "You are comparing abstract structural representations (AST skeletons) stripped of variable names.\n"
+        "1. **Identify the Target**: The 'SOURCE AST' is the ground truth.\n"
+        "2. **Verify Candidates**: Compare 'Candidate A' and 'Candidate B' against the Source.\n"
+        "3. **Ignore Identifiers**: Focus purely on the shape of the tree (nesting, node types, sequence).\n\n"
 
-        "### EVALUATION CRITERIA\n"
-        "Compare BASE and PR against the SOURCE. Choose the winner based on:\n"
-        "1. **Loop Recovery**: Does it correctly identify `for/while` loops instead of `if + goto`?\n"
-        "2. **Nesting Depth**: Does it respect the original nesting level without excessive flattening or unnecessary nesting?\n"
-        "3. **Branching Logic**: Does it maintain `if-else` chains similar to the source, or does it fragment them?\n"
-        "4. **Ghost Instructions**: Penalize the presence of phantom `label:` and `goto` that do not exist in the SOURCE.\n\n"
+        "### CHAIN OF VERIFICATION STEPS\n"
+        "Before choosing a winner, perform these checks:\n"
+        "1. **Loop Integrity Check**: Count the loops in Source. Do A and B match the count and type (e.g., `for` vs `while`)?\n"
+        "2. **Nesting Depth Check**: Check the maximum indentation depth. If Source is deep, a flattened Candidate is incorrect. If Source is flat, a nested Candidate is incorrect.\n"
+        "3. **Ghost Instruction Check**: Look for `goto` or `label` nodes in Candidates that do not exist in Source.\n\n"
 
-        "### DATA\n"
-        f"--- SOURCE AST (Target) ---\n{source_ast}\n\n"
-        f"--- BASE AST ---\n{base_ast}\n\n"
-        f"--- PR AST ---\n{pr_ast}\n\n"
+        "### INPUT DATA\n"
+        f"--- SOURCE AST (Ground Truth) ---\n{source_ast}\n\n"
+        f"--- CANDIDATE A ---\n{ast_a}\n\n"
+        f"--- CANDIDATE B ---\n{ast_b}\n\n"
 
         "### OUTPUT FORMAT\n"
-        "Analyze the structures step-by-step internally, then output your final decision ONLY in valid JSON format:\n"
+        "Output strictly valid JSON:\n"
         "{\n"
-        '  "winner": "BASE" | "PR" | "TIE",\n'
-        '  "motivation": "Brief comparison of why you chose the winner.",\n'
+        '  "verification_analysis": {\n'
+        '       "loop_match": "Did A or B miss loops present in Source?",\n'
+        '       "nesting_match": "Which candidate matches Source nesting depth better?",\n'
+        '       "ghost_nodes": "Did any candidate invent gotos/labels?"\n'
+        '   },\n'
+        '  "winner": "A" | "B" | "TIE",\n'
+        '  "motivation": "Concise conclusion based on the verification steps."\n'
         "}"
     )

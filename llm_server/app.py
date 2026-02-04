@@ -211,7 +211,7 @@ class ModelEngine:
                     text_input,
                     return_tensors="pt",
                     truncation=True,
-                    max_length=32000  # Safety cap
+                    max_length=15000  # Safety cap
                 ).to(self.device)
 
                 input_token_len = inputs.input_ids.shape[1]

@@ -1,49 +1,20 @@
-import subprocess
-import sys
-import requests
-import lizard
-import os
-import datasets
+import unittest
 import tree_sitter_c
 from tree_sitter import Language, Parser
-from .const import LLM_API_URL, DATASET_PATH
 
+def get_ast(code, indent_step=0):
+    try:
+        C_LANGUAGE = Language(tree_sitter_c.language())
+        parser = Parser(C_LANGUAGE)
+    except Exception as e:
+        C_LANGUAGE = Language(tree_sitter_c.language())
+        parser = Parser()
+        parser.set_language(C_LANGUAGE)
 
-def run_command(cmd, cwd=None, env=None, input_text=None):
-    verbose = 0
-    # subprocess.check_call(cmd, shell=True, cwd=cwd, env=env)
-    if verbose:
-        print(f"[CMD] Executing: {cmd}")
-    sys.stdout.flush()
-
-    process = subprocess.run(
-        cmd,
-        shell=True,
-        cwd=cwd,
-        env=env,
-        input=input_text,
-        stdout=subprocess.PIPE,    # Capture stdout and stderr as text
-        stderr=subprocess.STDOUT,  # Merge stderr into stdout
-        text=True                  # Decode bytes to string
-    )
-
-    if verbose:
-        if process.stdout:
-            print(process.stdout)
-
-    if process.returncode != 0:
-        print(f"[FATAL] Command failed with return code {process.returncode}")
-        if not verbose and process.stdout:
-            print(process.stdout)
-        raise subprocess.CalledProcessError(process.returncode, cmd)
-
-
-def get_ast(code, indent_step=2):
-    C_LANGUAGE = Language(tree_sitter_c.language())
-    parser = Parser(C_LANGUAGE)
     tree = parser.parse(code.encode('utf8'))
     structure = []
     depth = 0
+
     def append_indent():
         if indent_step > 0:
             structure.append("\n" + " " * (depth * indent_step))
@@ -157,6 +128,7 @@ def get_ast(code, indent_step=2):
                 traverse(value)
             structure.append(":")
             
+            # Indent content of case
             if indent_step > 0:
                 depth += 1
                 
@@ -186,6 +158,7 @@ def get_ast(code, indent_step=2):
             structure.append(")")
             return
 
+        # Ternary
         if node.type == 'conditional_expression':
             structure.append("(")
             traverse(node.child_by_field_name('condition'))
@@ -202,130 +175,114 @@ def get_ast(code, indent_step=2):
 
     traverse(tree.root_node)
     
+    # Clean up leading/trailing whitespace
     return "".join(structure).strip()
 
-def get_func_name(bin, dataset_path=DATASET_PATH):
-    if not os.path.exists(dataset_path):
-        raise FileNotFoundError(
-            f"Error: Dataset path '{dataset_path}' does not exist.")
+class TestGetAst(unittest.TestCase):
 
-    try:
-        ds = datasets.load_from_disk(dataset_path)
-    except Exception as e:
-        raise RuntimeError(f"Error loading dataset: {e}")
+    def test_empty_function(self):
+        code = "void main() {}"
+        self.assertEqual(get_ast(code), "{}")
 
-    for _, row in enumerate(ds):
-        if bin in row.get('path'):
-            return row.get('file')
-    raise ValueError(f"Function name for binary '{bin}' not found in dataset.")
+    def test_function_call(self):
+        code = "void main() { foo(); }"
+        self.assertEqual(get_ast(code), "{call()}")
 
+    def test_nested_calls(self):
+        code = "void main() { foo(bar()); }"
+        self.assertEqual(get_ast(code), "{call(call())}")
 
-def get_source_code(bin, dataset_path=DATASET_PATH):
-    if not os.path.exists(dataset_path):
-        raise FileNotFoundError(
-            f"Error: Dataset path '{dataset_path}' does not exist.")
+    def test_if_statement(self):
+        code = """
+        void test() {
+            if (x) {
+                foo();
+            }
+        }
+        """
+        self.assertEqual(get_ast(code), "{if(){call()}}")
 
-    try:
-        ds = datasets.load_from_disk(dataset_path)
-    except Exception as e:
-        raise RuntimeError(f"Error loading dataset: {e}")
+    def test_if_else_statement(self):
+        code = """
+        void test() {
+            if (x) {
+                foo();
+            } else {
+                bar();
+            }
+        }
+        """
+        self.assertEqual(get_ast(code), "{if(){call()}else{call()}}")
 
-    for _, row in enumerate(ds):
-        if bin in row.get('path'):
-            return row.get('func')
-    raise ValueError(f"Source code for binary '{bin}' not found in dataset.")
+    def test_if_no_braces(self):
+        """Test if without braces (single statement)"""
+        code = "void test() { if (x) foo(); }"
+        self.assertEqual(get_ast(code), "{if()call()}")
 
+    def test_loops(self):
+        code = """
+        void loop() {
+            while(1) { a(); }
+            for(;;) { b(); }
+            do { c(); } while(0);
+        }
+        """
+        expected = "{while(){call()}for(){call()}do_while(){call()}}"
+        self.assertEqual(get_ast(code), expected)
 
-# just reference
-def get_dataset_info():
+    def test_switch_case(self):
+        code = """
+        void s() {
+            switch(x) {
+                case 1:
+                    foo();
+                    break;
+                case 2:
+                    bar();
+                    break;
+            }
+        }
+        """
+        expected = "{switch(){case:call()case:call()}}"
+        self.assertEqual(get_ast(code), expected)
 
-    if not os.path.exists(DATASET_PATH):
-        raise FileNotFoundError(
-            f"Error: Dataset path '{DATASET_PATH}' does not exist.")
+    def test_goto(self):
+        code = "void g() { goto label; }"
+        self.assertEqual(get_ast(code), "{goto}")
 
-    try:
-        ds = datasets.load_from_disk(DATASET_PATH)
-    except Exception as e:
-        raise RuntimeError(f"Error loading dataset: {e}")
+    def test_ternary_operator(self):
+        code = "void t() { int a = x ? y : z; }"
+        self.assertEqual(get_ast(code), "{(?::)}")
 
-    print(f"Found {len(ds)} items.\n")
+    def test_complex_nesting(self):
+        code = """
+        void complex() {
+            if (cond) {
+                while (1) {
+                    foo(x ? a : b);
+                }
+            } else {
+                goto error;
+            }
+        }
+        """
+        expected = "{if(){while(){call((?::))}}else{goto}}"
+        self.assertEqual(get_ast(code), expected)
 
-    (func, path, source) = ([], [], [])
-    for _, row in enumerate(ds):
-        func.append(row.get('file'))
-        path.append(row.get('path'))
-        source.append(row.get('func'))
-
-    return (func, path, source)
-
-
-def get_cc(code):
-    """
-    Calculates the Cyclomatic Complexity
-    """
-    try:
-        analysis = lizard.analyze_file.analyze_source_code(
-            "dummy_file.c", code)
-        if analysis.function_list:
-            return analysis.function_list[0].cyclomatic_complexity
-    except Exception as e:
-        print(f"[WARN] Lizard complexity check failed: {e}")
-    return 0
-
-
-def fetch_decompiler_prs():
-    """
-    Fetches open PR numbers from Ghidra repo with label "Feature: Decompiler"
-    """
-    url = "https://api.github.com/search/issues"
-    query = 'repo:NationalSecurityAgency/ghidra is:pr is:open label:"Feature: Decompiler"'
-
-    params = {
-        'q': query,
-        'sort': 'updated',
-        'order': 'desc',
-        'per_page': 100
-    }
-
-    try:
-        print(f"[GITHUB] Fetching open PRs with label 'Feature: Decompiler'...")
-        response = requests.get(url, params=params)
-
-        if response.status_code == 200:
-            data = response.json()
-            items = data.get('items', [])
-            pr_numbers = [str(item['number']) for item in items]
-            print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
-            # pr_numbers  # 5554, '8834']  # pr_numbers
-            return ['8628', '8587', '7253', '6722', '6718']
-            # return ['3299', '8597']
-        elif response.status_code == 403:
-            print("[WARN] GitHub API rate limit exceeded or access denied.")
-            return []
-        else:
-            print(f"[ERR] GitHub API returned status {response.status_code}")
-            return []
-
-    except Exception as e:
-        print(f"[ERR] Failed to fetch PRs: {e}")
-        return []
-
-
-def get_models():
-    """
-    Returns the list of models to benchmark from the LLM server.
-    """
-    try:
-        resp = requests.get(f"{LLM_API_URL}/models", timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            models = data.get("available_models", [])
-            print(f"[INFO] Models available for benchmarking: {models}")
-            return models
-        else:
-            print(
-                f"[WARN] Could not fetch models from LLM server: {resp.status_code}")
-            return []
-    except Exception as e:
-        print(f"[ERR] Failed to get models: {e}")
-        return []
+if __name__ == '__main__':
+    #unittest.main()
+    code = """
+        void complex() {
+            if (cond){;}
+            if (cond) {
+                while (1) {
+                    foo(x ? a : b);
+                }
+            } else {
+                goto error;
+            }
+            int a = b < c;
+            std::coco::ax((char)a);
+        }
+        """
+    print(get_ast(code,2))

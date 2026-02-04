@@ -143,7 +143,7 @@ def get_code_metrics(code_snippet, model_id):
     """Calls the /score endpoint to obtain raw perplexity of the code)"""
     try:
         resp = requests.post(LLM_API_URL+"/score", json={
-                             "text": code_snippet, "model_id": model_id}, timeout=300)
+                             "text": code_snippet, "model_id": model_id})
         if resp.status_code == 200:
             return resp.json()
         else:

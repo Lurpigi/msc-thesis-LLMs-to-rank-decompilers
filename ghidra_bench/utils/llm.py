@@ -21,7 +21,7 @@ def get_code_metrics(code_snippet, model_id):
         return {"perplexity": -1, "mean_logbits": 0}
 
 
-def get_llm_analysis(base_code, pr_code, model_id, source=None):
+def get_llm_analysis(base_code, pr_code, model_id, source, is_ast=False):
     """Call the LLM to get analysis"""
 
     if source is not None and base_code == pr_code:
@@ -30,7 +30,7 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None):
             "motivation": "BASE and PR AST are identical; no differences to evaluate."
         }
 
-    prompt = get_quality_prompt(base_code, pr_code) if source is None else get_ast_prompt(
+    prompt = get_quality_prompt(base_code, pr_code, source) if not is_ast else get_ast_prompt(
         base_code, pr_code, source)
 
     try:
@@ -128,13 +128,45 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
     print(f"Finished metrics for {func_name}")
 
     print(f"Getting qualitative analysis for {func_name}")
+
     qualitative_analysis = get_llm_analysis(
-        base_code, pr_code, model_id=model_id)
+        base_code, pr_code, model_id=model_id, source=source_code, is_ast=False)
+    winner = qualitative_analysis.get("winner", "Error")
+    if winner not in ("TIE", "Error"):
+        print("checking bias...")
+        qualitative_analysis_b = get_llm_analysis(
+        pr_code, base_code, model_id=model_id, source=source_code, is_ast=False)
+        winner_b = qualitative_analysis_b.get("winner", "Error")
+        if winner != winner_b and winner_b in ("A", "B"):
+            qualitative_analysis = {
+                "winner": "TIE",
+                "motivation": "Detected potential bias in LLM response; declaring TIE."
+            }
+        else:
+            qualitative_analysis["winner"] = "BASE" if winner == "A" else "PR"
+    
     print(f"Finished qualitative analysis for {func_name}")
     print(f"Getting AST analysis for {func_name}")
+
     ast_analysis = get_llm_analysis(
-        base_ast, pr_ast, model_id=model_id, source=source_ast)
+        base_ast, pr_ast, model_id=model_id, source=source_ast, is_ast=True)
+    winner = ast_analysis.get("winner", "Error")
+
+    if winner not in ("TIE", "Error"):
+        print("checking bias...")
+        ast_analysis_b = get_llm_analysis(
+        pr_ast, base_ast, model_id=model_id, source=source_ast, is_ast=True)
+        winner_b = ast_analysis_b.get("winner", "Error")
+        if winner != winner_b and winner_b in ("A", "B"):
+            ast_analysis = {
+                "winner": "TIE",
+                "motivation": "Detected potential bias in LLM AST response; declaring TIE."
+            }
+        else:
+            ast_analysis["winner"] = "BASE" if winner == "A" else "PR"
+    
     print(f"Finished AST analysis for {func_name}")
+
     entry = {
         "binary": test_binary_name,
         "function": func_name,

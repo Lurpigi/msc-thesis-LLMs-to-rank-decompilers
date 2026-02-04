@@ -38,107 +38,171 @@ def run_command(cmd, cwd=None, env=None, input_text=None):
         raise subprocess.CalledProcessError(process.returncode, cmd)
 
 
-def get_ast(code):
+def get_ast(code, indent_step=2):
     C_LANGUAGE = Language(tree_sitter_c.language())
     parser = Parser(C_LANGUAGE)
-
     tree = parser.parse(code.encode('utf8'))
     structure = []
+    depth = 0
+    def append_indent():
+        if indent_step > 0:
+            structure.append("\n" + " " * (depth * indent_step))
+        else:
+            structure.append(" ")
 
     def traverse(node):
+        nonlocal depth
+
         # Block
         if node.type == 'compound_statement':
             structure.append("{")
+            if indent_step > 0:
+                depth += 1
+            
             for child in node.children:
+                if child.type in ['{', '}']: 
+                    continue
+                
+                append_indent()
                 traverse(child)
+
+            if indent_step > 0:
+                depth -= 1
+                append_indent()
+            else:
+                structure.append(" ")
+            
             structure.append("}")
             return
-
-        # If-Else
-        if node.type == 'if_statement':
-            structure.append("if()")
-            for child in node.children_by_field_name('consequence'):
+            
+        if node.type == 'expression_statement':
+            for child in node.children:
                 traverse(child)
+            # structure.append(";") 
+            return
+            
+        if node.type == 'return_statement':
+            structure.append("return")
+            for child in node.children:
+                if child.type != 'return':
+                    #structure.append(" ")
+                    traverse(child)
+            return
 
+        if node.type == 'if_statement':
+            structure.append("if(")
+            traverse(node.child_by_field_name('condition'))
+            structure.append(")")
+            
+            traverse(node.child_by_field_name('consequence'))
+            
             else_node = node.child_by_field_name('alternative')
             if else_node:
                 structure.append("else")
                 traverse(else_node)
             return
 
-        # loops
         if node.type == 'while_statement':
-            structure.append("while()")
-            for child in node.children_by_field_name('body'):
-                traverse(child)
+            structure.append("while(")
+            traverse(node.child_by_field_name('condition'))
+            structure.append(")")
+            traverse(node.child_by_field_name('body'))
             return
 
         if node.type == 'for_statement':
-            structure.append("for()")
-            for child in node.children_by_field_name('body'):
-                traverse(child)
+            structure.append("for(")
+            for child in node.children_by_field_name('initializer'): traverse(child)
+            structure.append(";")
+            for child in node.children_by_field_name('condition'): traverse(child)
+            structure.append(";")
+            for child in node.children_by_field_name('update'): traverse(child)
+            structure.append(")")
+            traverse(node.child_by_field_name('body'))
             return
 
         if node.type == 'do_statement':
-            structure.append("do_while()")
-            for child in node.children_by_field_name('body'):
-                traverse(child)
+            structure.append("do")
+            traverse(node.child_by_field_name('body'))
+            structure.append("while(")
+            traverse(node.child_by_field_name('condition'))
+            structure.append(")")
             return
 
-        # switch-case
         if node.type == 'switch_statement':
-            structure.append("switch(){")
+            structure.append("switch(")
+            traverse(node.child_by_field_name('condition'))
+            structure.append("){")
+            
+            if indent_step > 0:
+                depth += 1
+            
             body = node.child_by_field_name('body')
             if body:
                 for child in body.children:
+                    if child.type in ['{', '}']: continue
+                    append_indent()
                     traverse(child)
+            
+            if indent_step > 0:
+                depth -= 1
+                append_indent()
+                
             structure.append("}")
             return
 
         if node.type == 'case_statement':
-            structure.append("case:")
+            structure.append("case ")
+            value = node.child_by_field_name('value')
+            if value:
+                traverse(value)
+            structure.append(":")
+            
+            if indent_step > 0:
+                depth += 1
+                
             for child in node.children:
-                if child.type not in ['case', ':'] and child.type != 'number_literal':
+                if child.type not in ['case', ':', 'number_literal'] and child != value:
+                    append_indent()
                     traverse(child)
+            
+            if indent_step > 0:
+                depth -= 1
             return
 
         if node.type == 'goto_statement':
-            structure.append("goto")
+            structure.append("goto label")
             return
 
-        # if node.type == 'labeled_statement':
-        #     structure.append("label:")         # also std::_Lockit:: so for now ignore
-
-        # call
         if node.type == 'call_expression':
             structure.append("call(")
             args = node.child_by_field_name('arguments')
             if args:
-                # capture any nested calls or logic
+                first = True
                 for child in args.children:
-                    if child.type not in ['(', ')', ',']:  # cleanup
+                    if child.type not in ['(', ')', ',']:
+                        if not first: structure.append(", ")
                         traverse(child)
+                        first = False
             structure.append(")")
             return
 
-        # Ternary
         if node.type == 'conditional_expression':
-            structure.append("(?")
+            structure.append("(")
             traverse(node.child_by_field_name('condition'))
-            structure.append(":")
+            structure.append("? ")
             traverse(node.child_by_field_name('consequence'))
-            structure.append(":")
+            structure.append(": ")
             traverse(node.child_by_field_name('alternative'))
             structure.append(")")
             return
 
-        # Fallback
+        # Fallback 
         for child in node.children:
             traverse(child)
 
     traverse(tree.root_node)
-    return "".join(structure)
-
+    
+    return "".join(structure).strip()
 
 def get_func_name(bin, dataset_path=DATASET_PATH):
     if not os.path.exists(dataset_path):

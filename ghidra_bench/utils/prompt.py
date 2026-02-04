@@ -28,7 +28,7 @@ def get_quality_prompt(base_code, pr_code):
         "### OUTPUT FORMAT\n"
         "Analyze the code step-by-step internally. Then, provide the final verdict ONLY in this JSON format:\n"
         "{\n"
-        '  "winner": "BASE" | "PR" | "TIE"\n'
+        '  "winner": "BASE" | "PR" | "TIE",\n'
         '  "motivation": "Concise justification focusing on structural differences (e.g., \'PR successfully recovered the for-loop structure that BASE missed\').",\n'
         "}"
     )
@@ -63,7 +63,7 @@ def get_ast_prompt(base_ast, pr_ast, source_ast):
         "### OUTPUT FORMAT\n"
         "Analyze the structures step-by-step internally, then output your final decision ONLY in valid JSON format:\n"
         "{\n"
-        '  "winner": "BASE" | "PR" | "TIE"\n'
+        '  "winner": "BASE" | "PR" | "TIE",\n'
         '  "motivation": "Brief comparison of why you chose the winner.",\n'
         "}"
     )

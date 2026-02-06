@@ -1,13 +1,11 @@
-\chapter{Background}
-\label{ch:background}
+\chapter{Background}\label{ch:background}
 
 This chapter provides the necessary background knowledge to understand how Ghidra works, in particular the decompilation process,
 with his architecture, main components, and the decompilation pipeline. The Decompiler of Ghidra is enormous and complex software, (over 200k lines of C++)
 so it will focus only on the parts that are relevant to this thesis.
 then it will introduce the main concepts behind \ac{LLM}s, their architecture, sampling, and metrics for evaluation.
 
-\section{Ghidra}
-\label{sec:ghidra}
+\section{Ghidra}\label{sec:ghidra}
 
 Ghidra, released by the \ac{NSA} in 2019, employs a bifurcated design
 that separates the user-facing interaction layer from the core analysis engine. This separation is
@@ -22,7 +20,6 @@ intensive tasks of data-flow analysis, variable inference, and control flow stru
 a native C++ executable, typically named \texttt{decomp} or \texttt{decomp\_dbg} (for debugging).
 These executables and the code are located at \texttt{Ghidra/Features/Decompiler/src/decompile/cpp}.
 
-
 Communication is mediated by the \texttt{ghidra.app.decompiler.DecompInterface}. 
 This interface manages a dedicated input/output stream to the native process, utilizing an XML-based protocol to exchange data.
 When a function decompilation is requested, the Java client does not simply invoke a library function; it serializes the request into
@@ -30,11 +27,10 @@ an XML command (e.g., \texttt{<decompile\_at>}) and transmits it to the backend.
 of the function's data flow in \texttt{Funcdata} objects, performs the analysis and returns the results as a serialized XML stream
 describing the high-level code structure and syntax tokens.
 
-\section{SLEIGH and P-code}
-\label{sec:slap}
+\section{SLEIGH and P-code}\label{sec:slap}
 
-As written in the documentation created by running \texttt{<make doc>} \cite{DOC:shareGhidraDecompiler} The 
-decompiler provides its own \ac{RTL}, referred internally as p-code. The disassembly of processor
+As written in the documentation created by running \texttt{<make doc>}~\cite{DOC:shareGhidraDecompiler} The 
+decompiler provides its own \ac{RTL}, referred internally as p-code~\ref{tab:pcode_ops}. The disassembly of processor
 specific machine-code languages, and subsequent translation into p-code, forms a major sub-system 
 of the decompiler. There is a processor specification language, referred to as SLEIGH, which is 
 dedicated to this translation task, this piece of the code can be built as a standalone binary 
@@ -43,12 +39,11 @@ translation library, for use by other applications.
 \subsection{P-code Semantics and Varnodes}
 Unlike intermediate languages in compilers, P-code is designed specifically for reverse engineering, prioritizing the explicit representation of memory and register modifications.
 
-The fundamental unit of data in P-code is the \textbf{Varnode}. A Varnode is defined by the triple $(Space, Offset, Size)$, representing a contiguous sequence of bytes in a specific address space.
+The fundamental unit of data in P-code is the \emph{Varnode}. A Varnode is defined by the triple \emph{(Space, Offset, Size)}, representing a contiguous sequence of bytes in a specific address space.
 
 \begin{table}[ht]
     \centering
-    \caption{Some P-code Operations and Semantics \texttt{opcodes.hh}\cite{DOC:shareGhidraDecompiler}\cite{DOC:spinselPCodeReference}}
-    \label{tab:pcode_ops}
+    \caption{Some P-code Operations and Semantics \texttt{opcodes.hh}~\cite{DOC:shareGhidraDecompiler, DOC:spinselPCodeReference}}\label{tab:pcode_ops}
     \begin{tabular}{l p{0.25\textwidth} p{0.45\textwidth}}
         \toprule
         \textbf{Opcode} & \textbf{Operands} & \textbf{Semantics} \\
@@ -65,7 +60,7 @@ The fundamental unit of data in P-code is the \textbf{Varnode}. A Varnode is def
 We must distinguish between two forms of P-code used during analysis:
 \begin{enumerate}
     \item \textbf{Raw P-code:} The direct, unoptimized output of the SLEIGH translation. 
-    It is represented by the class \textbf{PcodeOpRaw} (or by unprocessed PcodeOp), 
+    It is represented by the class \emph{PcodeOpRaw} (or by unprocessed PcodeOp), 
     and contains the bare essentials: an opcode, a sequence number (address), and 
     the input/output Varnodes.
     \item \textbf{High P-code:} The result of the analysis pipeline. In this form, 
@@ -73,7 +68,7 @@ We must distinguish between two forms of P-code used during analysis:
     exactly once for each function, if a variable is assigned multiple times, each assignment 
     is given a new instance called low-level variable), dead code has been eliminated, 
     and high-level concepts like function calls (replacing jump-and-link semantics) 
-    have been recovered. It is represented by the class \textbf{HighVariable}; 
+    have been recovered. It is represented by the class \emph{HighVariable}; 
     this is an abstraction that groups multiple low-level Varnodes (which may reside 
     in different registers or stack locations during execution) into a single logical 
     variable, similar to a variable in C code.
@@ -84,10 +79,10 @@ It is an inference process that attempts to raise the abstraction level of the c
 often relying on heuristics that may fail in the presence of obfuscation
 or aggressive compiler optimizations.
 
-\section{The Decompilation Pipeline}
-\label{sec:pipeline}
+\section{The Decompilation Pipeline}\label{sec:pipeline}
+
 The C++ decompiler engine processes a function at a time through a series of iterative passes. 
-The architecture organizes these passes into \textbf{Actions} and \textbf{Rules}, 
+The architecture organizes these passes into \emph{Actions} and \emph{Rules}, 
 managed by the \texttt{ActionDatabase}.
 inside the \texttt{ActionDatabase::universalAction} we have two main types of objects:
 \begin{itemize}
@@ -95,15 +90,15 @@ inside the \texttt{ActionDatabase::universalAction} we have two main types of ob
     \item \texttt{ActionPool}: It is a pool of Rules that are applied simultaneously to every PcodeOp. Each Rule triggers on a specific localized data-flow configuration. The Rules are applied repeatedly until no Rule can make any additional transformations.
 \end{itemize}
 
-\subsection{Actions and Rules}
+\subsection{Actions and Rules}\label{sec:ActeRul}
 Actions represent large-scale transformations applied to the graph of varnodes and operations. They are the base class for objects that make modifications to a function's (Funcdata) syntax tree. Their purpose is to manage complex stages of the workflow, such as recovering the control-flow structure or generating \ac{SSA} form.
 
 Rules, on the other hand, are a class designed to perform a single specific transformation on a PcodeOp or a Varnode. A Rule triggers when it recognizes a particular local configuration in the data flow and specifies a sequence of modification operations to transform it.
 
-\subsection{DefaultGroups}
+\subsection{DefaultGroups}\label{sec:dgroups}
 
-Actions and Rules are selected and activated according to the type of \textbf{DefaultGroup} they belong to.
-These groups represent standardized workflows for different analysis phases and are built by the method \texttt{ActionDatabase::buildDefaultGroups()}. The main groups are:
+Actions and Rules are selected and activated according to the type of \emph{DefaultGroup} they belong to.
+These groups represent standardized workflows for different analysis phases and are built by the method \texttt{ActionDatabase::buildDefaultGroups}. The main groups are:
 
 \begin{itemize}
     \item \textbf{decompile}: the standard workflow for full decompilation, composed of all of the phases.
@@ -116,8 +111,8 @@ These groups represent standardized workflows for different analysis phases and 
 
 Each DefaultGroup is a list of names that refer to specific \texttt{ActionGroup}, \texttt{ActionPool} or individual \texttt{Action} to execute in that configuration. These lists define subsets of all the Actions.
 
-The decompiler can be customized by selecting different DefaultGroups in java with the method \texttt{setSimplificationStyle()} of the decompiler interface but
-Only the group named \textbf{decompile} return C code to ghidra, since in \texttt{ghidra\_process.cc} we have:
+The decompiler can be customized by selecting different DefaultGroups in java with the method \texttt{setSimplificationStyle} of the decompiler interface but
+Only the group named \emph{decompile} return C code to ghidra, since in \texttt{ghidra\_process.cc} we have:
 
 \begin{lstlisting}[language=C++, caption={ghidra\_process.cc}]
     [...]
@@ -128,27 +123,25 @@ Only the group named \textbf{decompile} return C code to ghidra, since in \textt
     [...]
 \end{lstlisting}
 
-\section{Logic of Control Flow Structuring}
-\label{sec:cfg_structuring}
+\section{Logic of Control Flow Structuring}\label{sec:cfg_structuring}
 
 Recovering high-level control structures (loops, conditionals) from the unstructured \ac{CFG}
 is arguably the most challenging phase of decompilation. It is effectively a pattern-matching
 problem on a directed graph, aimed at finding subgraphs that correspond to structured programming constructs.
 
 \subsection{Basic Block Formulation}
-The decompiler first aggregates P-code operations into \textbf{BasicBlocks} sequences of instructions with a single entry point 
+The decompiler first aggregates P-code operations into \emph{BasicBlocks} sequences of instructions with a single entry point 
 and a single exit point (excluding internal calls). The \ac{CFG} is formed by the edges representing jumps and branches between these blocks. 
 Ghidra normalizes this graph to ensure a unique entry block, often inserting empty placeholder blocks to handle re-entrant loops or complex function entries.
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.4\textwidth]{img/cfg1.png}
-    \caption{Control Flow Graph of a function}
-    \label{img:cfg1}
+    \caption{Control Flow Graph of a function}\label{img:cfg1}
 \end{figure}
 
-In this example we have the C code of the function described in \ref{img:cfg1} and its corresponding P-code representation \footnote{
-    P-codes varies during all phases of the decompilation process; due to optimization rules, dead code elimination, and other transformations, the P-code shown here are taken from the \texttt{collapseInternal()} method using \texttt{printRaw()} of the FlowBlock class.
+In this example we have the C code of the function described in~\ref{img:cfg1} and its corresponding P-code representation\footnote{
+    P-codes varies during all phases of the decompilation process; due to optimization rules, dead code elimination, and other transformations, the P-code shown here are taken from the \texttt{collapseInternal} method using \texttt{printRaw} of the FlowBlock class.
     The BasicBlock order may not correspond directly to the original source code order
 }.
 
@@ -156,11 +149,10 @@ In this example we have the C code of the function described in \ref{img:cfg1} a
     \hline
     \textbf{Source Code (C)} & \textbf{P-Code / Basic Blocks} \\ 
     \hline
-    \endhead % Ripete l'intestazione se cambia pagina
-
+    \endhead
     % --- ROW 1 (Block 0) ---
     \begin{minipage}[t]{\linewidth}
-        \vspace{1mm} % Piccolo padding superiore
+        \vspace{1mm}
         \begin{lstlisting}[style=CStyle]
 int a2_local;
 int a1_local;
@@ -344,26 +336,25 @@ return;
 
 \end{longtable}
 
-Basicblocks are created in \texttt{flow.cc} by the function \texttt{FlowInfo::splitBasic()}. 
+Basicblocks are created in \texttt{flow.cc} by the method \texttt{FlowInfo::splitBasic}. 
 The routine partitions the P-code instruction stream at control-flow boundaries: conditional and unconditional jumps, call sites that alter control flow, and return instructions.
 Each such instruction ends the current block and/or starts a new one (targets of jumps also begin blocks).
 
-The \ac{CFG} with the BasicBlocks can also be seen in ghidra by entering the \textbf{Display Function Graph} 
-window and enabling the \textbf{P-code} field in the layout of Instruction/Data (These Pcode are the final high-level Pcode). See figure \ref{img:cfg_ghidra}
+The \ac{CFG} with the BasicBlocks can also be seen in ghidra by entering the \texttt{Display Function Graph} 
+window and enabling the P-code field in the layout of Instruction/Data (These Pcode are the final high-level Pcode). See figure~\ref{img:cfg_ghidra}
 
 \begin{figure}[ht]
     \centering
     \includegraphics[width=0.9\textwidth]{img/cfg_ghidra.png}
-    \caption{Control Flow Graph with P-code in Ghidra}
-    \label{img:cfg_ghidra}
+    \caption{Control Flow Graph with P-code in Ghidra}\label{img:cfg_ghidra}
 \end{figure}
 
-\subsection{The Structuring Algorithm}
-\label{sec:stralg}
-To transform the \ac{CFG} into C statements, Ghidra employs a structuring algorithm implemented in the 
-\texttt{ActionBlockStructure} class. The process involves identifying regions of the graph that match known schemas (or patterns) of control flow:
+\subsection{The Structuring Algorithm}\label{sec:stralg}
 
-inside the apply method of \texttt{ActionBlockStructure} we have a call to collapseAll() that is the main loop of the algorithm:
+To transform the \ac{CFG} into C statements, Ghidra employs a structuring algorithm implemented in the 
+\texttt{ActionBlockStructure} class (an Action~\ref{sec:ActeRul}). The process involves identifying regions of the graph that match known schemas (or patterns) of control flow:
+
+inside the \texttt{apply} method of \texttt{ActionBlockStructure} we have a call to \texttt{collapseAll} that is the main loop of the algorithm:
 
 \begin{lstlisting}
 void CollapseStructure::collapseAll(void)
@@ -389,38 +380,38 @@ the BasicBlocks into structured FlowBlocks and performs the following steps:
 
 \begin{enumerate}
     \item \textbf{Preparation}\\
-        The algorithm first clears previous visitation state (\texttt{graph.clearVisitCount()}) 
-        and invokes \texttt{orderLoopBodies()}. This pass discovers loop headers and 
+        The algorithm first clears previous visitation state (\texttt{graph.clearVisitCount}) 
+        and invokes \texttt{orderLoopBodies}. This pass discovers loop headers and 
         back-edges, establishing a partial ordering among loop bodies. 
         Detecting loops early is essential to prevent later structuring passes 
         from erroneously breaking loop semantics.
 
     \item \textbf{Conditional simplification}\\
-        Next, \texttt{collapseConditions()} attempts to simplify complex boolean logic 
+        Next, \texttt{collapseConditions} attempts to simplify complex boolean logic 
         and fold adjacent blocks that form logical AND/OR patterns (for example, 
         transforming sequences that represent \texttt{if (A \&\& B)} or \texttt{if (A || B)} 
         into single conditional constructs). This phase applies local rules such as \texttt{ruleBlockOr} 
         to reduce predicate complexity before higher-level structuring.
 
     \item \textbf{Initial collapse}\\
-        The engine then calls \texttt{collapseInternal((FlowBlock *)0)}, which scans the graph 
+        The engine then calls \texttt{collapseInternal ((FlowBlock *)0)}, which scans the graph 
         and applies standard structuring rules (e.g. \texttt{ruleBlockIfElse}, \texttt{ruleBlockWhileDo}, 
         \texttt{ruleBlockSwitch}) to collapse perfectly structured regions. 
         The routine returns an \texttt{isolated\_count} indicating how many blocks have been 
         fully resolved without introducing gotos.
 
     \item \textbf{Unstructured flow handling}\\
-        If the graph is not fully collapsed (\texttt{isolated\_count < graph.getSize()}), 
-        the method iterates: it selects a problematic edge with \texttt{selectGoto()} and 
+        If the graph is not fully collapsed (\texttt{isolated\_count < graph.getSize}), 
+        the method iterates: it selects a problematic edge with \texttt{selectGoto} and 
         marks that edge as unstructured (to be emitted as a \texttt{goto}/\texttt{break}/\texttt{continue} 
         in the final code). The selection is driven by heuristics  
         to minimize disruption to surrounding structure. After marking the edge, 
-        \texttt{collapseInternal(targetbl)} is invoked again (often passing the target block of the newly created goto) 
+        \texttt{collapseInternal (targetbl)} is invoked again (often passing the target block of the newly created goto) 
         so the structuring engine can resume collapsing other regions. This loop repeats until every block 
         is resolved.
 \end{enumerate}
 
-in the \texttt{collapseInetrnal()} method we have the main pattern recognition method, 
+in the \texttt{collapseInternal} method we have the main pattern recognition method, 
 some patterns have precedence over others, since it may occur that a region matches 
 multiple schemas. For example, a \texttt{switch} may also match an \texttt{if-else} pattern. 
 
@@ -435,9 +426,9 @@ These are the preferred patterns, in order:
     \item \texttt{infinite loop}
     \item \texttt{switch}
 \end{itemize}
-This "rules" are implemented inside a loop that tryes every pattern till no more changes are possible.
+These `rules' are implemented inside a loop that tries every pattern till no more changes are possible.
 
-in the \texttt{ruleBlockWhileDo()} method we can see how the pattern matching is done:
+in the \texttt{ruleBlockWhileDo} method we can see how the pattern matching is done:
 
 \begin{lstlisting}
 
@@ -481,26 +472,26 @@ Then, for each outgoing edge, it checks if the clauseblock (the potential loop b
 If these conditions are met, it confirms the presence of a while-do loop structure.
 
 A condition is considered complex when the basic block that computes it contains too many instructions to be cleanly represented within a single conditional expression.
-The method \texttt{BlockBasic::isComplex()} performs this check.
+The method \texttt{BlockBasic::isComplex} performs this check.
 
-Criteria: the algorithm counts the number of \textbf{statements} in the block:
+Criteria: the algorithm counts the number of \emph{statements} in the block:
 \begin{itemize}
     \item A conditional jump (branch) counts as 1 statement.
-    \item CALL instructions count as 1.
+    \item \texttt{CALL} instructions count as 1.
     \item Operations that produce outputs used only inside the block or marker instructions do not count, 
     but if a variable is used many times or is tied to memory, it contributes to the count.
 \end{itemize}
 If the total number of statements in the block exceeds 2, the block is considered complex.
 
-The overflow syntax (or \texttt{f\_whiledo\_overflow}) is a specific state assigned to a \texttt{BlockWhileDo} when its loop control condition is determined to be complex.
-It indicates that, although a logical \texttt{while} structure exists, the conditional block is too long or complicated to be emitted as a single boolean expression \texttt{while(condition)}.
-Instead of printing \texttt{while(<complex condition>)\{...\}}, the decompiler emits an alternative form, typically an infinite loop with an internal \texttt{break} to preserve semantics.
+The overflow syntax (\texttt{f\_whiledo\_overflow}) is a specific state assigned to a \texttt{BlockWhileDo} when its loop control condition is determined to be complex.
+It indicates that, although a logical \texttt{while} structure exists, the conditional block is too long or complicated to be emitted as a single boolean expression \texttt{while (condition)\{\}}.
+Instead of printing \texttt{while (<complex condition>)\{\}}, the decompiler emits an alternative form, typically an infinite loop with an internal \texttt{break} to preserve semantics.
 
-After identifying a structure in the next iteration of the main loop in \texttt{collapseInternal()}, the matched BasicBlocks are replaced with a single FlowBlock representing the high-level construct (e.g., a \texttt{BlockWhileDo} for a while loop). 
-This new block encapsulates the original blocks, maintaining their internal P-code operations while providing a structured interface for further processing and eventual emission.
+After identifying a structure in the next iteration of the main loop in \texttt{collapseInternal}, a single FlowBlock representing the high-level construct (e.g., a \texttt{BlockWhileDo} for a while loop) is created. 
+This new block encapsulates the original matched block, maintaining their internal P-code operations while providing a structured interface for further processing and eventual emission.
 
-\subsection{The $for$ special case}
-As can be seen in section \ref{sec:stralg}, the Ghidra decompiler does not have an explicit rule to recognize \texttt{for} loops. 
+\subsection{The \emph{for} special case}
+As can be seen in section number~\ref{sec:stralg}, the Ghidra decompiler does not have an explicit rule to recognize \texttt{for} loops. 
 Indeed, \texttt{for} loops in Ghidra are treated as special cases of \texttt{while-do} loops\footnote{The transformation is triggered only if the architecture option \texttt{analyze\_for\_loops} is enabled.}:
 The check is performed in the method \texttt{BlockWhileDo::finalTransform}, this method proceeds only if the block is not marked with overflow syntax.
 \begin{enumerate}
@@ -508,11 +499,11 @@ The check is performed in the method \texttt{BlockWhileDo::finalTransform}, this
     This variable must appear in the exit condition and be modified within the loop body.
     \item \textbf{Initializer identification:} \texttt{findInitializer} searches for the instruction that initializes the variable (e.g., \texttt{i = 0}) 
     in the block immediately preceding the loop.
-    \item \textbf{Opcode relocation:} If both an iterator (\texttt{iterateOp}) and an initializer (\texttt{initializeOp}) are found, 
+    \item \textbf{Relocation:} If both an iterator (\texttt{iterateOp}) and an initializer (\texttt{initializeOp}) are found, 
     the decompiler physically moves the P-code operations (using \texttt{opUninsert} / \texttt{opInsertAfter}) so they lie adjacent to the loop boundaries, 
     preparing them for syntactic emission.
     \item \textbf{Non-printing marking:} In \texttt{finalizePrinting} these operations are marked with \texttt{opMarkNonPrinting}. 
-    This instructs the emitter not to print them as separate statements inside the body or before the loop, but to include them in the \texttt{for(...)} header.
+    This instructs the emitter not to print them as separate statements inside the body or before the loop, but to include them in the \texttt{for (\ldots)} header.
 \end{enumerate}
 
 
@@ -565,23 +556,22 @@ void BlockWhileDo::finalTransform(Funcdata &data)
 
 If all conditions are met, the decompiler effectively transforms the \texttt{while-do} structure into a \texttt{for} loop by relocating and marking the relevant P-code operations.
 
-\subsection{The $Goto$ Problem}
+\subsection{The \emph{Goto} Problem}
 A significant limitation of this approach arises when the \ac{CFG} contains irreducible control flow 
 that does not match any predefined schema. (This is common in binaries optimized with aggressive compiler 
 techniques or those containing manual assembly optimizations).
 
 When \texttt{ActionBlockStructure} fails to find a matching pattern, the jump inside the FlowBlock remains and it 
-will be represented as a \textbf{goto}\footnote{Or a \texttt{break}/\texttt{continue} if it jumps out of/into a loop structure}.
+will be represented as a \emph{goto}\footnote{Or a \texttt{break}/\texttt{continue} if it jumps out of/into a loop structure}.
 statement to preserve semantic correctness, this phenomenon significantly degrades the readability of the output.
 
-\section{Code Emission}
-\label{sec:c_emission}
+\section{Code Emission}\label{sec:c_emission}
 
 The final phase of the pipeline is the translation of the structured High P-code into C syntax. 
 This is not a simple text dump but a structured generation of an Abstract Syntax Tree (AST) represented 
-by \texttt{}{ClangToken} objects.
+by \texttt{ClangToken} objects.
 
-Before emission, the \textbf{ActionNameVars} pass attempts to assign meaningful names to the 
+Before emission, the \emph{ActionNameVars} pass attempts to assign meaningful names to the 
 recovered \texttt{HighVariable} objects. If debug symbols (DWARF, PDB) are available, 
 they are utilized. In their absence, Ghidra relies on heuristics based on variable usage 
 (e.g., loop counters named \texttt{i}, \texttt{j}) or storage location 
@@ -593,11 +583,10 @@ sent to the Java frontend via the XML protocol. This structured data allows the 
 \ac{GUI} to provide interactive features—such as cross-referencing and dynamic renaming—since the UI 
 elements remain linked to the underlying \texttt{Varnode} and \texttt{HighVariable} objects.
 
-\section{Large Language Models}
-\label{sec:llm}
+\section{Large Language Models}\label{sec:llm}
 The advent of \ac{LLM} marks a fundamental discontinuity in the history of artificial intelligence and \ac{NLP}. It is not merely an increase in computational capacity, 
 but an ontological redefinition of how machines process, represent, and generate semantic information. 
-At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani \cite{Paper:vaswani2023attentionneed}, which enabled overcoming the sequential 
+At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani~\cite{Paper:vaswani2023attentionneed}, which enabled overcoming the sequential 
 limitations of previous \ac{RNN} and \ac{LSTM} architectures.
 
 \subsection{Transformer}
@@ -609,11 +598,10 @@ relying entirely on the attention mechanism.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.6\textwidth]{img/ModalNet-21.png}
-    \caption{The Transformer - model architecture}
-    \label{img:transformer}
+    \caption{The Transformer model architecture}\label{img:transformer}
 \end{figure}
 
-As shown in figure \ref{img:transformer}, the Transformer architecture consists of an encoder-decoder structure, 
+As shown in figure~\ref{img:transformer}, the Transformer architecture consists of an encoder-decoder structure, 
 where both components are composed of multiple layers of self-attention mechanisms and feed-forward neural networks.
 
 The \textbf{encoder} (left) ingests a token sequence $x=(x_1,\dots,x_n)$ and produces continuous representations
@@ -621,54 +609,61 @@ $z=(z_1,\dots,z_n)$. The \textbf{decoder} (right) conditions on $z$ and generate
 $y=(y_1,\dots,y_m)$ autoregressively, emitting one token per step. Both sides are built by stacking
 identical blocks composed of Multi-Head Attention and position-wise Feed-Forward layers, typically
 wrapped with residual connections and normalization. Inputs and targets are first embedded into a
-n-dimensional space, and a positional encoding is added to each embedding to encode token order \cite{Paper:vaswani2023attentionneed}.
+n-dimensional space, and a positional encoding is added to each embedding to encode token order~\cite{Paper:vaswani2023attentionneed}.
 
 At the core there is Multi-Head Attention, which allows the model to jointly attend to information from different representation
 subspaces at different positions. Each attention head computes scaled dot-product attention, enabling the model to
 focus on relevant parts of the input sequence when generating each output token.
 
 Most of the state of art \ac{LLM}s use an architecture with only the decoder part,
-omitting the encoder entirely\cite{site:MostLLMs}. This design choice is preferred for its simplicity,
+omitting the encoder entirely~\cite{site:MostLLMs}. This design choice is preferred for its simplicity,
 its good zero-shot generalization, and cheaper training cost to attain a reasonable performance.
 
 \subsection{Tokens}
 
 In \ac{LLM}s, text is processed in chunks called \textbf{tokens}. A token can represent a word, a subword, or even a single character, depending on the tokenization scheme used.
-The choice of tokenization method significantly impacts the model's performance, as it affects how the model interprets and generates text.\cite{Paper:Mullen2018}
+The choice of tokenization method significantly impacts the model's performance, as it affects how the model interprets and generates text.~\cite{Paper:Mullen2018}
 
 We can see an example using \myhref{https://tiktokenizer.vercel.app/}{tiktokenizer}, a webtool for visualizing tokenization for differents models, to tokenize a sentence:
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{img/tiktokenizer.png}
-    \caption{Tokenization example using tiktokenizer}
-    \label{img:tokenization}
+    \caption{Tokenization example using tiktokenizer}\label{img:tokenization}
 \end{figure}
 
-As shown in figure \ref{img:tokenization}, the sentence "Hi i am Timossi Luigi" is tokenized into a sequence of tokens.
+As shown in figure~\ref{img:tokenization}, the sentence `Hi i am Timossi Luigi' is tokenized into a sequence of tokens.
 Each token corresponds to a specific integer ID in the model's vocabulary.
 
-For this example, for the model \texttt{gpt-4o} the token " i" corrisponds to the ID 575.
+For this example, for the model \texttt{gpt-4o} the token ` i' corresponds to the ID 575.
 The tokenization process is crucial for \ac{LLM}s, as it transforms raw text into a format that the model can process.
 Different models use different tokenization values or schemes like \ac{BPE}.
 
 In the tokens we count also the special tokens like \texttt{$<|im\_start|>$} that indicates boundaries for roles messages like system, assistant, or user.
-in this case the token \texttt{$<|im\_start|>$} corrisponds to "input message start" after that we have the role then the token "input message separator" the message and finally the token "input message end".
+in this case the token \texttt{$<|im\_start|>$} corresponds to `input message start' after that we have the role then the token `input message separator' the message and finally the token `input message end'.
 different models use different special tokens or does not use them at all.
 
 \subsection{Softmax}
-The \texttt{Softmax} function is used as an output function in the last layer of a neural networks to transform a vector of real values into a probability distribution.(see figure \ref{img:transformer})
+The \texttt{Softmax} function is used as an output function in the last layer of a neural networks to transform a vector of real values into a probability distribution. (see figure~\ref{img:transformer})
 This function for each component of the vector it computes the exponential normalized by the sum of the exponentials of all components, 
-producing in output a vector of the same dimension with values in the interval [0,1] whose sum is 1. \cite{site:baeldungWhatTemperature}
+producing in output a vector of the same dimension with values in the interval [0,1] whose sum is 1.~\cite{site:baeldungWhatTemperature}
 
 \[softmax(y_{i}) = \frac{e^{y_{i}}}{\sum_{j=1}^{n}e^{y_{j}}} \]
 
 where $y = (y_{1}, y_{2}, .., y_{n})$ is an input vector and values $y_{i}, (i=\overline{1,n})$ are in range from $-\infty$ to $+\infty$.
 
 \subsection{Quantization}
+Quantization is a technique used to reduce the memory footprint and computational requirements of neural networks by representing weights and activations with lower precision.
+In the context of \ac{LLM}s, quantization can be applied to the model's parameters (weights) and activations (intermediate outputs) to enable faster inference and reduce memory usage, especially on resource-constrained devices.~\cite{site:WhatQuantization,site:huggingfaceQuantization}
+There are different quantization schemes, such as:
+\begin{itemize}
+    \item \textbf{Post-training quantization}: This method quantizes a pre-trained model without requiring additional training. It can be applied to both weights and activations, but it may lead to a drop in model accuracy if not done carefully.
+    \item \textbf{Quantization-aware training}: This method incorporates quantization into the training process, allowing the model to learn to compensate for the reduced precision. This approach typically results in better accuracy compared to post-training quantization.    
+    \end{itemize}
+Quantization can significantly reduce the computational requirements of \ac{LLM}s, enabling faster inference and making it feasible to deploy large models on edge devices or in real-time applications. However, it is important to carefully evaluate the impact of quantization on model performance, as aggressive quantization can lead to a significant drop in accuracy.
 
 \section{Decoding}
-When the model generates text, it produces a vector of raw scores, called \textbf{logits}, for each
+When the model generates text, it produces a vector of raw scores, called \emph{logits}, for each
 token in the vocabulary at each timestep. These logits represent the unnormalized likeli-hood of each token being the next token in the sequence.
 By applying the \texttt{Softmax} function to these logits, the model obtains a probability distribution over the vocabulary;
 Once the probability distribution is computed, the model must select the next token. 
@@ -694,13 +689,13 @@ where $T > 0$ is the temperature parameter. The temperature modifies the distrib
 
 \begin{itemize}
     \item $T < 1$ (Cooling): Differences between logits are amplified. The token with the highest logit receives a probability close to 1. 
-    The distribution becomes 'peaked', reducing variety and increasing determinism. Useful for logical or mathematical tasks.
+    The distribution becomes `peaked', reducing variety and increasing determinism. Useful for logical or mathematical tasks.
     \item $T > 1$ (Heating): Differences are flattened. The distribution tends toward uniformity. Tokens with lower logits gain probability mass, 
-    increasing 'creativity' but also the risk of incoherence (hallucinations).
+    increasing `creativity' but also the risk of incoherence (hallucinations).
     \item $T \to 0$: Equivalent to the \texttt{Greedy decoding}, where always the single most probable token is chosen.
 \end{itemize}
 
-Miklos and Rebeka (both Junior Research)\cite{site:poltextlabParametersExplained}, in their study on the impact of temperature on text generation have tested different temperature settings
+Miklos and Rebeka (both Junior Research)~\cite{site:poltextlabParametersExplained}, in their study on the impact of temperature on text generation have tested different temperature settings
 using OpenAI GPT-4.1 with the prompt \texttt{Why do researchers use control groups in experiments?}; They send two times the same prompt with different temperature settings and analyzed the outputs:
 
 \begin{itemize}
@@ -716,7 +711,7 @@ To mitigate this, techniques like \texttt{Top-k} and \texttt{Top-p} sampling are
 
 \subsection{Top-p and Top-k}
 Top-p (nucleus) sampling is a stochastic decoding strategy that at each generation step restricts sampling to the smallest
-subset of tokens whose cumulative probability is at least a threshold $p$.\cite{site:wikipediaToppSampling}.
+subset of tokens whose cumulative probability is at least a threshold $p$.~\cite{site:wikipediaToppSampling}.
 
 Formally, given vocabulary $V$ and context $x_{<t}$, the nucleus $V^{(p)}$ is the minimal subset satisfying
 
@@ -730,34 +725,34 @@ the candidate set based on the cumulative probability threshold \(p\).
 The combined use of Temperature (to model the shape of the curve) and Top-p (to intelligently truncate the tail) represents the current 
 industry standard for high-quality text generation.
 
-\section{Perplexity}
-\label{sec:perplexity}
+\section{Perplexity}\label{sec:perplexity}
+
 Evaluating the quality of an \ac{LLM} is intrinsically challenging because language judgments are often subjective. 
 Nonetheless, there are rigorous quantitative metrics. \texttt{Perplexity} is the standard measure used during \ac{LLM} pre-training; 
-it stems from information theory and quantifies the model's uncertainty when predicting the next token.\cite{site:wikipediaPerplexityWikipedia}
+it stems from information theory and quantifies the model's uncertainty when predicting the next token.~\cite{site:wikipediaPerplexityWikipedia}
 
 Mathematically, \texttt{perplexity} is the exponential of the average negative log-likelihood (i.e., the exponentiated cross-entropy) 
 of the predicted tokens. Exponentiating the cross-entropy restores the measure to probability-like units, yielding an intuitive 
-"effective branching factor" the average number of plausible next-token choices the model considers.\cite{site:cometPerplexityEvaluation}
+`effective branching factor' the average number of plausible next-token choices the model considers.~\cite{site:cometPerplexityEvaluation}
 
 \[
 \mathrm{PPL}(X) = \exp\!\left( -\frac{1}{N} \sum_{i=1}^N \log P(x_i \mid x_{<i}) \right)
 \]
 
-A \texttt{perplexity} of K indicates that, on average, the model behaves as if it were choosing among K equally likely alternatives at each prediction step.\cite{site:UnderstandingPerplexity}
+A \texttt{perplexity} of K indicates that, on average, the model behaves as if it were choosing among K equally likely alternatives at each prediction step.~\cite{site:UnderstandingPerplexity}
 \begin{itemize}
     \item Relation to entropy: \(\mathrm{PPL} = 2^{H(P)}\), where \(H(P)\) denotes the Shannon entropy of the distribution.
     \item Interpretation: Lower \texttt{perplexity} means the model assigns higher probability mass to the true tokens from the test set.
 \end{itemize}
 Note that a low \texttt{perplexity} reflects statistical predictability relative to the training corpus and does not guarantee factual accuracy or correctness.
 
-\section{Human-like}
+\section{Human-like}\label{sec:human-like}
 \ac{LLM} are designed to generate text that closely mimics human language, capturing nuances, context, and stylistic elements.
 This capability is achieved through extensive training on vast corpora of text, enabling the models to learn patterns and structures inherent in human communication.
 This mimic of human-like text generation has profound implications across various domains, including customer service, content creation, and education.
-since the generated text is often indistinguishable from that written by humans, \ac{LLM} we can use them to measure how "human-like" is a piece of text.
+since the generated text is often indistinguishable from that written by humans, \ac{LLM} we can use them to measure how `human-like' is a piece of text.
 If we have two C functions that perform the same task but generated with different decompilers (or different settings/version of the same decompiler), 
-we can probably assume that using an \ac{LLM} to measure how "human-like" is the generated code can be a good proxy for code quality/readability.
+we can probably assume that using an \ac{LLM} to measure how `human-like' is the generated code can be a good proxy for code quality/readability.
 
 Here we have two main path to measure the human-likeness of a piece of code:
 \begin{itemize}
@@ -766,6 +761,6 @@ Here we have two main path to measure the human-likeness of a piece of code:
     \item Use \texttt{perplexity} as a quantitative metric to evaluate the human-likeness of the code. This approach leverages the statistical 
     properties of the language model to assess how well the generated code aligns with patterns learned from human-written code.
 \end{itemize}
-As shown in section \ref{sec:perplexity}, \texttt{perplexity} measures how well a language model predicts a sequence of tokens. A lower \texttt{perplexity} indicates that the model finds the sequence more predictable, 
+As shown in section number~\ref{sec:perplexity}, \texttt{perplexity} measures how well a language model predicts a sequence of tokens. A lower \texttt{perplexity} indicates that the model finds the sequence more predictable, 
 which often correlates with human-like text. By calculating the \texttt{perplexity} of code snippets generated by different decompilers, we can objectively compare their human-likeness.
 For this reason, \texttt{perplexity} is used only to evaluate the Human-like quality of the decompiled code, it \textbf{does not} evaluate its functional correctness.

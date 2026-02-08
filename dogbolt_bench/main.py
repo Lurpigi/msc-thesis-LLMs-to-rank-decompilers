@@ -2,12 +2,13 @@
 import json
 import os
 import itertools
-from .utils.llm import get_llm_analysis, free_llm_model, get_code_metrics
-from .utils.com import get_ast, get_func_name, get_source_code, get_models
-from .utils.const import OUTPUT_DIR
+from utils.llm import get_llm_analysis, free_llm_model, get_code_metrics
+from utils.com import get_ast, get_func_name, get_source_code, get_models
+from utils.const import OUTPUT_DIR
 
 
 SRC_PATH = os.path.abspath('src')
+
 
 class binary_item:
 
@@ -212,7 +213,7 @@ def main():
                         is_ast=True
                     )
                     winner = analysis_ast.get("winner", "Error")
-                    if winner not in ("TIE","Error"):
+                    if winner not in ("TIE", "Error"):
                         print("checking bias...")
                         analysis_ast_b = get_llm_analysis(
                             base_code=ast_2,
@@ -227,7 +228,7 @@ def main():
                                 "winner": "TIE",
                                 "motivation": "Detected potential bias in LLM AST response; declaring TIE."
                             }
-                    
+
                     analysis = get_llm_analysis(
                         base_code=item.get_func_decomp(d1),
                         pr_code=item.get_func_decomp(d2),
@@ -236,7 +237,7 @@ def main():
                         is_ast=False
                     )
                     winner = analysis.get("winner", "Error")
-                    if winner not in ("TIE","Error"):
+                    if winner not in ("TIE", "Error"):
                         print("checking bias...")
                         analysis_b = get_llm_analysis(
                             base_code=item.get_func_decomp(d2),

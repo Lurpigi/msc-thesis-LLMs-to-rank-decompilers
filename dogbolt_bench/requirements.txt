@@ -2,3 +2,4 @@ requests
 tree-sitter-c
 tree-sitter
 datasets
+lizard

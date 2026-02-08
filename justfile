@@ -51,6 +51,4 @@ dataset:
     docker compose up -d --build dataset-maker && docker logs -f tesi-dataset-maker-1
 
 all:
-    just dogbolt_bench
-    just stop
-    just ghidra_bench
+    just dogbolt_bench && just stop && just ghidra_bench

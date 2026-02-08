@@ -29,7 +29,9 @@ RUN git config --system --add safe.directory /opt/ghidra_src
 WORKDIR /opt
 
 RUN echo "[DOCKER] Cloning Ghidra Master..." && \
-    git clone --depth 1 https://github.com/NationalSecurityAgency/ghidra.git ghidra_src
+    git clone https://github.com/NationalSecurityAgency/ghidra.git ghidra_src && \
+    cd ghidra_src && \
+    git checkout 14c2495cb06ccd09324050c787ad0fc756d35dae
 
 WORKDIR /opt/ghidra_src
 
@@ -38,7 +40,7 @@ RUN echo "[DOCKER] Fetching dependencies..." && \
     ./gradlew -I gradle/support/fetchDependencies.gradle
 
 RUN echo "[DOCKER] Building Ghidra (this may take a while)..." && \
-    ./gradlew buildGhidra -x test -x integrationTest -x javadoc -x check -x ip -x createJavadocs -x createJsondocs -x zipJavadocs
+    ./gradlew buildGhidra
 
 RUN mkdir -p /opt/ghidra-dist && \
     find build/dist -name "ghidra_*.zip" -exec unzip -q {} -d /opt/ghidra-dist \; && \

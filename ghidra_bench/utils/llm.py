@@ -26,7 +26,7 @@ def get_llm_analysis(base_code, pr_code, model_id, source, is_ast=False):
 
     if source is not None and base_code == pr_code:
         return {
-            "winner": "TIE",
+            "winner": "NO DIFFERENCE",
             "motivation": "BASE and PR AST are identical; no differences to evaluate."
         }
 
@@ -41,13 +41,12 @@ def get_llm_analysis(base_code, pr_code, model_id, source, is_ast=False):
             result = resp.json()
 
             generated_text = result.get("response", "")
-            try:
-                match = re.search(
-                    r'\{\s*"(?:winner|motivation)"\s*:.*\}', generated_text, re.DOTALL)
-                if match:
-                    return json.loads(match.group(0))
-                return {"winner": "Unknown", "motivation": generated_text}
-            except:
+
+            match = re.search(
+                r'\{\s*"(?:winner|motivation)"\s*:.*\}', generated_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            else:
                 winner_match = re.search(
                     r'"winner"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
                 motivation_match = re.search(
@@ -135,7 +134,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
     if winner not in ("TIE", "Error"):
         print("checking bias...")
         qualitative_analysis_b = get_llm_analysis(
-        pr_code, base_code, model_id=model_id, source=source_code, is_ast=False)
+            pr_code, base_code, model_id=model_id, source=source_code, is_ast=False)
         winner_b = qualitative_analysis_b.get("winner", "Error")
         if winner != winner_b and winner_b in ("A", "B"):
             qualitative_analysis = {
@@ -144,7 +143,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
             }
         else:
             qualitative_analysis["winner"] = "BASE" if winner == "A" else "PR"
-    
+
     print(f"Finished qualitative analysis for {func_name}")
     print(f"Getting AST analysis for {func_name}")
 
@@ -155,7 +154,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
     if winner not in ("TIE", "Error"):
         print("checking bias...")
         ast_analysis_b = get_llm_analysis(
-        pr_ast, base_ast, model_id=model_id, source=source_ast, is_ast=True)
+            pr_ast, base_ast, model_id=model_id, source=source_ast, is_ast=True)
         winner_b = ast_analysis_b.get("winner", "Error")
         if winner != winner_b and winner_b in ("A", "B"):
             ast_analysis = {
@@ -164,7 +163,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
             }
         else:
             ast_analysis["winner"] = "BASE" if winner == "A" else "PR"
-    
+
     print(f"Finished AST analysis for {func_name}")
 
     entry = {

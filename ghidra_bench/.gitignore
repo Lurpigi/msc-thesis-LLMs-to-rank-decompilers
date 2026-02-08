@@ -1,4 +1,5 @@
 scripts/__pycache__/
+utils/__pycache__/
 outputs/decomp/*
 old_res/
 old_bin/

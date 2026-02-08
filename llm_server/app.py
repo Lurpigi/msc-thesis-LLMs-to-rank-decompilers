@@ -47,10 +47,12 @@ MODELS_CONFIG = {
 
 @contextmanager
 def monitor_execution(model_id, operation_name):
-    # 1. Reset Stats
+    # 1. Reset stats
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
         torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+
     start_time = time.perf_counter()
 
     stats = {"prompt_tokens": 0, "generated_tokens": 0}
@@ -58,6 +60,9 @@ def monitor_execution(model_id, operation_name):
     try:
         yield stats
     finally:
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        
         end_time = time.perf_counter()
         duration = end_time - start_time
 
@@ -67,6 +72,8 @@ def monitor_execution(model_id, operation_name):
 
         process = psutil.Process(os.getpid())
         ram_usage_gb = process.memory_info().rss / (1024 ** 3)
+        total_tokens = stats['prompt_tokens'] + stats['generated_tokens']
+        tps = total_tokens / duration if duration > 0 else 0
 
         log_msg = (f"{model_id},{operation_name},{duration:.4f},{peak_vram_gb:.4f},"
                    f"{ram_usage_gb:.4f},{stats['prompt_tokens']},{stats['generated_tokens']}")
@@ -75,9 +82,9 @@ def monitor_execution(model_id, operation_name):
         print(
             f"[METRICS] {model_id} | {operation_name} | {duration:.2f}s | "
             f"VRAM: {peak_vram_gb:.2f}GB | RAM: {ram_usage_gb:.2f}GB | "
-            f"Tokens: {stats['prompt_tokens']} in / {stats['generated_tokens']} out"
+            f"Tokens: {stats['prompt_tokens']} in / {stats['generated_tokens']} out | "
+            f"Speed: {tps:.2f} tok/s"
         )
-
 
 class ModelEngine:
     def __init__(self):

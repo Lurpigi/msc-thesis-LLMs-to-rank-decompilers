@@ -30,8 +30,8 @@ def get_llm_analysis(base_code, pr_code, model_id, source, is_ast=False):
             "motivation": "BASE and PR AST are identical; no differences to evaluate."
         }
 
-    prompt = get_quality_prompt(base_code, pr_code, source) if not is_ast else get_ast_prompt(
-        base_code, pr_code, source)
+    prompt = get_quality_prompt(base_code, pr_code) if not is_ast else get_ast_prompt(
+        base_code, pr_code)
 
     try:
         resp = requests.post(LLM_API_GEN, json={
@@ -126,25 +126,26 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
 
     print(f"Finished metrics for {func_name}")
 
-    print(f"Getting qualitative analysis for {func_name}")
+    # print(f"Getting qualitative analysis for {func_name}")
 
-    qualitative_analysis = get_llm_analysis(
-        base_code, pr_code, model_id=model_id, source=source_code, is_ast=False)
-    winner = qualitative_analysis.get("winner", "Error")
-    if winner not in ("TIE", "Error"):
-        print("checking bias...")
-        qualitative_analysis_b = get_llm_analysis(
-            pr_code, base_code, model_id=model_id, source=source_code, is_ast=False)
-        winner_b = qualitative_analysis_b.get("winner", "Error")
-        if winner != winner_b and winner_b in ("A", "B"):
-            qualitative_analysis = {
-                "winner": "TIE",
-                "motivation": "Detected potential bias in LLM response; declaring TIE."
-            }
-        else:
-            qualitative_analysis["winner"] = "BASE" if winner == "A" else "PR"
+    # qualitative_analysis = get_llm_analysis(
+    #     base_code, pr_code, model_id=model_id, source=source_code, is_ast=False)
+    # winner = qualitative_analysis.get("winner", "Error")
+    # if winner not in ("TIE", "Error"):
+    #     print("checking bias...")
+    #     qualitative_analysis_b = get_llm_analysis(
+    #         pr_code, base_code, model_id=model_id, source=source_code, is_ast=False)
+    #     winner_b = qualitative_analysis_b.get("winner", "Error")
+    #     if winner != winner_b and winner_b in ("A", "B"):
+    #         qualitative_analysis = {
+    #             "winner": "TIE",
+    #             "motivation": "Detected potential bias in LLM response; declaring TIE."
+    #         }
+    #     else:
+    #         qualitative_analysis["winner"] = "BASE" if winner == "A" else "PR"
 
-    print(f"Finished qualitative analysis for {func_name}")
+    # print(f"Finished qualitative analysis for {func_name}")
+
     print(f"Getting AST analysis for {func_name}")
 
     ast_analysis = get_llm_analysis(
@@ -185,7 +186,7 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
             # < 0 means PR improved (lowered) perplexity
             "delta_ppl": ppl_delta,
         },
-        "llm_qualitative": qualitative_analysis,
+        #"llm_qualitative": qualitative_analysis,
         "llm_ast": ast_analysis
     }
 

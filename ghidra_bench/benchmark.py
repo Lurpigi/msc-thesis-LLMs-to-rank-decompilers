@@ -4,7 +4,7 @@ import subprocess
 from utils.const import MAX_SAMPLES, OUTPUT_DIR, MODELS_TO_BENCHMARK, BINARIES_DIR
 from utils.ghidra import setup_ghidra_version, extract_decompilation
 from utils.llm import evaluate_with_llm, free_llm_model
-from utils.com import fetch_decompiler_prs, get_models, get_cc
+from utils.com import fetch_decompiler_prs, get_ast, get_models, get_cc
 
 
 def already_processed(file, n_pr=None, is_pr=False):
@@ -95,7 +95,7 @@ def main(prs_number=None):
                             if base_code == None or pr_code == None:
                                 # should not happen
                                 raise ValueError("Decompiled code is None")
-                            if base_code != pr_code:
+                            if get_ast(base_code) != get_ast(pr_code):
                                 bin_cc.append(
                                     (bin, (base_code, pr_code), get_cc(pr_code)))
                                 break  # only one func

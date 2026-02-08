@@ -36,12 +36,20 @@ app = Flask(__name__)
 #     "gemma2-2b": "google/gemma-2-2b-it"
 # }
 
-# Desktop
+# Desktop 1
+# MODELS_CONFIG = {
+#     "qwen-coder": "Qwen/Qwen2.5-Coder-7B-Instruct",
+#     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+#     "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
+#     "gemma2": "google/gemma-2-9b-it"
+# }
+
+# Desktop 2
 MODELS_CONFIG = {
-    "qwen-coder": "Qwen/Qwen2.5-Coder-7B-Instruct",
-    "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-    "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
-    "gemma2": "google/gemma-2-9b-it"
+    "qwen-3": "Qwen/Qwen3-14B-Instruct",
+    "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "llama-4": "meta-llama/meta-llama/Llama-4-Scout-17B-16E-Instruct",
+    "phi-4": "microsoft/phi-4"
 }
 
 
@@ -156,9 +164,9 @@ class ModelEngine:
         config = {
             "max_new_tokens": max_new_tokens,
             "do_sample": True,
-            "temperature": 0.7,
+            "temperature": 0.5,
             "top_p": 0.9,
-            # "pad_token_id": self.tokenizer.eos_token_id
+            "pad_token_id": self.tokenizer.eos_token_id
         }
 
         return config

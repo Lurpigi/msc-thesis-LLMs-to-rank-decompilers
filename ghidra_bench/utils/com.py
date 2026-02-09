@@ -359,15 +359,14 @@ def get_ast(code, indent_step=2):
             structure.append("type ")
             first = True
             for child in node.children:
-                if child.type in ['primitive_type', 'type_identifier', 'struct_specifier', ';', 'storage_class_specifier']: continue
-                if child.type == 'init_declarator':
-                    if not first: structure.append(", ")
-                    traverse(child)
-                    first = False
-                elif child.type == 'identifier':
-                     if not first: structure.append(", ")
-                     structure.append("id")
-                     first = False
+                if child.type in ['primitive_type', 'type_identifier', 'struct_specifier', 
+                                  'enum_specifier', 'union_specifier', 'storage_class_specifier', 
+                                  'type_qualifier', 'sizeless_type', ';']: 
+                    continue
+                if not first: structure.append(", ")
+                traverse(child) 
+                first = False
+            
             structure.append(";")
             return
 
@@ -376,26 +375,27 @@ def get_ast(code, indent_step=2):
              structure.append(" = ")
              traverse(node.child_by_field_name('value'))
              return
+        
+        if node.type == 'number_literal':
+            structure.append("num")
+            return
+            
+        if node.type in ['string_literal', 'char_literal', 'concatenated_string']:
+            structure.append("str")
+            return
+            
+        if node.type in ['true', 'false', 'null']:
+            structure.append("bool" if node.type != 'null' else "null")
+            return
+            
+        if node.type in ['primitive_type', 'type_identifier']:
+            structure.append("type")
+            return
 
         # Leaf nodes
         if node.child_count == 0:
             if node.type in ['identifier', 'field_identifier']:
                 structure.append("id")
-                return
-            if node.type == 'number_literal':
-                structure.append("num")
-                return
-            if node.type in ['string_literal', 'char_literal']:
-                structure.append("str")
-                return
-            if node.type in ['primitive_type', 'type_identifier']:
-                structure.append("type")
-                return
-            if node.type == 'null':
-                structure.append("null")
-                return
-            if node.type in ['true', 'false']:
-                structure.append("bool")
                 return
             if len(node.type) == 1 and node.type in ";,(){}[]":
                  return 

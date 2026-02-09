@@ -2,22 +2,22 @@
 
 The intersection of \ac{LLM} and reverse engineering has rapidly evolved, 
 transforming how analysts interact with decompiled code. While recent 
-literature has indeed explored utilizing LLMs to assist in reverse engineering (using framework like MCP servers), 
+literature has indeed explored utilizing \ac{LLM}s to assist in reverse engineering (using framework like \ac{MCP} servers), 
 the vast majority of this work focuses on two distinct areas: 
 \begin{itemize}
     \item Generative refinement of decompiler output
-    \item LLM-based evaluation and benchmarking of decompilation tools
+    \item \ac{LLM}-based evaluation and benchmarking of decompilation tools
 \end{itemize}
 
 Unlike generative approaches that aim to produce better code, our work focuses on 
 measuring the `humanness' of existing code using intrinsic model metrics like perplexity and using those \ac{LLM} as a Judge~\ref{sec:LLMJudge}. 
-Furthermore, unlike broad benchmarking frameworks that rely on proprietary APIs to rank tools, 
+Furthermore, unlike broad benchmarking frameworks that rely on proprietary \ac{API}s to rank tools, 
 our research investigates the granular utility of local \ac{LLM} in distinguishing between specific versions (or pull requests) of the same codebase.
 %TODO capire se dire anche di dogbolt
 
 \section{Generative Refinement of Decompiler Output}\label{sec:genref}
 
-The most prominent use of LLMs in this field is the attempt to improve the readability of the raw 
+The most prominent use of \ac{LLM}s in this field is the attempt to improve the readability of the raw 
 output produced by traditional decompilers (like Ghidra or Hex-Rays). This body of work is complementary 
 to ours; while we do not attempt to modify the code, understanding the deficits of raw decompiler output 
 explains why our metrics (such as perplexity) are necessary to quantify `humanness'.
@@ -27,10 +27,10 @@ that was trained to decompile binary code into high-level language, acting as a 
 (LLM4Decompile-End is the model to decompile, LLM4Decompile-Ref is the model to refine another decompiler output); 
 or DeGPT~\cite{Paper:Hu2024DeGPTOD}, which introduces an end-to-end 
 framework designed to optimize decompiler output directly employing a `three-role mechanism' 
-(Referee, Advisor, and Operator) to guide an LLM in renaming variables, appending comments, 
+(Referee, Advisor, and Operator) to guide an \ac{LLM} in renaming variables, appending comments, 
 and simplifying structure. 
 
-Their work demonstrates that LLMs can significantly reduce the 
+Their work demonstrates that \ac{LLM}s can significantly reduce the 
 cognitive burden on analysts by rewriting code to be more idiomatic.
 
 \section{LLM-based Benchmarking}\label{sec:llmbench}
@@ -41,9 +41,9 @@ using \ac{LLM}s to scale and automatize human evaluation, this technique is ofte
 DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} is the state-of-the-art in this area,
 It presents a comprehensive framework for evaluating decompilers, introducing the concept of using `LLM-as-a-Judge' to rate code 
 understandability across 12 specific dimensions (e.g., Variable Naming, Control Flow Clarity). 
-Their work validates that LLMs can align well with human experts in ranking different decompilers 
-(e.g., comparing Ghidra vs. Hex-Rays vs. LLM-based decompilers).
-While DecompileBench is similar to our work in its use of LLMs for assessment, differ from ours on the type of validation used: 
+Their work validates that \ac{LLM}s can align well with human experts in ranking different decompilers 
+(e.g., comparing Ghidra vs. Hex-Rays vs. \ac{LLM}-based decompilers).
+While DecompileBench is similar to our work in its use of \ac{LLM}s for assessment, differ from ours on the type of validation used: 
 DecompileBench relies only on prompting the model to output a score based on Function Source Code, Decompiler A’s Pseudo Code, and Decompiler B’s Pseudo Code to calculate an ELO rating.
 In contrast, our work leverages also with intrinsic model metrics like \texttt{perplexity} to quantify the `surprise' of a specific model. 
 Perplexity provides a more objective, quantifiable measure of how natural the code appears to the model, 
@@ -73,20 +73,20 @@ These functions are compiled into standalone binaries (.so) with everything (bin
     \caption{Creation of the dataset used in DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating}.}
 \end{figure}
 
+\section{LLM-as-a-Judge}\label{sec:LLMJudge}
+The `\ac{LLM}-as-a-Judge'~\cite{Paper:li2025generationjudgmentopportunitieschallenges} is a technique that leverages the reasoning capabilities of \ac{LLM}s to subsitute human evaluators in tasks that require subjective judgment.
+these aspects can be various (e.g., overall quality, logic, readability, etc.) and are often difficult to quantify with traditional metrics.
+In the context of reverse engineering, using an \ac{LLM} as a judge allows us to evaluate the `humanness' of decompiled code.
+Some problems with this approach are the potential for \texttt{bias} in the model's judgments, such as position bias (prefer always the first option), or lenght bias (prefer the longer option). 
+These problems must be carefully managed in a study that relies on \ac{LLM}s for evaluation.
+
 \section{Why Perplexity}\label{sec:WhyPerp}
 If we accept that human source code is `natural' and predictable, we can model it stochastically 
 using neural (Transformer) language models. From this perspective, the decompiler acts as a noisy 
-channel that introduces distortions into the original signal. The goal of LLM-based evaluation is to 
+channel that introduces distortions into the original signal. The goal of \ac{LLM}-based evaluation is to 
 quantify how much the output signal (the decompiled code) deviates from the expected statistical 
-distribution of `natural' human code. 
+distribution of `natural' human code~\cite{Paper:hindle2012naturalness}. 
 A language model trained on human source code learns a probability distribution $P$ over token sequences. 
 When this model observes a sequence of decompiled code $S = t_1, t_2, \ldots, t_N$, it assigns a probability to each token based on the preceding context~\ref{sec:perplexity}. 
 If the decompiled code uses alien or `unnatural' constructs, the model, expecting human patterns, will assign these tokens a very low probability. 
 This statistical `surprise' is the foundation of perplexity.
-
-\section{LLM-as-a-Judge}\label{sec:LLMJudge}
-The `LLM-as-a-Judge'~\cite{Paper:li2025generationjudgmentopportunitieschallenges} is a technique that leverages the reasoning capabilities of LLMs to subsitute human evaluators in tasks that require subjective judgment.
-these aspects can be various (e.g., overall quality, logic, readability, etc.) and are often difficult to quantify with traditional metrics.
-In the context of reverse engineering, using an LLM as a judge allows us to evaluate the `humanness' of decompiled code.
-Some problems with this approach are the potential for \texttt{bias} in the model's judgments, such as position bias (prefer always the first option), or lenght bias (prefer the longer option). 
-These problems must be carefully managed in a study that relies on LLMs for evaluation.

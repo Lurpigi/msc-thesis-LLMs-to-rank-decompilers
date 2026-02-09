@@ -484,8 +484,8 @@ Criteria: the algorithm counts the number of \emph{statements} in the block:
 If the total number of statements in the block exceeds 2, the block is considered complex.
 
 The overflow syntax (\texttt{f\_whiledo\_overflow}) is a specific state assigned to a \texttt{BlockWhileDo} when its loop control condition is determined to be complex.
-It indicates that, although a logical \texttt{while} structure exists, the conditional block is too long or complicated to be emitted as a single boolean expression \texttt{while (condition)\{\}}.
-Instead of printing \texttt{while (<complex condition>)\{\}}, the decompiler emits an alternative form, typically an infinite loop with an internal \texttt{break} to preserve semantics.
+It indicates that, although a logical \texttt{while} structure exists, the conditional block is too long or complicated to be emitted as a single boolean expression \texttt{while(condition)\{\}}.
+Instead of printing \texttt{while(<complex condition>)\{\}}, the decompiler emits an alternative form, typically an infinite loop with an internal \texttt{break} to preserve semantics.
 
 After identifying a structure in the next iteration of the main loop in \texttt{collapseInternal}, a single FlowBlock representing the high-level construct (e.g., a \texttt{BlockWhileDo} for a while loop) is created. 
 This new block encapsulates the original matched block, maintaining their internal P-code operations while providing a structured interface for further processing and eventual emission.
@@ -568,7 +568,7 @@ statement to preserve semantic correctness, this phenomenon significantly degrad
 \section{Code Emission}\label{sec:c_emission}
 
 The final phase of the pipeline is the translation of the structured High P-code into C syntax. 
-This is not a simple text dump but a structured generation of an Abstract Syntax Tree (AST) represented 
+This is not a simple text dump but a structured generation of an \ac{AST} represented 
 by \texttt{ClangToken} objects.
 
 Before emission, the \emph{ActionNameVars} pass attempts to assign meaningful names to the 

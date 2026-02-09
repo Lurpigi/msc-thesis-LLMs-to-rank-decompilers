@@ -1,31 +1,166 @@
 \chapter{Methodology}\label{ch:method}
 
-This chapter describes the core of your work: the methodology you used to solve the problem you described in the \fullref{ch:introduction}.
-It is quite likely to have a different name (e.g., the name of the tool you wrote), and/or to be split into multiple chapters.
-\emph{Methodology} suggests that you will spend space discussing your overall approach and justification for it:
-it is a good idea for a Master's Thesis, as opposed to just a list of things that you have done (which could be more correctly called \emph{Method} or \emph{Methods}, and would risk being boring and not very useful for the reader).
+The framework of our work is based on a client-server architecture, where the server hosts the \ac{LLM} and provides an \ac{API} for interacting with it, 
+while the client is responsible for building specific Ghidra version, preparing the code samples and prompts, invoking the server, and collecting results in \ac{JSON} format.
+Every service is designed to be modular, allowing for the integration of different \ac{LLM} models and evaluation metrics, for
+reproducibility we used \emph{Docker Compose} to containerize both the server and client components, ensuring consistent environments across different machines and operating systems.
+The dataset creation is also a containerized process, and the result are mounted as volumes to the client container, allowing for easy access and manipulation of the data without the need for complex data transfer mechanisms.
 
-This chapter will likely be quite
-densely connected with things you have written in the \fullref{ch:background},
-and the results that you will show in the \fullref{ch:results}. Put abundant
-references to help the reader navigate the document.
+\section{Dataset Maker}
+As written on related works~\ref{sec:llmbench}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} for our evaluation,
+specifically the four Open Source projects: \texttt{file, libxls, readstat, xz}, which are written in C and have a rich history of commits and pull requests on GitHub.
+These choice was motivated by the need to have a manageable dataset size for local evaluation, while still covering a set of real world code and functions to evaluate our approach.
+for every project the dataset maker extracts all the functions and recompiles them  into standalone binaries; this process create different optimization levels of the binary, specifically \texttt{-O0} and \texttt{-O2}, and \texttt{-O3} 
+which are the most common optimization levels used in real world scenarios, and which can have a significant impact on the decompilation output and its readability.
 
-Try to keep a level of detail such that a skilled reader will be able to reproduce your result,
-but do not include unnecessary details that the reader can find out for themselves (e.g., the
-list of commands to perform a standard task). That is indeed valuable information that can help
-reproducibility, but if you do not think it is needed to understand your work, its place is
-likely to be in an appendix or in the documentation of the code you wrote, if you decide to
-release it.
+For obtaining this we had to fork the original dataset maker script and modify it to fit our edits; such as the specifically optimization levels (in the original repo they were using all the optimization levels) and some bug fix as pointed out by one pull request on the original repo~\cite{site:githubVarietyProblems}.
+so we clone our fork into a container (wich will also run docker inside for building the projects), edited with the patches as shown in the \texttt{README} file of DecompileBench, selected just our four projects and then run the dataset maker script.
 
-This chapter should include work that has been done by you. If that is not the case, consider
-moving it to the \fullref{ch:background}, or make it very clear that you are
-not the author. The same thing applies to images: if they aren't yours, you should cite the
-source.
+\subsection{Dataset Collection}
+The result of the dataset maker is a folder named \texttt{Dataset} wich contains other three subfolders:
+\begin{itemize}
+    \item \textbf{binary}: contains the compiled binary of the functions, every file is named with the format \texttt{task\_project\_functionName-OX.so}, and can be used for decompilation and evaluation.
+    \item \textbf{compiled\_ds}: contains a file structure of the dataset format used by the \texttt{Datasets} library~\cite{site:pypiDatasets}, which is a Python library for handling large datasets in a efficient way, and which we use for loading the dataset in our client code. 
+        This structure have a file `.arrow' that store data and two \ac{JSON} files for the metadata such as field names and types. In our case we are interested only in three fields \texttt{file}, which contain the name of the function, \texttt{path} wich contains the path `binary/namefile', and \texttt{func} wich contains the source code of the function.
+    \item \textbf{eval}: contains also a dataset structure, but we will not use it since is used for recompile success and other metrics that we are not interested in, since we want to focus on the evaluation of the decompilation output rather than the compilation process.
+\end{itemize}
 
-The results of your work should generally not be included in this chapter. In some cases,
-preliminary results can be included to explain why you took a certain direction in your work
-(e.g., you took a choice rather than another because you measured that it was more efficient),
-but the overall evaluation of your work should be in the \fullref{ch:results}.
+\section{LLM Server}
 
-You are likely to include algorithms in pseudocode. Check
-\myhref{https://www.overleaf.com/learn/latex/Algorithms}{relevant \latex packages} for that.
+The server is responsible for hosting the \ac{LLM} and providing an \ac{API} for interacting with it, specifically for receiving code samples and prompts from the client, processing them with the \ac{LLM}, and returning the results.
+The server is designed to be modular, allowing for the integration of different \ac{LLM} models and evaluation metrics, and it is containerized using Docker for reproducibility and ease of deployment.
+
+It uses Gnunicorn as the WSGI HTTP server for handling incoming requests, and it is built on top of a Python web framework (Flask) to define the \ac{API} endpoints and handle the logic for processing requests and interacting with the \ac{LLM}.
+The server is configured with a single worker and thread to manage sequential requests with an extended timeout of 800 seconds to accommodate longer inference times (but more importantly the model loading and the context switch when changing models).
+On startup, it performs \ac{GPU} availability checks and pre-downloads all required model weights to the container's cache directory using the Hugging Face libraries.
+
+\subsection{Models}
+The heavy part of the framework is without doubt the server, and the models that runs on it.
+In our case the local enviroment is a single \ac{GPU} machine with 16 GB of \ac{VRAM}, so we had to select models that can run on this hardware, and that can provide a good performance for our evaluation.
+We also used the \myhref{https://apxml.com/tools/VRAM-calculator}{\ac{VRAM} Calculator} to estimate the memory requirements of different models and ensure they fit within our hardware constraints, inside the \ac{VRAM} have to cohesist different areas, such as:
+\begin{itemize}
+    \item \textbf{Base Model Weights}: The trained parameters of the model, the `weights' with their precision (could be quantizated for reduced memory usage).
+    \item \textbf{Activations}: Intermediate computation results during forward passes through the layers. This grows with batch size and input length, and is critical for stability during inference.
+    \item \textbf{KV Cache}: Key-Value cache used to avoid recomputing attention for previously processed tokens. Given the lengthy decompilation prompts containing source code, this cache grows proportionally with input length.
+    \item \textbf{Framework Overhead}: Fixed memory cost from PyTorch, CUDA drivers, and buffer management. This overhead exists regardless of model size.
+\end{itemize}
+
+Based on these considerations, we selected the following models for our evaluation:
+\begin{itemize}
+
+\item \textbf{Meta Llama 3.1 (8B)}: 
+
+\item \textbf{Qwen2.5-Coder-Instruct (7B)}: 
+
+\item \textbf{DeepSeek-R1-Distill-Qwen (7B)}: 
+
+\item \textbf{Google Gemma 2 (9B)}: 
+
+...
+\end{itemize}
+
+These models were chosen for their balance between performance and memory requirements and for their close number of parameters, allowing us to run them on our local hardware while still providing meaningful insights into the evaluation of decompilation output.
+
+\subsection{Configuration}
+The server supports multiple local \acp{LLM} through a simple configuration layer that maps a short, client-facing identifier to the corresponding Hugging Face repository ID. Concretely, a dictionary (\texttt{MODELS\_CONFIG}) defines the available models (e.g., \texttt{qwen-coder}, \texttt{deepseek-r1}, \texttt{llama3.1}, \texttt{gemma2}) and is the single source of truth for both the \texttt{/models} endpoint and for request-time model switching.
+
+For ensure lightness, all models are loaded using 4-bit quantization via \texttt{bitsandbytes}.
+
+\begin{verbatim}
+bnb_config = BitsAndBytesConfig(
+  load_in_4bit=True,
+  bnb_4bit_quant_type="nf4",
+  bnb_4bit_use_double_quant=True,
+  bnb_4bit_compute_dtype=torch.bfloat16
+)
+\end{verbatim}
+
+To reduce cold-start delays, the container optionally pre-downloads all model snapshots at startup using \texttt{snapshot\_download}, ensuring that evaluation runs are not affected by network variability. 
+Finally, since only one model can reside in GPU memory at a time, the server unloads the currently active model (explicit \texttt{del} + garbage collection + CUDA cache cleanup) 
+before loading a new one.
+
+\subsection{Decoding strategy (temperature and top-p)}
+For the \texttt{/generate} endpoint, we configured the decoding parameters through a dedicated function that returns a dictionary of \texttt{transformers} generation arguments. 
+In our experiments we rely on \emph{nucleus sampling} (\texttt{top\_p}) with a low \texttt{temperature}, to balance determinism (useful for fair comparisons across decompilers) 
+and the ability to escape repetitive or low-quality completions.
+
+Concretely, the default configuration is:
+\begin{itemize}
+    \item \texttt{temperature=0.4}: reduces randomness by sharpening the token distribution. Lower values make outputs more stable across runs, which is desirable for evaluation.
+    \item \texttt{top\_p=0.9}: nucleus sampling, i.e., tokens are sampled only from the smallest set whose cumulative probability mass is $p$. This prevents the model from selecting very unlikely tokens while still allowing variation.
+    \item \texttt{max\_new\_tokens=2048}: upper bound on completion length, used as a safety and latency-control measure.
+\end{itemize}
+
+\subsection{Routes}
+The server exposes a minimal \ac{REST} \ac{API}, All endpoints exchange \ac{JSON} payloads and are intentionally kept coarse-grained (a lot of work in a single request) to decouple the client implementation from model-specific details. The available routes are:
+
+\begin{itemize}
+    \item \textbf{GET /}: health check endpoint. It returns the server readiness status, whether CUDA is available, and the currently loaded model identifier (if any). This is used by docker compose to ensure healthcheck status for required services.
+    \item \textbf{GET /models}: returns the list of supported model keys (the abstract identifiers used by the client), mapped server-side to Hugging Face repository IDs.
+    \item \textbf{POST /generate}: main inference endpoint. The request body includes \texttt{model\_id} and a \texttt{prompt}. The server loads (or switches to) the requested model, wraps the prompt into a chat-style template via the tokenizer, runs text generation, and returns the generated completion.
+    \item \textbf{POST /score}: scoring endpoint used to compute a language-model based score for a given text. The request body includes \texttt{model\_id} and \texttt{text}. The server computes the token-level negative log-likelihood and returns the derived perplexity.
+    \item \textbf{POST /free}: explicit cleanup endpoint to unload the currently resident model and aggressively release GPU memory.
+\end{itemize}
+
+Since different models cannot fit simultaneously in \ac{GPU} memory, model switching is handled server-side: each request triggers a check on the currently loaded model and, if needed, a full unload/load cycle. To avoid concurrent access to \ac{GPU} state, all inference and scoring operations are protected by a global lock, enforcing sequential execution.
+
+\subsection{Metrics}
+To make the evaluation reproducible and to quantify server-side overhead, the server logs per-request performance metrics to a CSV file (\texttt{llm\_metrics.csv}). Each entry includes:
+
+\begin{itemize}
+    \item \textbf{Model and operation}: \texttt{model\_id} and \texttt{operation} (\texttt{generate} or \texttt{score}).
+    \item \textbf{Latency}: wall-clock duration (seconds) measured around the full operation, including tokenization and \ac{GPU} synchronization.
+    \item \textbf{Peak GPU memory}: peak \ac{VRAM} allocated during the operation, obtained via CUDA peak memory statistics.
+    \item \textbf{Tokens}: number of prompt/input tokens and number of generated output tokens; these are also used to derive an approximate throughput (tokens per second).
+\end{itemize}
+
+Metric collection is implemented via a dedicated monitoring context manager that resets CUDA peak counters before execution and synchronizes the device before reading final statistics. 
+This design provides a uniform measurement procedure across both generation and perplexity scoring, and enables later analysis of the impact of model switching, 
+prompt length, and decoding configuration on runtime and memory usage.
+
+\section{Client}
+
+The client is responsible for orchestrating the entire evaluation workflow, including building specific Ghidra versions, preparing code samples and prompts, invoking the server for decompilation and scoring, and collecting results in \ac{JSON} format for analysis.
+It is designed to be modular and flexible, allowing for easy integration of different evaluation strategies and metrics, and it is containerized using Docker for reproducibility and ease of deployment.
+
+\subsection{Building Ghidra}
+The build process is automated via Python scripts that interact with Git and Gradle (we use an ubuntu image for the container).
+Firstly we clone and build the Ghidra repository from GitHub, this version is used as the base for all our evaluations.
+after building base and extracted the functions from binary, we get the \ac{PR}s number that we want to evaluate against base from a function that calls github \ac{API} and returns the list of all \ac{PR}s of Ghidra.
+Then for each \ac{PR} we have to checkout the specific version of Ghidra, for doing this we have a script that takes as input the \ac{PR} number, and then it fetches the specific head reference from the GitHub repository (\texttt{pull/ID/head:pr-ID}) and checks it out.
+
+For building Ghidra are necessary two prerequisites: \texttt{Java 11} and \texttt{Gradle} (optionally), the first one is required for running the build scripts and the second one is used for managing dependencies and building the project, 
+but since Ghidra in newer versions includes a wrapper for Gradle (\texttt{gradlew}), you can use it without installing Gradle globally.
+
+One problem is that every version of Ghidra need a specific version of Java, so we have to check the \texttt{application.properties} file inside the repo for the required minimal Java version, and then install it in the container before building Ghidra.
+So inside the container we manage more than one version of Java, and we switch between them based on the requirements of the Ghidra version we are building.
+Another problem is that some \ac{PR}s are based on older versions of Ghidra wich does not have the gradle wrapper, so for building those versions we have to do the same thing we have done with Java, but for Gradle, 
+we have to install more than one version of Gradle and switch between them based on the requirements of the Ghidra version we are building; This only if \texttt{gradlew} is not available since is more preferible running it instead.
+This is the main reason for using an Ubuntu image for the container, since it allows us to easily manage multiple versions of Java and Gradle using the package manager and environment variables.
+
+After building a specific version of Ghidra (Base or \ac{PR}), for every binary found in the dataset folder, we check if it is not already decompiled by that specific version of Ghidra (i.e., if the corresponding \ac{JSON} file with the decompilation output does not exist), 
+after creating the list of the files not yet decompiled, we start the decompilation process.
+
+\subsection{Ghidra Headless}
+
+\cite{site:githubGhidraGhidraRuntimeScriptsCommonsupportanalyzeHeadlessREADMEmdMaster}
+
+
+\subsection{Evaluation}
+
+...
+
+\subsection{Abstraction and Anonymization}
+To evaluate the structural quality of the decompilation independently of variable naming and formatting, we implemented an abstraction mechanism using \texttt{tree-sitter} a 
+Parser used by \texttt{ATOM}~\cite{site:wikipediaAtomtext}, specifically the language for C with \texttt{tree-sitter-c}.
+The Python client parses the decompiled C code into an \ac{AST} and traverses it to generate a `skeletal' representation of the code.
+
+In this representation, specific identifiers, literals, and types are replaced with generic placeholders (e.g., \texttt{id}, \texttt{num}, \texttt{type}), while control flow keywords (\texttt{if}, \texttt{while}, \texttt{for}, \texttt{switch}, \texttt{goto}) and block structures are preserved.
+This process effectively anonymizes the code and create a filter/standard for identation and formatting, cleaning out the possible noise and forcing the \ac{LLM} to focus purely on the control flow logic and structural complexity (e.g., the presence of `goto' statements vs\. structured loops)
+rather than being biased by variable names, comments or formatting.
+
+...
+
+\subsection{Prompting}
+
+%\section{Dogbolt}

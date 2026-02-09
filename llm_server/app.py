@@ -37,20 +37,20 @@ app = Flask(__name__)
 # }
 
 # Desktop 1
-# MODELS_CONFIG = {
-#     "qwen-coder": "Qwen/Qwen2.5-Coder-7B-Instruct",
-#     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-#     "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
-#     "gemma2": "google/gemma-2-9b-it"
-# }
+MODELS_CONFIG = {
+    "qwen-coder": "Qwen/Qwen2.5-Coder-7B-Instruct",
+    "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+    "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
+    "gemma2": "google/gemma-2-9b-it"
+}
 
 # Desktop 2
-MODELS_CONFIG = {
-    "qwen-3": "Qwen/Qwen3-14B-Instruct",
-    "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-    "llama-4": "meta-llama/meta-llama/Llama-4-Scout-17B-16E-Instruct",
-    "phi-4": "microsoft/phi-4"
-}
+# MODELS_CONFIG = {
+#     "qwen-3": "Qwen/Qwen3-14B",
+#     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+#     "llama-4": "meta-llama/meta-llama/Llama-4-Scout-17B-16E-Instruct",
+#     "phi-4": "microsoft/phi-4"
+# }
 
 
 @contextmanager
@@ -70,7 +70,7 @@ def monitor_execution(model_id, operation_name):
     finally:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
-        
+
         end_time = time.perf_counter()
         duration = end_time - start_time
 
@@ -93,6 +93,7 @@ def monitor_execution(model_id, operation_name):
             f"Tokens: {stats['prompt_tokens']} in / {stats['generated_tokens']} out | "
             f"Speed: {tps:.2f} tok/s"
         )
+
 
 class ModelEngine:
     def __init__(self):
@@ -164,7 +165,7 @@ class ModelEngine:
         config = {
             "max_new_tokens": max_new_tokens,
             "do_sample": True,
-            "temperature": 0.5,
+            "temperature": 0.4,
             "top_p": 0.9,
             "pad_token_id": self.tokenizer.eos_token_id
         }

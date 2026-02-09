@@ -2,7 +2,7 @@ import requests
 import json
 import re
 from .com import get_ast, get_func_name, get_source_code
-from .prompt import get_quality_prompt, get_ast_prompt
+from .prompt import get_ast_prompt_s, get_quality_prompt, get_ast_prompt
 from .const import LLM_API_FREE, LLM_API_GEN, LLM_API_SCORE
 
 
@@ -21,7 +21,7 @@ def get_code_metrics(code_snippet, model_id):
         return {"perplexity": -1, "mean_logbits": 0}
 
 
-def get_llm_analysis(base_code, pr_code, model_id, source, is_ast=False):
+def get_llm_analysis(base_code, pr_code, model_id, source=None, is_source=False):
     """Call the LLM to get analysis"""
 
     if source is not None and base_code == pr_code:
@@ -30,8 +30,8 @@ def get_llm_analysis(base_code, pr_code, model_id, source, is_ast=False):
             "motivation": "BASE and PR AST are identical; no differences to evaluate."
         }
 
-    prompt = get_quality_prompt(base_code, pr_code) if not is_ast else get_ast_prompt(
-        base_code, pr_code)
+    prompt = get_ast_prompt(base_code, pr_code) if not is_source else get_ast_prompt_s(
+        base_code, pr_code, source)
 
     try:
         resp = requests.post(LLM_API_GEN, json={
@@ -146,16 +146,33 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
 
     # print(f"Finished qualitative analysis for {func_name}")
 
+    print(f"Getting AST analysis with source context for {func_name}")
+    ast_analysis_s = get_llm_analysis(
+        base_ast, pr_ast, model_id=model_id, source=source_ast, is_source=True)
+    winner_s = ast_analysis_s.get("winner", "Error")
+    if winner_s != "Error":
+        print("checking bias...")
+        ast_analysis_s_b = get_llm_analysis(
+            pr_ast, base_ast, model_id=model_id, source=source_ast, is_source=True)
+        winner_s_b = ast_analysis_s_b.get("winner", "Error")
+        if winner_s != winner_s_b and winner_s_b in ("A", "B"):
+            ast_analysis_s = {
+                "winner": "TIE",
+                "motivation": "Detected potential bias in LLM AST response with source context; declaring TIE."
+            }
+        else:
+            ast_analysis_s["winner"] = "BASE" if winner_s == "A" else "PR"
+
     print(f"Getting AST analysis for {func_name}")
 
     ast_analysis = get_llm_analysis(
-        base_ast, pr_ast, model_id=model_id, source=source_ast, is_ast=True)
+        base_ast, pr_ast, model_id=model_id)
     winner = ast_analysis.get("winner", "Error")
 
-    if winner not in ("TIE", "Error"):
+    if winner != "Error":
         print("checking bias...")
         ast_analysis_b = get_llm_analysis(
-            pr_ast, base_ast, model_id=model_id, source=source_ast, is_ast=True)
+            pr_ast, base_ast, model_id=model_id)
         winner_b = ast_analysis_b.get("winner", "Error")
         if winner != winner_b and winner_b in ("A", "B"):
             ast_analysis = {
@@ -186,8 +203,9 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
             # < 0 means PR improved (lowered) perplexity
             "delta_ppl": ppl_delta,
         },
-        #"llm_qualitative": qualitative_analysis,
-        "llm_ast": ast_analysis
+        # "llm_qualitative": qualitative_analysis,
+        "llm_ast": ast_analysis,
+        "llm_ast_source": ast_analysis_s
     }
 
     print(

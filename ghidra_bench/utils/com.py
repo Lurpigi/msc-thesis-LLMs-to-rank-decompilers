@@ -365,7 +365,7 @@ def get_ast(code, indent_step=2):
                     'enum_specifier', 'union_specifier', 'storage_class_specifier', 
                     'type_qualifier', 'sizeless_type', 'sized_type_specifier',
                     'class_specifier', 'attribute_specifier', 'ms_declspec_modifier',
-                    ';'
+                    ';', ','
                 ]: 
                     continue
                 if not first: 

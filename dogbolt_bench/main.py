@@ -2,6 +2,7 @@
 import json
 import os
 import itertools
+import random
 from utils.llm import get_llm_analysis, free_llm_model, get_code_metrics
 from utils.com import get_ast, get_func_name, get_source_code, get_models
 from utils.const import OUTPUT_DIR
@@ -147,13 +148,13 @@ def main():
             print(f"Error for {binary_name}: {e}")
             continue
 
-    # SAMPLE_SIZE = 25
+    SAMPLE_SIZE = 25
 
-    # if len(items_binary) > SAMPLE_SIZE:
-    #     print(
-    #         f"Sampling {SAMPLE_SIZE} items from {len(items_binary)} total...")
-    #     random.seed(0)
-    #     items_binary = random.sample(items_binary, SAMPLE_SIZE)
+    if len(items_binary) > SAMPLE_SIZE:
+        print(
+            f"Sampling {SAMPLE_SIZE} items from {len(items_binary)} total...")
+        random.seed(0)
+        items_binary = random.sample(items_binary, SAMPLE_SIZE)
 
     print(
         f"Starting pairwise comparison for {len(items_binary)} valid items...")
@@ -205,46 +206,42 @@ def main():
                     perp_ast_2 = get_code_metrics(
                         ast_2, model_id=model)['perplexity']
 
-                    analysis_ast = get_llm_analysis(
+                    analysis_s = get_llm_analysis(
                         base_code=ast_1,
                         pr_code=ast_2,
                         model_id=model,
-                        source=source_ast,
-                        is_ast=True
+                        source=source_ast, 
+                        is_source=True
                     )
-                    winner = analysis_ast.get("winner", "Error")
+                    winner = analysis_s.get("winner", "Error")
                     if winner not in ("TIE", "Error"):
                         print("checking bias...")
-                        analysis_ast_b = get_llm_analysis(
+                        analysis_s_b = get_llm_analysis(
                             base_code=ast_2,
                             pr_code=ast_1,
                             model_id=model,
-                            source=source_ast,
-                            is_ast=True
+                            source=source_ast, 
+                            is_source=True
                         )
-                        winner_b = analysis_ast_b.get("winner", "Error")
+                        winner_b = analysis_s_b.get("winner", "Error")
                         if winner != winner_b and winner_b != "Error":
-                            analysis_ast = {
+                            analysis_s = {
                                 "winner": "TIE",
                                 "motivation": "Detected potential bias in LLM AST response; declaring TIE."
                             }
 
                     analysis = get_llm_analysis(
-                        base_code=item.get_func_decomp(d1),
-                        pr_code=item.get_func_decomp(d2),
-                        model_id=model,
-                        source=item.get_source_func(),
-                        is_ast=False
+                        base_code=ast_1,
+                        pr_code=ast_2,
+                        model_id=model
                     )
                     winner = analysis.get("winner", "Error")
                     if winner not in ("TIE", "Error"):
                         print("checking bias...")
                         analysis_b = get_llm_analysis(
-                            base_code=item.get_func_decomp(d2),
-                            pr_code=item.get_func_decomp(d1),
-                            model_id=model,
-                            source=item.get_source_func(),
-                            is_ast=False
+                            base_code=ast_2,
+                            pr_code=ast_1,
+                            model_id=model
                         )
                         winner_b = analysis_b.get("winner", "Error")
                         if winner != winner_b and winner_b != "Error":
@@ -258,8 +255,8 @@ def main():
                         "function": item.get_func_name(),
                         "decompiler_A": d1,
                         "decompiler_B": d2,
-                        "winner_ast": analysis_ast.get("winner", "Error"),
-                        "motivation_ast": analysis_ast.get("motivation", ""),
+                        "winner_s": analysis_s.get("winner", "Error"),
+                        "motivation_s": analysis_s.get("motivation", ""),
                         "winner": analysis.get("winner", "Error"),
                         "motivation": analysis.get("motivation", ""),
                         "code_A": item.get_func_decomp(d1),

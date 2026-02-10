@@ -41,6 +41,7 @@ def run_command(cmd, cwd=None, env=None, input_text=None):
 def get_ast(code, indent_step=2):
     C_LANGUAGE = Language(tree_sitter_c.language())
     parser = Parser(C_LANGUAGE)
+
     tree = parser.parse(code.encode('utf8'))
     structure = []
     depth = 0
@@ -359,11 +360,17 @@ def get_ast(code, indent_step=2):
             structure.append("type ")
             first = True
             for child in node.children:
-                if child.type in ['primitive_type', 'type_identifier', 'struct_specifier', 
-                                  'enum_specifier', 'union_specifier', 'storage_class_specifier', 
-                                  'type_qualifier', 'sizeless_type', ';']: 
+                if child.type in [
+                    'primitive_type', 'type_identifier', 'struct_specifier', 
+                    'enum_specifier', 'union_specifier', 'storage_class_specifier', 
+                    'type_qualifier', 'sizeless_type', 'sized_type_specifier',
+                    'class_specifier', 'attribute_specifier', 'ms_declspec_modifier',
+                    ';'
+                ]: 
                     continue
-                if not first: structure.append(", ")
+                if not first: 
+                    structure.append(", ")
+                
                 traverse(child) 
                 first = False
             
@@ -391,14 +398,6 @@ def get_ast(code, indent_step=2):
         if node.type in ['primitive_type', 'type_identifier']:
             structure.append("type")
             return
-
-        # Leaf nodes
-        if node.child_count == 0:
-            if node.type in ['identifier', 'field_identifier']:
-                structure.append("id")
-                return
-            if len(node.type) == 1 and node.type in ";,(){}[]":
-                 return 
         
         if node.type == 'pointer_declarator':
             structure.append("*")
@@ -411,6 +410,23 @@ def get_ast(code, indent_step=2):
             traverse(node.child_by_field_name('index'))
             structure.append("]")
             return
+        
+        if node.type == 'array_declarator':
+            traverse(node.child_by_field_name('declarator'))
+            structure.append("[")
+            size = node.child_by_field_name('size')
+            if size:
+                traverse(size)
+            structure.append("]")
+            return
+        
+        # Leaf nodes
+        if node.child_count == 0:
+            if node.type in ['identifier', 'field_identifier']:
+                structure.append("id")
+                return
+            if len(node.type) == 1 and node.type in ";,(){}[]":
+                 return 
 
         for child in node.children:
             traverse(child)

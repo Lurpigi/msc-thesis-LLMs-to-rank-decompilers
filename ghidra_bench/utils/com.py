@@ -376,6 +376,15 @@ def get_ast(code, indent_step=2):
             
             structure.append(";")
             return
+        
+        if node.type == 'parameter_declaration':
+            traverse(node.child_by_field_name('type'))
+            
+            decl = node.child_by_field_name('declarator')
+            if decl:
+                structure.append(" ")
+                traverse(decl)
+            return
 
         if node.type == 'init_declarator':
              traverse(node.child_by_field_name('declarator'))

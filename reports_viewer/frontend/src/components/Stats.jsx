@@ -1,4 +1,5 @@
 import React from 'react';
+import clsx from 'clsx';
 
 export default function Stats({ func, prData }) {
     if (!func) return null;
@@ -112,47 +113,43 @@ export default function Stats({ func, prData }) {
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {modelResults.map((res, idx) => (
-                                        <React.Fragment key={res.model}>
-                                            {/* LLM AST Row */}
-                                            <tr>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" rowSpan={2}>
-                                                    {res.model}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    LLM AST (Code Quality)
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                        res.data.llm_ast?.winner === 'PR' ? 'bg-green-100 text-green-800' : 
-                                                        res.data.llm_ast?.winner === 'BASE' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                        {res.data.llm_ast?.winner}
-                                                    </span>
-                                                </td>
-                                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xl break-words whitespace-pre-wrap">
-                                                    {res.data.llm_ast?.motivation}
-                                                </td>
-                                            </tr>
-                                            {/* LLM AST Source Row */}
-                                            <tr className={idx !== modelResults.length - 1 ? 'border-b-4 border-gray-100' : ''}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    LLM AST Source (Ground Truth)
-                                                </td>
-                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                        res.data.llm_ast_source?.winner === 'PR' ? 'bg-green-100 text-green-800' : 
-                                                        res.data.llm_ast_source?.winner === 'BASE' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                        {res.data.llm_ast_source?.winner}
-                                                    </span>
-                                                </td>
-                                                 <td className="px-6 py-4 text-sm text-gray-500 max-w-xl break-words whitespace-pre-wrap">
-                                                    {res.data.llm_ast_source?.motivation}
-                                                </td>
-                                            </tr>
-                                        </React.Fragment>
-                                    ))}
+                                    {modelResults.map((res, idx) => {
+                                        const analyses = [
+                                            { key: 'llm_qualitative', label: 'Code: Humanity & Readability' },
+                                            { key: 'llm_qualitative_source', label: 'Code: Fidelity & Cleanliness (GT)' },
+                                            { key: 'llm_ast', label: 'AST: Humanity & Readability' },
+                                            { key: 'llm_ast_source', label: 'AST: Fidelity & Cleanliness (GT)' }
+                                        ];
+
+                                        return (
+                                            <React.Fragment key={res.model}>
+                                                {analyses.map((analysis, aIdx) => (
+                                                    <tr key={analysis.key} className={aIdx === analyses.length - 1 && idx !== modelResults.length - 1 ? 'border-b-4 border-gray-100' : ''}>
+                                                        {aIdx === 0 && (
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50/50" rowSpan={4}>
+                                                                {res.model}
+                                                            </td>
+                                                        )}
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 italic">
+                                                            {analysis.label}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                                                            <span className={clsx(
+                                                                "px-2 inline-flex text-xs leading-5 font-semibold rounded-full",
+                                                                res.data[analysis.key]?.winner === 'PR' ? 'bg-green-100 text-green-800' : 
+                                                                res.data[analysis.key]?.winner === 'BASE' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                                                            )}>
+                                                                {res.data[analysis.key]?.winner || 'N/A'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xl break-words whitespace-pre-wrap">
+                                                            {res.data[analysis.key]?.motivation || 'No motivation provided.'}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

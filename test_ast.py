@@ -325,15 +325,14 @@ def get_abstract_pseudocode(code, indent_step=2):
             structure.append("type ")
             first = True
             for child in node.children:
-                if child.type in ['primitive_type', 'type_identifier', 'struct_specifier', ';', 'storage_class_specifier']: continue
-                if child.type == 'init_declarator':
-                    if not first: structure.append(", ")
-                    traverse(child)
-                    first = False
-                elif child.type == 'identifier':
-                     if not first: structure.append(", ")
-                     structure.append("id")
-                     first = False
+                if child.type in ['primitive_type', 'type_identifier', 'struct_specifier', 
+                                  'enum_specifier', 'union_specifier', 'storage_class_specifier', 
+                                  'type_qualifier', 'sizeless_type', ';']: 
+                    continue
+                if not first: structure.append(", ")
+                traverse(child) 
+                first = False
+            
             structure.append(";")
             return
 

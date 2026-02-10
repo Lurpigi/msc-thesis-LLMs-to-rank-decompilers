@@ -101,6 +101,34 @@ class binary_item:
     def get_decompilers(self):
         return list(self.funcs.keys())
 
+def run_judge_with_bias_check(content_base, content_pr, model_id, source_content=None, is_ast=False):
+    analysis = get_llm_analysis(
+        content_base, content_pr, model_id=model_id, source=source_content, is_ast=is_ast
+    )
+    winner = analysis.get("winner", "Error")
+    if winner in ("TIE", "Error"):
+        return analysis
+
+    print("checking bias...")
+    
+    analysis_swap = get_llm_analysis(
+        content_pr, content_base, model_id=model_id, source=source_content, is_ast=is_ast
+    )
+    winner_swap = analysis_swap.get("winner", "Error")
+
+    if winner_swap not in ("A", "B"):
+        return {
+            "winner": "TIE",
+            "motivation": "Could not detect potential bias in LLM response (Position Bias); declaring TIE."
+        }
+
+    if winner != winner_swap:
+        return analysis
+    else:
+        return {
+            "winner": "TIE",
+            "motivation": "Detected potential bias in LLM response (Position Bias); declaring TIE."
+        }
 
 def main():
     output_file = os.path.join(OUTPUT_DIR, "dogbolt_report.json")
@@ -206,49 +234,43 @@ def main():
                     perp_ast_2 = get_code_metrics(
                         ast_2, model_id=model)['perplexity']
 
-                    analysis_s = get_llm_analysis(
-                        base_code=ast_1,
-                        pr_code=ast_2,
-                        model_id=model,
-                        source=source_ast, 
-                        is_source=True
-                    )
-                    winner = analysis_s.get("winner", "Error")
-                    if winner not in ("TIE", "Error"):
-                        print("checking bias...")
-                        analysis_s_b = get_llm_analysis(
-                            base_code=ast_2,
-                            pr_code=ast_1,
-                            model_id=model,
-                            source=source_ast, 
-                            is_source=True
-                        )
-                        winner_b = analysis_s_b.get("winner", "Error")
-                        if winner != winner_b and winner_b != "Error":
-                            analysis_s = {
-                                "winner": "TIE",
-                                "motivation": "Detected potential bias in LLM AST response; declaring TIE."
-                            }
+                    print(f"Perplexities - Source: {perp_source}, {d1}: {perp_1}, {d2}: {perp_2}")
 
-                    analysis = get_llm_analysis(
-                        base_code=ast_1,
-                        pr_code=ast_2,
-                        model_id=model
+                    print(f"Getting AST analysis with source context for {item.get_func_name()}...")
+                    analysis_ast_s = run_judge_with_bias_check(
+                        base_ast=ast_1,
+                        pr_ast=ast_2,
+                        model_id=model,
+                        source_content=source_ast, 
+                        is_ast=True
                     )
-                    winner = analysis.get("winner", "Error")
-                    if winner not in ("TIE", "Error"):
-                        print("checking bias...")
-                        analysis_b = get_llm_analysis(
-                            base_code=ast_2,
-                            pr_code=ast_1,
-                            model_id=model
-                        )
-                        winner_b = analysis_b.get("winner", "Error")
-                        if winner != winner_b and winner_b != "Error":
-                            analysis = {
-                                "winner": "TIE",
-                                "motivation": "Detected potential bias in LLM response; declaring TIE."
-                            }
+
+                    print(f"Getting Quality analysis with source context for {item.get_func_name()}...")
+                    analysis_s = run_judge_with_bias_check(
+                        base_code=item.get_func_decomp(d1),
+                        pr_code=item.get_func_decomp(d2),
+                        model_id=model,
+                        source_content=item.get_source_func(),
+                        is_ast=False
+                    )
+                    
+                    print(f"Getting Blind AST analysis for {item.get_func_name()}...")
+                    analysis_ast = run_judge_with_bias_check(
+                        base_ast=ast_1,
+                        pr_ast=ast_2,
+                        model_id=model,
+                        source_content=None,
+                        is_ast=True
+                    )
+
+                    print(f"Getting Blind Quality analysis for {item.get_func_name()}...")
+                    analysis = run_judge_with_bias_check(
+                        base_code=item.get_func_decomp(d1),
+                        pr_code=item.get_func_decomp(d2),
+                        model_id=model,
+                        source_content=None,
+                        is_ast=False
+                    )
 
                     entry = {
                         "binary": item.get_binary_name(),
@@ -259,6 +281,10 @@ def main():
                         "motivation_s": analysis_s.get("motivation", ""),
                         "winner": analysis.get("winner", "Error"),
                         "motivation": analysis.get("motivation", ""),
+                        "winner_ast": analysis_ast.get("winner", "Error"),
+                        "motivation_ast": analysis_ast.get("motivation", ""),
+                        "winner_ast_s": analysis_ast_s.get("winner", "Error"),  
+                        "motivation_ast_s": analysis_ast_s.get("motivation", ""),
                         "code_A": item.get_func_decomp(d1),
                         "code_B": item.get_func_decomp(d2),
                         "source_code": item.get_source_func(),
@@ -275,7 +301,7 @@ def main():
 
                     results[model].append(entry)
                     print(
-                        f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner AST: {entry['winner_ast']}")
+                        f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner AST: {entry['winner_s']}")
                     print(
                         f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner Code: {entry['winner']}")
 

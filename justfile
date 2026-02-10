@@ -50,5 +50,8 @@ destroy:
 dataset:
     docker compose up -d --build dataset-maker && docker logs -f tesi-dataset-maker-1
 
+view:
+    docker compose up -d --build report-viewer
+
 all:
     just ghidra_bench && just stop && just dogbolt_bench

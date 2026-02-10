@@ -2,7 +2,7 @@ import requests
 import json
 import re
 from .com import get_ast, get_func_name, get_source_code
-from .prompt import get_ast_prompt_s, get_quality_prompt, get_ast_prompt
+from .prompt import get_ast_prompt_s, get_quality_prompt, get_ast_prompt, get_quality_prompt_s
 from .const import LLM_API_FREE, LLM_API_GEN, LLM_API_SCORE
 
 
@@ -21,7 +21,7 @@ def get_code_metrics(code_snippet, model_id):
         return {"perplexity": -1, "mean_logbits": 0}
 
 
-def get_llm_analysis(base_code, pr_code, model_id, source=None, is_source=False):
+def get_llm_analysis(base_code, pr_code, model_id, source=None, is_ast=False):
     """Call the LLM to get analysis"""
 
     if source is not None and base_code == pr_code:
@@ -30,8 +30,8 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None, is_source=False)
             "motivation": "BASE and PR AST are identical; no differences to evaluate."
         }
 
-    prompt = get_ast_prompt(base_code, pr_code) if not is_source else get_ast_prompt_s(
-        base_code, pr_code, source)
+    prompt = ( get_ast_prompt(base_code, pr_code) if source is None else get_ast_prompt_s(
+        base_code, pr_code, source) ) if is_ast else (get_quality_prompt_s(base_code, pr_code, source) if source is not None else get_quality_prompt(base_code, pr_code))
 
     try:
         resp = requests.post(LLM_API_GEN, json={
@@ -62,125 +62,105 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None, is_source=False)
     except Exception as e:
         return {"error": str(e)}
 
+def get_or_compute_metric(code, func_name, model_id, binary_name, tag, cache):
+    cache_key = (func_name, model_id, binary_name, tag)
+    
+    if cache_key in cache:
+        # print(f"[CACHE] Using cached {tag} metrics for {func_name}")
+        return cache[cache_key]
+    
+    print(f"Computing {tag} metrics for {func_name}")
+    metrics = get_code_metrics(code, model_id=model_id)
+    cache[cache_key] = metrics
+    print(f"Finished {tag} metrics for {func_name}")
+    return metrics
+
+def run_judge_with_bias_check(content_base, content_pr, model_id, source_content=None, is_ast=False):
+    analysis = get_llm_analysis(
+        content_base, content_pr, model_id=model_id, source=source_content, is_ast=is_ast
+    )
+    winner = analysis.get("winner", "Error")
+    if winner in ("TIE", "Error"):
+        return analysis
+
+    print("checking bias...")
+    
+    analysis_swap = get_llm_analysis(
+        content_pr, content_base, model_id=model_id, source=source_content, is_ast=is_ast
+    )
+    winner_swap = analysis_swap.get("winner", "Error")
+
+    if winner_swap not in ("A", "B"):
+        return {
+            "winner": "TIE",
+            "motivation": "Could not detect potential bias in LLM response (Position Bias); declaring TIE."
+        }
+
+    if winner != winner_swap:
+        final_winner = "BASE" if winner == "A" else "PR" if winner == "B" else "Error"
+        analysis["winner"] = final_winner
+        return analysis
+    else:
+        return {
+            "winner": "TIE",
+            "motivation": "Detected potential bias in LLM response (Position Bias); declaring TIE."
+        }
 
 def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_cache):
     """Creates the prompt, calculates metrics, and calls the Flask server"""
     report = []
-
-    print("[EVAL] Starting LLM-based evaluation with model " + model_id)
-
+    
     func_name = get_func_name(test_binary_name)
-
-    print(f"[EVAL] Evaluating change in {func_name}")
-
-    cache_key = (func_name, model_id, test_binary_name, "base")
-    if cache_key in metrics_cache:
-        base_metrics = metrics_cache[cache_key]
-        # print(f"[CACHE] Using cached metrics for {func_name}")
-    else:
-        print(f"Computing base metrics for {func_name}")
-        base_metrics = get_code_metrics(base_code, model_id=model_id)
-        metrics_cache[cache_key] = base_metrics
-        print(f"Finished base metrics for {func_name}")
+    print(f"[EVAL] Starting LLM-based evaluation with model {model_id} for {func_name}")
 
     source_code = get_source_code(test_binary_name)
-    cache_key = (func_name, model_id, test_binary_name, "source")
-    if cache_key in metrics_cache:
-        source_metrics = metrics_cache[cache_key]
-        # print(f"[CACHE] Using cached source metrics for {func_name}")
-    else:
-        print(f"Computing metrics for Source - {func_name}")
-        source_metrics = get_code_metrics(source_code, model_id=model_id)
-        metrics_cache[cache_key] = source_metrics
-        print(f"Finished metrics for Source - {func_name}")
-
     source_ast = get_ast(source_code)
     base_ast = get_ast(base_code)
     pr_ast = get_ast(pr_code)
 
-    cache_key = (func_name, model_id, test_binary_name, "base_ast")
-    if cache_key in metrics_cache:
-        base_ast_metrics = metrics_cache[cache_key]
-        # print(f"[CACHE] Using cached AST metrics for {func_name}")
-    else:
-        print(f"Computing AST metrics for Base - {func_name}")
-        base_ast_metrics = get_code_metrics(base_ast, model_id=model_id)
-        metrics_cache[cache_key] = base_ast_metrics
-        print(f"Finished AST metrics for Base - {func_name}")
+    base_metrics = get_or_compute_metric(
+        base_code, func_name, model_id, test_binary_name, "base", metrics_cache
+    )
+    
+    source_metrics = get_or_compute_metric(
+        source_code, func_name, model_id, test_binary_name, "source", metrics_cache
+    )
 
-    cache_key = (func_name, model_id, test_binary_name, "source_ast")
-    if cache_key in metrics_cache:
-        source_ast_metrics = metrics_cache[cache_key]
-        # print(f"[CACHE] Using cached AST metrics for {func_name}")
-    else:
-        print(f"Computing AST metrics for Source - {func_name}")
-        source_ast_metrics = get_code_metrics(source_ast, model_id=model_id)
-        metrics_cache[cache_key] = source_ast_metrics
-        print(f"Finished AST metrics for Source - {func_name}")
+    base_ast_metrics = get_or_compute_metric(
+        base_ast, func_name, model_id, test_binary_name, "base_ast", metrics_cache
+    )
+
+    source_ast_metrics = get_or_compute_metric(
+        source_ast, func_name, model_id, test_binary_name, "source_ast", metrics_cache
+    )
 
     print(f"Computing metrics for PR - {func_name}")
     pr_metrics = get_code_metrics(pr_code, model_id=model_id)
     pr_ast_metrics = get_code_metrics(pr_ast, model_id=model_id)
-
+    
     ppl_delta = pr_metrics['perplexity'] - base_metrics['perplexity']
+    print(f"Finished quantitative metrics for {func_name}")
 
-    print(f"Finished metrics for {func_name}")
-
-    # print(f"Getting qualitative analysis for {func_name}")
-
-    # qualitative_analysis = get_llm_analysis(
-    #     base_code, pr_code, model_id=model_id, source=source_code, is_ast=False)
-    # winner = qualitative_analysis.get("winner", "Error")
-    # if winner not in ("TIE", "Error"):
-    #     print("checking bias...")
-    #     qualitative_analysis_b = get_llm_analysis(
-    #         pr_code, base_code, model_id=model_id, source=source_code, is_ast=False)
-    #     winner_b = qualitative_analysis_b.get("winner", "Error")
-    #     if winner != winner_b and winner_b in ("A", "B"):
-    #         qualitative_analysis = {
-    #             "winner": "TIE",
-    #             "motivation": "Detected potential bias in LLM response; declaring TIE."
-    #         }
-    #     else:
-    #         qualitative_analysis["winner"] = "BASE" if winner == "A" else "PR"
-
-    # print(f"Finished qualitative analysis for {func_name}")
 
     print(f"Getting AST analysis with source context for {func_name}")
-    ast_analysis_s = get_llm_analysis(
-        base_ast, pr_ast, model_id=model_id, source=source_ast, is_source=True)
-    winner_s = ast_analysis_s.get("winner", "Error")
-    if winner_s != "Error":
-        print("checking bias...")
-        ast_analysis_s_b = get_llm_analysis(
-            pr_ast, base_ast, model_id=model_id, source=source_ast, is_source=True)
-        winner_s_b = ast_analysis_s_b.get("winner", "Error")
-        if winner_s != winner_s_b and winner_s_b in ("A", "B"):
-            ast_analysis_s = {
-                "winner": "TIE",
-                "motivation": "Detected potential bias in LLM AST response with source context; declaring TIE."
-            }
-        else:
-            ast_analysis_s["winner"] = "BASE" if winner_s == "A" else "PR"
+    ast_analysis_s = run_judge_with_bias_check(
+        base_ast, pr_ast, model_id, source_content=source_ast, is_ast=True
+    )
 
-    print(f"Getting AST analysis for {func_name}")
+    print(f"Getting Blind AST analysis for {func_name}")
+    ast_analysis = run_judge_with_bias_check(
+        base_ast, pr_ast, model_id, source_content=None, is_ast=True
+    )
+    
+    print(f"Getting Blind Quality analysis for {func_name}")
+    qualitative_analysis = run_judge_with_bias_check(
+        base_code, pr_code, model_id, source_content=None, is_ast=False
+    )
 
-    ast_analysis = get_llm_analysis(
-        base_ast, pr_ast, model_id=model_id)
-    winner = ast_analysis.get("winner", "Error")
-
-    if winner != "Error":
-        print("checking bias...")
-        ast_analysis_b = get_llm_analysis(
-            pr_ast, base_ast, model_id=model_id)
-        winner_b = ast_analysis_b.get("winner", "Error")
-        if winner != winner_b and winner_b in ("A", "B"):
-            ast_analysis = {
-                "winner": "TIE",
-                "motivation": "Detected potential bias in LLM AST response; declaring TIE."
-            }
-        else:
-            ast_analysis["winner"] = "BASE" if winner == "A" else "PR"
+    print(f"Getting Quality analysis with source context for {func_name}")
+    qualitative_analysis_s = run_judge_with_bias_check(
+        base_code, pr_code, model_id, source_content=source_code, is_ast=False
+    )
 
     print(f"Finished AST analysis for {func_name}")
 
@@ -200,21 +180,20 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
             "source_ast_ppl": source_ast_metrics['perplexity'],
             "base_ast_ppl": base_ast_metrics['perplexity'],
             "pr_ast_ppl": pr_ast_metrics['perplexity'],
-            # < 0 means PR improved (lowered) perplexity
             "delta_ppl": ppl_delta,
         },
-        # "llm_qualitative": qualitative_analysis,
+        "llm_qualitative": qualitative_analysis,
+        "llm_qualitative_source": qualitative_analysis_s,
         "llm_ast": ast_analysis,
         "llm_ast_source": ast_analysis_s
     }
 
-    print(
-        f"   > PPL Source: {source_metrics['perplexity']:.2f} | PPL Base: {base_metrics['perplexity']:.2f} | PPL PR: {pr_metrics['perplexity']:.2f} | Delta: {ppl_delta:.2f}")
-    print(
-        f"   > Better version: {'PR' if ppl_delta < 0 else 'Base' if ppl_delta > 0 else 'No Change'}")
+    improvement = "PR" if ppl_delta < 0 else ("Base" if ppl_delta > 0 else "No Change")
+    print(f"   > PPL Summary | Base: {base_metrics['perplexity']:.2f} -> PR: {pr_metrics['perplexity']:.2f} | Delta: {ppl_delta:.2f}")
+    print(f"   > Quantitative Winner: {improvement}")
 
     report.append(entry)
-    print(f"[EVAL] Evaluated change in {func_name}")
+    print(f"[EVAL] Completed evaluation for {func_name}")
 
     return report
 

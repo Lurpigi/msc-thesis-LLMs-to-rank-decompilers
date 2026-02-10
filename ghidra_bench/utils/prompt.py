@@ -1,29 +1,36 @@
 def get_quality_prompt_s(source_code, code_a, code_b):
     return (
-        "You are a Lead Compiler Engineer evaluating decompilation quality.\n"
-        "Your goal is to select the candidate that best approximates the original Source Code as that implies that it is more human-readable and structurally sound.\n"
-        "**CRITICAL GOAL**: You represent a human developer. If exact semantic reconstruction fails in both, "
-        "you MUST prefer the candidate with the most 'human-like' structure (standard loops, clean logic) "
-        "over spaghetti code, even if it has minor inaccuracies; the one more human, structurally sound, readable, and idiomatic..\n\n"
+        "You are a Senior Compiler Engineer evaluating decompilation Structural Fidelity.\n"
+        "Your goal is to select the candidate that best approximates the **Control Flow Graph (CFG)** and **Data Structures** of the Source Code.\n"
+        "**CRITICAL RULE**: IGNORE variable names (e.g., `iVar1` vs `file_ptr`). Focus ONLY on whether the *structure* (loops, switches, logic) matches the source.\n\n"
 
-        "### EVALUATION HIERARCHY (In order of priority)\n"
-        "1. **Idiomatic C**: Does it look like code written by a human? (e.g., `for(i=0..)` vs `while` with gotos). (Critical)\n"
-        "2. **Semantic Equivalence**: Does it do the exact same thing? (High Priority)\n"
+        "### STRUCTURAL FIDELITY CHECKS (Logic over Text)\n"
+        "1. **Control Flow Isomorphism**:\n"
+        "   - *Source*: `switch(x) { case 1: ... }`\n"
+        "   - *Winner*: `switch(v1) { case 1: ... }` (Matches structure).\n"
+        "   - *Loser*: `if (v1 == 1) ... else if ...` (Broken structure).\n"
+        "2. **Loop Recovery**:\n"
+        "   - *Source*: `for (int i=0; i<10; i++)`\n"
+        "   - *Winner*: `for (v1=0; v1<10; v1++)` (Matches logic).\n"
+        "   - *Loser*: `v1=0; label: if(v1>=10) goto end; ... goto label;` (Degraded to goto).\n"
+        "3. **Abstraction Level (Macros/Sizeof)**:\n"
+        "   - *Source*: `malloc(sizeof(Node))`\n"
+        "   - *Winner*: `malloc(sizeof(StructA))` (Preserves type awareness).\n"
+        "   - *Loser*: `malloc(24)` (Collapses types to magic numbers).\n"
+        "4. **Pointer Logic vs Struct Access**:\n"
+        "   - *Source*: `obj->next = null`\n"
+        "   - *Winner*: `v1->field1 = 0` (Preserves pointer dereferencing logic).\n"
+        "   - *Loser*: `*(v1 + 8) = 0` (Degrades to offset arithmetic).\n\n"
+
+        "### EVALUATION HIERARCHY\n"
+        "1. **CFG Recovery**: Does the candidate use the same control structures (`while`, `for`, `switch`) as the source?\n"
+        "2. **Expression Fidelity**: Are complex conditions (`A && B`) preserved or split into nested `if`s (`if(A){ if(B)... }`)?\n"
+        "3. **Dead Code**: Does the candidate introduce logical noise (dead branches) not present in source?\n\n"
 
         "### FORCED DECISION RULES\n"
-        "- **NO NEUTRALITY**: You CANNOT return null. One candidate is always 'less bad' than the other.\n"
-        "- **The 'Human' Tie-Breaker**: If Candidate A is semantically perfect but uses `goto` everywhere, and Candidate B has a minor bug but perfect clean structure, **CHOOSE B**. We prefer readable code that needs a small fix over unreadable correct code.\n\n"
-        "- **Ignore Semantics**: Do not judge variable names (e.g., `iVar1` vs `index`) or whitespace styles.\n"
-        "- **Focus on Structure**: Evaluate strictly the Control Flow Graph (CFG) recovery and C expression logic.\n"
-
-        "### EVALUATION CRITERIA\n"
-        "Compare based on these factors:\n"
-        "- **Control Flow Reconstruction**: Does the code use high-level loops (`while`, `for`) and structured `switch` cases? "
-        "Heavily penalize `goto`, arbitrary `label:` jumps, and spaghetti logic.\n"
-        "- **Expression Logic**: Are pointers and arithmetic clean (e.g., `arr[i]`) or raw/messy (e.g., `*(int *)(p + 4)`)? "
-        "Prefer standard C idioms over raw byte manipulation.\n"
-        "- **Dead Code/Redundancy**: Penalize unnecessary temporary variables, redundant casts, or dead assignments.\n"
-        "- **Conditionals**: Are `if/else` chains logical, or artificially flattened/nested?\n\n"
+        "- **NO NEUTRALITY**: You must pick a winner.\n"
+        "- **The 'Structure' Tie-Breaker**: If Candidate A has perfect names but `goto` spaghetti, and Candidate B has ugly names (`uVar1`) but perfect `for/switch` structure matching the source, **CHOOSE B**. Structure > Naming.\n"
+        "- **Ignore Semantics**: Do not judge variable names or whitespace styles.\n\n"
 
         "### INPUT DATA\n"
         "--- GROUND TRUTH (SOURCE CODE) ---\n"
@@ -34,9 +41,9 @@ def get_quality_prompt_s(source_code, code_a, code_b):
         f"```c\n{code_b}\n```\n\n"
 
         "### OUTPUT FORMAT\n"
-        "Think deeply about the control flow and logic internally. Then, output ONLY the following JSON structure without markdown formatting if possible:\n"
+        "Think deeply about the structural equivalence internally. Then, output ONLY the following JSON structure:\n"
         "{\n"
-        '  "motivation": "One sentence explanation focusing on why the winner is more human-readable or accurate.",\n'
+        '  "motivation": "One sentence explanation focusing on structural fidelity (e.g., \'A correctly recovered the switch statement and sizeof macro, whereas B degraded to if-else chains and magic numbers\').",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )
@@ -44,30 +51,28 @@ def get_quality_prompt_s(source_code, code_a, code_b):
 
 def get_ast_prompt_s(ast_a, ast_b, source_ast):
     return (
-        "You are a Senior Static Analysis Expert evaluating the 'Human-ness' of Control Flow Skeletons (AST).\n"
-        "Your goal is to select the AST candidate that best recovers the *intended structural logic* of the Source, "
-        "prioritizing high-level abstractions over raw machine-like flows as it indicates a more human-readable and structurally sound design.\n\n"
+        "You are a Senior Decompilation Architect. Your task is to compare two AST candidates against a Ground Truth (Source AST).\n"
+        "Your goal: Determine which candidate better preserves the **architectural intent** and **structural patterns** of the Source.\n\n"
 
-        "### CONTEXT\n"
-        "The inputs are stripped ASTs (e.g., `if(id && id){while(id){ type id = num op}}`). Variables are abstract.\n"
-        "**CRITICAL GOAL**: You must identify which structure looks like it was written by a human developer "
-        "versus a decompiler's state-machine artifact.\n\n"
+        "### DIFFERENTIAL ANALYSIS STRATEGY\n"
+        "1. **Triangulate**: Compare Source vs A vs B.\n"
+        "2. **Find the Divergence**: Locate the specific block where A and B disagree with each other.\n"
+        "3. **Match with Source**: Check which candidate's divergence aligns closer to the Source's structure.\n\n"
 
-        "### EVALUATION HIERARCHY (In order of priority)\n"
-        "1. **High-Level Abstraction Recovery (Idiomatic Structure)**:\n"
-        "   - **Loops**: If Source has a `for` loop, a candidate with `for` is superior to one using `while` or `goto`.\n"
-        "   - **Branching**: If Source has a `switch`, a candidate with `switch` is superior to cascading `if-else` chains.\n"
-        "2. **Spaghetti Reduction (The 'Goto' Penalty)**:\n"
-        "   - Humans rarely write `goto`. Decompilers love them.\n"
-        "   - Heavily penalize `goto`, `label`, or `break` used to simulate loops. The candidate with FEWER `goto` nodes is more 'human'.\n"
-        "3. **Nesting Plausibility**:\n"
-        "   - Humans prefer flat logic. Penalize artificial nesting (e.g., `if(){ if(){ ... } }` where the Source implies a single logical AND).\n"
-        "   - If Source is flat, the Candidate with the matching flat depth wins.\n\n"
+        "### EVALUATION CRITERIA (In order of priority)\n"
+        "1. **Structural Isomorphism (The 'Pattern Match' Rule)**:\n"
+        "   - If Source uses `switch` -> The candidate with `switch` wins (even if the other looks cleaner).\n"
+        "   - If Source uses `for` -> The candidate with `for` wins against `while`.\n"
+        "   - **Crucial**: You are judging fidelity to the *type* of control flow (Loop vs Jump vs Branch).\n"
+        "2. **Complexity Handling**:\n"
+        "   - If Source is flat but Candidate A adds fake nesting `{ { } }`, Candidate B (flat) wins.\n"
+        "   - If Source has `goto` (e.g., error handling) and Candidate A keeps `goto` while B tries to turn it into a confused `do-while`, **A wins**. Accuracy > Prettiness.\n"
+        "3. **Noise Reduction**:\n"
+        "   - If both match the structure, pick the one with fewer artificial wrapper blocks or empty statements.\n\n"
 
         "### FORCED DECISION RULES\n"
-        "- **NO NEUTRALITY**: You CANNOT return null.\n"
-        "- **The 'Structure' Tie-Breaker**: If Candidate A follows the Source's topology exactly (e.g., has the `switch`), but adds one extra wrapper block `{}`, and Candidate B completely loses the `switch` (turning it into `if-else`), **CHOOSE A**. Structural type correctness (`switch` vs `if`) outweighs minor block noise.\n"
-        "- **Syntactic Sugar**: Prefer `for()` over `while()` if the Source used `for()`. Prefer `switch` over `if-else-if`.\n\n"
+        "- **Accuracy First**: Even if the Source code is ugly (e.g., uses `goto`), the candidate that correctly faithfully reproduces that ugliness is the winner over a candidate that hallucinates a 'clean' structure that doesn't exist.\n"
+        "- **Tie-Breaker**: If both are structurally equidistant from Source, pick the one with less nesting depth.\n\n"
 
         "### INPUT DATA\n"
         f"--- GROUND TRUTH (SOURCE AST) ---\n{source_ast}\n\n"
@@ -75,9 +80,10 @@ def get_ast_prompt_s(ast_a, ast_b, source_ast):
         f"--- CANDIDATE B ---\n{ast_b}\n\n"
 
         "### OUTPUT FORMAT\n"
-        "Analyze the topological shapes. Then, output ONLY valid JSON:\n"
+        "Output ONLY valid JSON:\n"
         "{\n"
-        '  "motivation": "Concise explanation (e.g., \'A recovered the switch-case structure and avoided gotos, while B degraded to if-else spaghetti\').",\n'
+        '  "diff_analysis": "Identify the specific structure where A and B diverge (e.g., \'Source has a switch. A recovered it, B used if-else\').",\n'
+        '  "motivation": "Explain why the winner is structurally closer to the Source intent.",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )
@@ -85,29 +91,38 @@ def get_ast_prompt_s(ast_a, ast_b, source_ast):
 
 def get_quality_prompt(code_a, code_b):
     return (
-        "You are a Lead C Code Auditor performing a blind review of two decompiled functions.\n"
-        "Your goal is to select the candidate that is more **idiomatic, readable, and structurally sound**.\n"
-        "Since you do not have the original source code, you must judge purely on **Software Engineering Standards** and **Human-Likeness**.\n\n"
+        "You are a Lead C Control Flow Architect performing a blind review of two decompiled functions.\n"
+        "Your goal is to select the candidate with the superior **Control Flow Graph (CFG)** and **Expression Logic**.\n"
+        "**CRITICAL RULE**: IGNORE variable names (e.g., `iVar1`, `uVar3`, `param_1`). Focus ONLY on the code structure, logic flow, and data access patterns.\n\n"
 
-        "### CORE PHILOSOPHY: The 'Human' Turing Test\n"
-        "Ask yourself: *Which version looks like it was written by a competent human developer, and which looks like a machine-generated state machine?*\n"
-        "- **Human Code**: Uses high-level abstractions (`for`, `switch`, structs, arrays), logical variable scopes, and clear control flow.\n"
-        "- **Machine Code**: Uses `goto`, explicit `label:` jumps, raw pointer arithmetic (`*(p+4)`), infinite loops with breaks, or cascaded `if-else` chains instead of `switch`.\n\n"
+        "### CORE PHILOSOPHY: Structural Human-Likeness\n"
+        "Ask yourself: *Which version represents the logic like a human developer (High-Level AST), and which looks like a machine state-machine (Low-Level CFG)?*\n"
+        "- **Winner (Human-Like)**: Uses `for`, `switch`, `do-while`, explicit struct access (`ptr->field`), and standard boolean logic (`&&`, `||`).\n"
+        "- **Loser (Machine-Like)**: Uses `goto`, `label:`, infinite loops with conditional breaks, cascaded `if-else` chains instead of `switch`, or raw pointer arithmetic (`*(ptr + 4)`).\n\n"
+
+        "### SPECIFIC STRUCTURAL RED FLAGS (Focus on Logic, NOT Names)\n"
+        "1. **Control Flow Degradation**:\n"
+        "   - *Loser*: `if (cond) goto label; ... label:` (Spaghetti logic).\n"
+        "   - *Winner*: `while (cond) { ... }` (Structured loop).\n"
+        "2. **Obfuscated Loop Conditions**:\n"
+        "   - *Loser*: `for(i=x; ptr != (*((_QWORD *) (i + 64))); ...)` (Pointer math in loop condition).\n"
+        "   - *Winner*: `while (curr->next != end_obj)` (Clean logical comparison).\n"
+        "3. **Data Access Patterns (Structs vs Offsets)**:\n"
+        "   - *Loser*: `*(int*)(ptr + 8) = 5;` (Raw memory offset - Low level).\n"
+        "   - *Winner*: `ptr->field = 5;` (Struct member access - High level).\n"
+        "4. **Expression Inflation**:\n"
+        "   - *Loser*: `if ((x & 1) != 0)` (Verbose).\n"
+        "   - *Winner*: `if (x % 2)` (Idiomatic).\n\n"
 
         "### EVALUATION CRITERIA (In order of priority)\n"
-        "1. **Control Flow Hygiene** (Critical):\n"
-        "   - **Winner**: Uses `for(int i=0...` loops and structured `switch` cases.\n"
-        "   - **Loser**: Uses `while(true)` combined with `if (...) break`, or spaghetti `goto` logic.\n"
-        "2. **Expression Logic**:\n"
-        "   - **Winner**: Uses idiomatic access like `arr[i]` or `ptr->field`.\n"
-        "   - **Loser**: Uses raw byte manipulation like `*(int*)((char*)ptr + 8)`.\n"
-        "3. **Readability & Logic**:\n"
-        "   - Penalize deeply nested `if` chains that could be flattened (early returns).\n"
-        "   - Penalize redundant variables or dead code.\n\n"
+        "1. **Control Flow Hygiene** (Critical): Prefer `for`/`switch`. Heavily penalize `goto` and manual jumps.\n"
+        "2. **Nesting & Scope**: Penalize deep nesting (`if { if { ... } }`) that can be flattened with early returns (`if (!cond) return;`).\n"
+        "3. **Type Logic**: Penalize unnecessary casts on literals (e.g., `(long long)\"string\"`).\n\n"
 
         "### FORCED DECISION RULES\n"
-        "- **NO NEUTRALITY**: You CANNOT return null. You MUST pick the one that is 'less painful' to read.\n"
-        "- **Tie-Breaker**: If both are similar, pick the one with fewer `goto` statements and fewer casts.\n\n"
+        "- **NO NEUTRALITY**: You CANNOT return null.\n"
+        "- **Ignore Naming**: Do not penalize `uVar1` vs `counter`. Judge only *how* the variable is used in the control flow.\n"
+        "- **Tie-Breaker**: If similar, pick the one with fewer `goto` statements and fewer explicit casts.\n\n"
 
         "### INPUT DATA\n"
         "--- CANDIDATE A ---\n"
@@ -116,46 +131,48 @@ def get_quality_prompt(code_a, code_b):
         f"```c\n{code_b}\n```\n\n"
 
         "### OUTPUT FORMAT\n"
-        "Analyze the code structure internally. Then, output ONLY the following JSON structure:\n"
+        "Analyze the control flow topology internally. Then, output ONLY the following JSON structure:\n"
         "{\n"
-        '  "motivation": "One sentence explanation focusing on why the winner is more human-readable (e.g., \'A used a clean for-loop while B used goto spaghetti\').",\n'
+        '  "motivation": "One sentence explanation focusing on structural differences (e.g., \'A recovered a clean switch-case structure, while B used an if-else cascade with gotos\').",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )
 
 def get_ast_prompt(ast_a, ast_b):
     return (
-        "You are a Static Analysis Expert evaluating the 'Human-ness' of Control Flow Skeletons (AST).\n"
-        "Your goal is to select the AST candidate that represents the most **logical and high-level structural design**.\n"
-        "You do not have the source AST. You must judge based on which structure represents **Idiomatic Programming Patterns** and **Human-Likeness**.\n\n"
+        "You are a Lead Static Analysis Expert evaluating two decompiled Control Flow Skeletons (AST).\n"
+        "Your goal is to select the candidate that represents the most **idiomatic and human-like structural design**.\n"
+        "You do not have the source AST. You must judge based on **Software Engineering Standards** applied to the differences.\n\n"
 
-        "### CONTEXT\n"
-        "The inputs are stripped ASTs (e.g., `if(id && id){while(id){ type id = num op}}`). Variables are abstract.\n"
-        "**CRITICAL GOAL**: Distinguish between High-Level Logic (Human) and Control Flow Graph artifacts (Decompiler).\n\n"
+        "### DIFFERENTIAL ANALYSIS STRATEGY (CRITICAL)\n"
+        "1. **Scan**: Look at both ASTs. 90% of the structure might be identical.\n"
+        "2. **Isolate the Delta**: Identify ONLY the nodes where A and B differ (e.g., A has a `switch`, B has `if-else`; or A has `goto`, B has `while`).\n"
+        "3. **Judge the Delta**: Evaluate ONLY the differing part using the hierarchy below. Ignore the identical parts.\n\n"
 
-        "### EVALUATION HIERARCHY\n"
-        "1. **High-Level Abstraction Preference**:\n"
-        "   - **Loops**: A `for` loop is intrinsically superior to a `while` loop, which is superior to a `goto` cycle. Humans prefer `for` for iteration.\n"
-        "   - **Branching**: A `switch` structure is superior to a long chain of `if-else-if`. It indicates the decompiler successfully recognized the jump table pattern.\n"
-        "2. **Spaghetti Reduction (The 'Goto' Penalty)**:\n"
-        "   - Any presence of `goto` or `label` is a strong negative signal.\n"
-        "   - The candidate with FEWER `goto` nodes is almost always the winner.\n"
-        "3. **Nesting & Complexity**:\n"
-        "   - **Compactness**: `if(A && B)` (one block) is better than `if(A){ if(B) ... }` (nested blocks).\n"
-        "   - **Artificial Scope**: Penalize excessive wrapper blocks `{ { ... } }` that serve no logical purpose.\n\n"
+        "### EVALUATION HIERARCHY (Apply strictly to the difference)\n"
+        "1. **Abstraction Level (The 'High-Level' Rule)**:\n"
+        "   - **Winner**: Uses semantic structures (`for`, `switch`, `do-while`).\n"
+        "   - **Loser**: Uses mechanical artifacts (`while(true) + break`, `if-else` chains for enums, `goto`).\n"
+        "2. **Control Flow Hygiene (The 'Goto' Penalty)**:\n"
+        "   - If the difference is that one uses `goto`/`label` and the other uses a structured loop/break, the structured one WINS.\n"
+        "   - Exception: If the structured version requires excessive nesting (>4 levels) to avoid a single goto, the goto might be acceptable (but rare).\n"
+        "3. **Nesting & Scope**:\n"
+        "   - Penalize **Redundant Blocks**: `{ { code } }` vs `{ code }`. The flatter one wins.\n"
+        "   - Penalize **Arrow Code**: Deeply nested `if`s are worse than early returns or logical operators (`&&`).\n\n"
 
         "### FORCED DECISION RULES\n"
         "- **NO NEUTRALITY**: You must pick a winner.\n"
-        "- **The Cleanliness Rule**: If both use the same structures, choose the one with less nesting depth and fewer `goto`s.\n\n"
+        "- **Tie-Breaker**: If logic is similar, choose the AST with fewer lines and fewer scopes `{}`.\n\n"
 
         "### INPUT DATA\n"
         f"--- CANDIDATE A ---\n{ast_a}\n\n"
         f"--- CANDIDATE B ---\n{ast_b}\n\n"
 
         "### OUTPUT FORMAT\n"
-        "Analyze the topological shapes. Then, output ONLY valid JSON:\n"
+        "Output ONLY valid JSON:\n"
         "{\n"
-        '  "motivation": "Concise explanation (e.g., \'A recovered high-level loop structures, whereas B relied on low-level jumps\').",\n'
+        '  "diff_analysis": "Briefly describe the specific structural difference (e.g., \'A used a for-loop at depth 2, B used a while-loop with manual increment\').",\n'
+        '  "motivation": "Why the winner is more human-like based on that difference.",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )

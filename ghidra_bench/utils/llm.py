@@ -1,3 +1,4 @@
+import difflib
 import requests
 import json
 import re
@@ -20,6 +21,24 @@ def get_code_metrics(code_snippet, model_id):
         print(f"[ERR] Failed to get metrics: {e}")
         return {"perplexity": -1, "mean_logbits": 0}
 
+def get_diff_text(text_a, text_b, context_lines=3):
+
+    a_lines = text_a.splitlines()
+    b_lines = text_b.splitlines()
+    
+    diff = difflib.unified_diff(
+        a_lines, 
+        b_lines, 
+        fromfile='Candidate A', 
+        tofile='Candidate B', 
+        n=context_lines,
+        lineterm=''
+    )
+    
+    diff_str = "\n".join(diff)
+        
+    return diff_str
+
 
 def get_llm_analysis(base_code, pr_code, model_id, source=None, is_ast=False):
     """Call the LLM to get analysis"""
@@ -29,9 +48,11 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None, is_ast=False):
             "winner": "NO DIFFERENCE",
             "motivation": "BASE and PR AST are identical; no differences to evaluate."
         }
+    
+    diff_content = get_diff_text(base_code, pr_code)
 
-    prompt = ( get_ast_prompt(base_code, pr_code) if source is None else get_ast_prompt_s(
-        base_code, pr_code, source) ) if is_ast else (get_quality_prompt_s(base_code, pr_code, source) if source is not None else get_quality_prompt(base_code, pr_code))
+    prompt = ( get_ast_prompt(diff_content) if source is None else get_ast_prompt_s(
+        diff_content, source) ) if is_ast else (get_quality_prompt_s(diff_content, source) if source is not None else get_quality_prompt(diff_content))
 
     try:
         resp = requests.post(LLM_API_GEN, json={

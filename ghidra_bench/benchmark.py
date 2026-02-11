@@ -110,9 +110,22 @@ def main(prs_number=None):
                 for bin, (base_code, pr_code), _ in bin_cc:
                     print(
                         f"[PROCESSING] Evaluating PR #{pr_number} on binary {bin} with model {model_id}...")
+                    
+                    if os.path.exists(os.path.join(OUTPUT_DIR, "cache", f"_{pr_number}_{model_id}.json")):
+                        print(f"[CACHE] Found cached metrics for PR #{pr_number} and model {model_id}. Loading from cache...")
+                        with open(os.path.join(OUTPUT_DIR, "cache", f"_{pr_number}_{model_id}.json"), 'r') as f:
+                            results[model_id].extend(json.load(f))
+                    else:
+                        results[model_id].extend(evaluate_with_llm(
+                            base_code, pr_code, model_id, bin, metrics_cache))
+                        
+                        cache_dir = os.path.join(OUTPUT_DIR, "cache")
+                        os.makedirs(cache_dir, exist_ok=True)
+                        cache_path = os.path.join(cache_dir, f"_{pr_number}_{model_id}.json")
 
-                    results[model_id].extend(evaluate_with_llm(
-                        base_code, pr_code, model_id, bin, metrics_cache))
+                        with open(cache_path, 'w') as f:
+                            json.dump(metrics_cache, f, indent=2)
+                        print(f"[INFO] Cached metrics saved to {cache_path}")
 
         except Exception as e:
             print(f"[FATAL] {e}.")

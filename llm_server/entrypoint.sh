@@ -10,8 +10,8 @@ else
     echo "[WARN] nvidia-smi not found. Running in CPU-only mode or Driver missing."
 fi
 
-echo "[INIT] Checking model cache..."
-python3 -c "from app import download_all_models; download_all_models()"
+# echo "[INIT] Checking model cache..."
+# python3 -c "from app import download_all_models; download_all_models()"
 
 # echo "[TEST] Running unit tests..."
 # python3 -m unittest app.py

@@ -55,3 +55,6 @@ view:
 
 all:
     just ghidra_bench && just stop && just dogbolt_bench
+
+lla:
+    just dogbolt_bench && just stop && just ghidra_bench

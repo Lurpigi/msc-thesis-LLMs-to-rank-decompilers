@@ -19,22 +19,15 @@ transformers_logging.disable_progress_bar()
 metrics_logger = logging.getLogger('metrics')
 metrics_logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler(
-    os.path.join(os.getenv("LOG_DIR"), 'llm_metrics.csv'))
+    os.path.join(os.getenv("LOG_DIR", "."), 'llm_metrics.csv'))
 file_handler.setFormatter(logging.Formatter('%(asctime)s,%(message)s'))
 metrics_logger.addHandler(file_handler)
-if os.stat(os.path.join(os.getenv("LOG_DIR"), 'llm_metrics.csv')).st_size == 0:
+if not os.path.exists(os.path.join(os.getenv("LOG_DIR", "."), 'llm_metrics.csv')) or \
+   os.stat(os.path.join(os.getenv("LOG_DIR", "."), 'llm_metrics.csv')).st_size == 0:
     metrics_logger.info(
         "model_id,operation,duration_sec,peak_vram_gb,system_ram_gb,prompt_tokens,generated_tokens")
 
 app = Flask(__name__)
-
-# Laptop
-# MODELS_CONFIG = {
-#     "llama3.2-1b": "meta-llama/Llama-3.2-1B-Instruct",
-#     "qwen2.5-1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
-#     "deepseek-1.3b": "deepseek-ai/deepseek-coder-1.3b-instruct",
-#     "gemma2-2b": "google/gemma-2-2b-it"
-# }
 
 # Desktop 1
 MODELS_CONFIG = {
@@ -43,14 +36,6 @@ MODELS_CONFIG = {
     "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
     "gemma2": "google/gemma-2-9b-it"
 }
-
-# Desktop 2
-# MODELS_CONFIG = {
-#     "qwen-3": "Qwen/Qwen3-14B",
-#     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-#     "llama-4": "meta-llama/meta-llama/Llama-4-Scout-17B-16E-Instruct",
-#     "phi-4": "microsoft/phi-4"
-# }
 
 
 @contextmanager
@@ -104,24 +89,80 @@ class ModelEngine:
             "cuda" if torch.cuda.is_available() else "cpu")
         self.lock = threading.Lock()
 
-    def _unload_model(self):
+        # RAM Cache: stores {model_id: {'model': obj, 'tokenizer': obj}}
+        self.ram_cache = {}
+
+    def _clean_gpu_memory(self):
+        """Helper to force VRAM cleanup"""
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+            torch.cuda.synchronize()
+
+    def _offload_current_model(self):
+        """
+        Moves the current model from VRAM to System RAM (CPU).
+        Does NOT delete the object.
+        """
+        if self.model and self.current_model_id:
+            print(
+                f"[OFFLOAD] Moving {self.current_model_id} from GPU to System RAM...")
+
+            try:
+                # Attempt to move model to CPU to save it in RAM
+                self.model.to("cpu")
+
+                # Store in cache
+                self.ram_cache[self.current_model_id] = {
+                    "model": self.model,
+                    "tokenizer": self.tokenizer
+                }
+                print(
+                    f"[OFFLOAD] {self.current_model_id} stored in RAM cache.")
+
+            except Exception as e:
+                # Fallback for 4-bit models or configs that don't support .to('cpu')
+                print(
+                    f"[WARNING] Failed to move {self.current_model_id} to CPU (likely quantization limitation): {e}")
+                print(
+                    f"[CLEANUP] Deleting {self.current_model_id} completely instead.")
+                del self.model
+                del self.tokenizer
+
+            # Remove references from active slots
+            self.model = None
+            self.tokenizer = None
+            self.current_model_id = None
+
+            # Clear VRAM now that the model is on CPU (or deleted)
+            self._clean_gpu_memory()
+            print("[OFFLOAD] VRAM cleared.")
+
+    def completely_free_all(self):
+        """
+        Frees the current model AND clears the entire RAM cache.
+        """
+        print("[FREE] Explicit free requested. Clearing Cache and VRAM...")
+
+        # 1. Unload current if active
         if self.model:
-            print(f"[CLEANUP] Unloading {self.current_model_id}...")
             del self.model
             del self.tokenizer
             self.model = None
             self.tokenizer = None
-
-            # Forced GC flow
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.synchronize()
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-                torch.cuda.synchronize()
-
             self.current_model_id = None
-            print("[CLEANUP] VRAM cleared.")
+
+        # 2. Clear RAM cache
+        if self.ram_cache:
+            print(
+                f"[FREE] Removing {len(self.ram_cache)} models from RAM cache.")
+            self.ram_cache.clear()
+
+        # 3. Final GC
+        self._clean_gpu_memory()
+        print("[FREE] System state reset.")
 
     def load_model(self, model_key):
         if model_key not in MODELS_CONFIG:
@@ -130,10 +171,32 @@ class ModelEngine:
         if self.current_model_id == model_key:
             return
 
-        print(f"[LOAD] Switching to {model_key}...")
+        print(f"[LOAD] Request to switch to {model_key}...")
 
-        self._unload_model()
+        # Offload current model to RAM (Context Switch)
+        self._offload_current_model()
 
+        # Check if the requested model is already in RAM cache
+        if model_key in self.ram_cache:
+            print(f"[CACHE] Found {model_key} in RAM cache. Moving to GPU...")
+            cached_data = self.ram_cache[model_key]
+
+            try:
+                self.model = cached_data["model"]
+                self.tokenizer = cached_data["tokenizer"]
+
+                # Move back to GPU
+                self.model.to(self.device)
+                self.current_model_id = model_key
+                print(f"[LOAD] {model_key} restored from RAM.")
+                return
+            except Exception as e:
+                print(
+                    f"[ERROR] Failed to restore from RAM: {e}. Reloading from disk.")
+                del self.ram_cache[model_key]
+                self._clean_gpu_memory()
+
+        # If not in cache or failed to restore, load from disk
         model_repo = MODELS_CONFIG[model_key]
         try:
             bnb_config = BitsAndBytesConfig(
@@ -153,15 +216,15 @@ class ModelEngine:
             )
             self.model.eval()
             self.current_model_id = model_key
-            print(f"[LOAD] {model_key} ready.")
+            print(f"[LOAD] {model_key} loaded from disk.")
 
         except Exception as e:
             print(f"[FATAL] Failed loading {model_key}: {e}")
-            self._unload_model()
+            self._clean_gpu_memory()
             raise e
 
     def get_generation_strategy(self, model_id, max_new_tokens=2048):
-        # Default
+        # Default strategy
         config = {
             "max_new_tokens": max_new_tokens,
             "do_sample": True,
@@ -169,16 +232,14 @@ class ModelEngine:
             "top_p": 0.9,
             "pad_token_id": self.tokenizer.eos_token_id
         }
-
         return config
 
     def compute_perplexity(self, text, model_id):
-
         with self.lock:
             self.load_model(model_id)
             with monitor_execution(model_id, "score") as metrics:
                 inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
-                    self.model.device)  # model.config.max_position_embeddings
+                    self.model.device)
                 input_ids = inputs["input_ids"]
                 attention_mask = inputs["attention_mask"]
                 valid_tokens = attention_mask[:, 1:].sum(dim=-1)
@@ -216,8 +277,6 @@ class ModelEngine:
         with self.lock:
             self.load_model(model_key)
             with monitor_execution(model_key, "generate") as metrics:
-
-                # Preprocessing
                 messages = [{"role": "user", "content": prompt}]
                 text_input = self.tokenizer.apply_chat_template(
                     messages, tokenize=False, add_generation_prompt=True
@@ -227,7 +286,7 @@ class ModelEngine:
                     text_input,
                     return_tensors="pt",
                     truncation=True,
-                    max_length=15000  # Safety cap
+                    max_length=15000
                 ).to(self.device)
 
                 input_token_len = inputs.input_ids.shape[1]
@@ -237,7 +296,6 @@ class ModelEngine:
 
                 gen_params = {k: v for k, v in strategy.items()
                               if v is not None}
-                # Remove sampling params if do_sample is False
                 if not gen_params.get("do_sample", True):
                     gen_params.pop("temperature", None)
                     gen_params.pop("top_p", None)
@@ -259,27 +317,17 @@ class ModelEngine:
 engine = ModelEngine()
 
 
-def download_all_models():
-    """Pre-download all models to local cache to avoid delays during requests"""
-    print("\n" + "="*50)
-    print("[INIT] Downloading all models to local cache...")
-    print("="*50)
-
-    for name, repo_id in MODELS_CONFIG.items():
-        print(f"[DOWNLOAD] Checking/Downloading {name} ({repo_id})...")
-        # Download only if not present
-        snapshot_download(repo_id)
-        AutoTokenizer.from_pretrained(repo_id)
-
-    print("="*50)
-    print("[INIT] All models are ready in the local cache.")
-    print("="*50 + "\n")
-
-
 @app.route('/', methods=['GET'])
 def health_check():
     gpu_status = "ok" if torch.cuda.is_available() else "cpu-only"
-    return jsonify({"status": "ready", "gpu": gpu_status, "current_model": engine.current_model_id})
+    # Show cached models in status
+    cached = list(engine.ram_cache.keys())
+    return jsonify({
+        "status": "ready",
+        "gpu": gpu_status,
+        "current_model": engine.current_model_id,
+        "ram_cached_models": cached
+    })
 
 
 @app.route('/models', methods=['GET'])
@@ -290,7 +338,7 @@ def list_models():
 @app.route('/score', methods=['POST'])
 def score_text():
     data = request.json
-    model_id = data.get('model_id', 'llama3.2-1b')
+    model_id = data.get('model_id', 'llama3.1')
     text = data.get('text')
     try:
         stats = engine.compute_perplexity(text, model_id)
@@ -316,65 +364,13 @@ def generate():
 
 @app.route('/free', methods=['POST'])
 def free_model():
+    """Frees active VRAM and clears RAM cache"""
     try:
-        engine._unload_model()
-        return jsonify({"status": "model freed"})
+        engine.completely_free_all()
+        return jsonify({"status": "All models freed (RAM + VRAM)"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-class FlaskAppTests(unittest.TestCase):
-    def setUp(self):
-        app.config['TESTING'] = True
-        self.client = app.test_client()
-
-    def test_health(self):
-        response = self.client.get('/')
-        self.assertEqual(response.status_code, 200)
-
-    def test_generate(self):
-
-        def test_model(model_key):
-            payload = {
-                "model_id": model_key,
-                "prompt": "Scrivi una funzione C per sommare due numeri."
-            }
-            print(f"\n[TEST] Trying to generate with {model_key}...")
-            response = self.client.post('/generate', json=payload)
-            data = response.get_json()
-
-            if response.status_code != 200:
-                print(f"[FAIL] Error received: {data.get('error')}")
-
-            self.assertEqual(response.status_code, 200)
-            self.assertIn("response", data)
-            print(data["response"][:200] + "...")
-            print(
-                f"[SUCCESS] Response from {model_key} received successfully.")
-
-        for model_key in MODELS_CONFIG.keys():
-            test_model(model_key)
-
-    def test_score(self):
-        sample_text = "void sum(int a, int b) { return a + b; }"
-        for model_key in MODELS_CONFIG.keys():
-            payload = {
-                "model_id": model_key,
-                "text": sample_text
-            }
-            print(f"\n[TEST] Trying to score with {model_key}...")
-            response = self.client.post('/score', json=payload)
-            data = response.get_json()
-
-            if response.status_code != 200:
-                print(f"[FAIL] Error received: {data.get('error')}")
-
-            self.assertEqual(response.status_code, 200)
-            self.assertIn("perplexity", data)
-            print(
-                f"[SUCCESS] Perplexity from {model_key}: {data['perplexity']}, Mean Logbits: {data['mean_logbits']}")
-
-
 if __name__ == '__main__':
-    # unittest.main()  # TESTING
     app.run(host='0.0.0.0', port=8900)

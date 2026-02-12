@@ -22,7 +22,7 @@ def get_quality_prompt_s(diff_text, source_code):
         "### OUTPUT FORMAT\n"
         "Output ONLY valid JSON:\n"
         "{\n"
-        '  "diff_analysis": "Identify which candidate aligns with the Source (e.g., \'Source has a switch. Candidate B (+) introduced a switch, fixing the if-else chain in A (-)\').",\n'
+        '  "motivation": "Briefly describe which version aligns with Source structure.",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )
@@ -48,7 +48,7 @@ def get_ast_prompt_s(diff_text, source_ast):
         "### OUTPUT FORMAT\n"
         "Output ONLY valid JSON:\n"
         "{\n"
-        '  "diff_analysis": "Which version aligns with Source structure?",\n'
+        '  "motivation": "Briefly describe which version aligns with Source structure.",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )
@@ -74,7 +74,7 @@ def get_quality_prompt(diff_text):
         "   - `if-else` cascades (where `switch` applies).\n"
         "   - Artificial wrapper blocks `{ { ... } }`.\n\n"
 
-         "### DIFFERENTIAL ANALYSIS\n"
+        "### DIFFERENTIAL ANALYSIS\n"
         "**Judge**: Does the difference make the code more like a Human (Abstract) or more like a Machine (Concrete)?\n\n"
 
         "### FORCED DECISION RULES\n"
@@ -88,11 +88,11 @@ def get_quality_prompt(diff_text):
         "### OUTPUT FORMAT\n"
         "Output ONLY valid JSON:\n"
         "{\n"
-        '  "diff_analysis": "Briefly describe the change (e.g., \'Candidate B replaced a while-goto loop with a clean for-loop\').",\n'
         '  "motivation": "Why the winner is more human-like.",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )
+
 
 def get_ast_prompt(diff_text):
     return (
@@ -113,7 +113,7 @@ def get_ast_prompt(diff_text):
         "   - `if-else` cascades (where `switch` applies).\n"
         "   - Artificial wrapper blocks `{ { ... } }`.\n\n"
 
-         "### DIFFERENTIAL ANALYSIS\n"
+        "### DIFFERENTIAL ANALYSIS\n"
         "**Judge**: Does the difference make the code more like a Human (Abstract) or more like a Machine (Concrete)?\n\n"
 
         "### FORCED DECISION RULES\n"
@@ -126,7 +126,6 @@ def get_ast_prompt(diff_text):
         "### OUTPUT FORMAT\n"
         "Output ONLY valid JSON:\n"
         "{\n"
-        '  "diff_analysis": "Briefly describe the structural difference.",\n'
         '  "motivation": "Why the winner is more human-like.",\n'
         '  "winner": "A" | "B"\n'
         "}"

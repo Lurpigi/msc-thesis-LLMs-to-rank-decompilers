@@ -29,12 +29,28 @@ if not os.path.exists(os.path.join(os.getenv("LOG_DIR", "."), 'llm_metrics.csv')
 
 app = Flask(__name__)
 
+# Laptop
+# MODELS_CONFIG = {
+#     "llama3.2-1b": "meta-llama/Llama-3.2-1B-Instruct",
+#     "qwen2.5-1.5b": "Qwen/Qwen2.5-1.5B-Instruct",
+#     "deepseek-1.3b": "deepseek-ai/deepseek-coder-1.3b-instruct",
+#     "gemma2-2b": "google/gemma-2-2b-it"
+# }
+
 # Desktop 1
+# MODELS_CONFIG = {
+#     "qwen-coder": "Qwen/Qwen2.5-Coder-7B-Instruct",
+#     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+#     "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
+#     "gemma2": "google/gemma-2-9b-it"
+# }
+
+# Desktop 2
 MODELS_CONFIG = {
-    "qwen-coder": "Qwen/Qwen2.5-Coder-7B-Instruct",
-    "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-    "llama3.1": "meta-llama/Llama-3.1-8B-Instruct",
-    "gemma2": "google/gemma-2-9b-it"
+    "qwen-3": "Qwen/Qwen3-14B",
+    "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    "qwen-2.5": "Qwen/Qwen2.5-Coder-14B-Instruct",
+    "deepseek-lite": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
 }
 
 
@@ -315,6 +331,49 @@ class ModelEngine:
 
 
 engine = ModelEngine()
+
+MAX_RAM_CACHE_SIZE = 4
+
+
+def download_and_preload_all_models():
+    """
+    Downloads models to disk AND loads them into System RAM.
+    Models are loaded to GPU one-by-one and then offloaded to RAM.
+    """
+    print("\n" + "="*60)
+    print("[INIT] Starting PRELOAD sequence (Disk -> GPU -> RAM)...")
+    print(f"[INIT] Target RAM Cache Size: {MAX_RAM_CACHE_SIZE} models")
+    print("="*60)
+
+    for name, repo_id in MODELS_CONFIG.items():
+        print(f"[DOWNLOAD] Verifying files for {name} ({repo_id})...")
+        snapshot_download(repo_id)
+
+    print("\n" + "-"*60)
+    print("[PRELOAD] Files ready. Starting RAM population...")
+    print("-"*60)
+
+    for i, name in enumerate(MODELS_CONFIG.keys()):
+        print(f"[PRELOAD] Processing {name} ({i+1}/{len(MODELS_CONFIG)})...")
+        try:
+            engine.load_model(name)
+
+            process = psutil.Process(os.getpid())
+            ram_gb = process.memory_info().rss / (1024 ** 3)
+            print(f"[STATUS] System RAM Usage: {ram_gb:.2f} GB")
+
+        except Exception as e:
+            print(f"[ERROR] Could not preload {name}: {e}")
+
+    print("="*60)
+    print("[INIT] Preload complete.")
+    print(f"[INIT] Models in RAM Cache: {list(engine.ram_cache.keys())}")
+    print(f"[INIT] Active on GPU: {engine.current_model_id}")
+    print("="*60 + "\n")
+
+
+if os.environ.get("RUN_PRELOAD") == "true":
+    download_and_preload_all_models()
 
 
 @app.route('/', methods=['GET'])

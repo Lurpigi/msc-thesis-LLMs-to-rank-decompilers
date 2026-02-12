@@ -11,15 +11,17 @@ else
 fi
 
 # echo "[INIT] Checking model cache..."
-# python3 -c "from app import download_all_models; download_all_models()"
+# python3 -c "from app import download_and_preload_all_models; download_and_preload_all_models()"
 
 # echo "[TEST] Running unit tests..."
 # python3 -m unittest app.py
 
+export RUN_PRELOAD=true
+
 echo "[START] Starting Gunicorn WSGI Server..."
 exec gunicorn --workers 1 \
               --threads 1 \
-              --timeout 1000 \
+              --timeout 3000 \
               --bind 0.0.0.0:8900 \
               --access-logfile - \
               --error-logfile - \

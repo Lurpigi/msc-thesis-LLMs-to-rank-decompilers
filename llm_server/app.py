@@ -50,7 +50,9 @@ MODELS_CONFIG = {
     "qwen-3": "Qwen/Qwen3-14B",
     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
     "qwen-2.5": "Qwen/Qwen2.5-Coder-14B-Instruct",
-    "deepseek-lite": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
+    # "deepseek-lite": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
+    # "starcoder2": "bigcode/starcoder2-15b-instruct-v0.1"
+    # "gemma2": "google/gemma-2-9b-it"
 }
 
 
@@ -332,7 +334,7 @@ class ModelEngine:
 
 engine = ModelEngine()
 
-MAX_RAM_CACHE_SIZE = 4
+MAX_RAM_CACHE_SIZE = MODELS_CONFIG.__len__()
 
 
 def download_and_preload_all_models():

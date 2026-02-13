@@ -9,6 +9,35 @@ from tree_sitter import Language, Parser
 from .const import LLM_API_URL, DATASET_PATH
 
 
+def run_command(cmd, cwd=None, env=None, input_text=None):
+    verbose = 0
+    # subprocess.check_call(cmd, shell=True, cwd=cwd, env=env)
+    if verbose:
+        print(f"[CMD] Executing: {cmd}")
+    sys.stdout.flush()
+
+    process = subprocess.run(
+        cmd,
+        shell=True,
+        cwd=cwd,
+        env=env,
+        input=input_text,
+        stdout=subprocess.PIPE,    # Capture stdout and stderr as text
+        stderr=subprocess.STDOUT,  # Merge stderr into stdout
+        text=True                  # Decode bytes to string
+    )
+
+    if verbose:
+        if process.stdout:
+            print(process.stdout)
+
+    if process.returncode != 0:
+        print(f"[FATAL] Command failed with return code {process.returncode}")
+        if not verbose and process.stdout:
+            print(process.stdout)
+        raise subprocess.CalledProcessError(process.returncode, cmd)
+
+
 def get_ast(code, indent_step=2):
     C_LANGUAGE = Language(tree_sitter_c.language())
     parser = Parser(C_LANGUAGE)
@@ -25,7 +54,7 @@ def get_ast(code, indent_step=2):
 
     def clean_ast_output(ast_str):
         lines = ast_str.splitlines()
-        
+
         cleaned_lines = []
         for line in lines:
             stripped_right = line.rstrip()
@@ -51,7 +80,7 @@ def get_ast(code, indent_step=2):
             traverse(node.child_by_field_name('declarator'))
             traverse(node.child_by_field_name('body'))
             return
-        
+
         if node.type == 'function_declarator':
             traverse(node.child_by_field_name('declarator'))
             structure.append("(")
@@ -60,30 +89,36 @@ def get_ast(code, indent_step=2):
                 first = True
                 for child in params.children:
                     if child.type not in ['(', ')', ',']:
-                        if not first: structure.append(", ")
+                        if not first:
+                            structure.append(", ")
                         traverse(child)
                         first = False
             structure.append(")")
             return
-        
+
         if node.type == 'compound_statement':
             structure.append("{")
-            if indent_step > 0: depth += 1
-            
+            if indent_step > 0:
+                depth += 1
+
             for child in node.children:
-                if child.type in ['{', '}']: continue
+                if child.type in ['{', '}']:
+                    continue
                 append_indent()
                 traverse(child)
 
-            if indent_step > 0: depth -= 1; append_indent()
-            else: structure.append(" ")
+            if indent_step > 0:
+                depth -= 1
+                append_indent()
+            else:
+                structure.append(" ")
             structure.append("}")
             return
 
         if node.type == 'expression_statement':
             for child in node.children:
                 traverse(child)
-            structure.append(";") 
+            structure.append(";")
             return
 
         if node.type == 'return_statement':
@@ -93,20 +128,20 @@ def get_ast(code, indent_step=2):
                 if child.type != 'return' and child.type != ';':
                     has_value = True
                     break
-            
+
             if has_value:
                 structure.append(" ")
                 for child in node.children:
                     if child.type != 'return' and child.type != ';':
                         traverse(child)
-            
+
             structure.append(";")
             return
 
         if node.type == 'if_statement':
             structure.append("if")
             traverse(node.child_by_field_name('condition'))
-            #structure.append(")")
+            # structure.append(")")
             traverse(node.child_by_field_name('consequence'))
             else_node = node.child_by_field_name('alternative')
             if else_node:
@@ -117,13 +152,13 @@ def get_ast(code, indent_step=2):
                     structure.append("else")
                     traverse(else_node)
             return
-        
-        #loops 
+
+        # loops
 
         if node.type == 'while_statement':
             structure.append("while")
             traverse(node.child_by_field_name('condition'))
-            #structure.append(")")
+            # structure.append(")")
             traverse(node.child_by_field_name('body'))
             return
 
@@ -139,8 +174,8 @@ def get_ast(code, indent_step=2):
             structure.append("for(")
             init = node.child_by_field_name('initializer')
             if init:
-                traverse(init) 
-                if init.type != 'declaration': 
+                traverse(init)
+                if init.type != 'declaration':
                     structure.append("; ")
             else:
                 structure.append(";")
@@ -153,7 +188,7 @@ def get_ast(code, indent_step=2):
             upd = node.child_by_field_name('update')
             if upd:
                 traverse(upd)
-            
+
             structure.append(")")
             traverse(node.child_by_field_name('body'))
             return
@@ -162,37 +197,45 @@ def get_ast(code, indent_step=2):
             structure.append("switch")
             traverse(node.child_by_field_name('condition'))
             structure.append("{")
-            if indent_step > 0: depth += 1
-            
+            if indent_step > 0:
+                depth += 1
+
             body = node.child_by_field_name('body')
             if body:
                 for child in body.children:
-                    if child.type in ['{', '}']: continue
+                    if child.type in ['{', '}']:
+                        continue
                     append_indent()
                     traverse(child)
-            
-            if indent_step > 0: depth -= 1; append_indent()
+
+            if indent_step > 0:
+                depth -= 1
+                append_indent()
             structure.append("}")
             return
 
         if node.type == 'case_statement':
             structure.append("case ")
             val = node.child_by_field_name('value')
-            if val: traverse(val)
-            else: structure.append("def")
+            if val:
+                traverse(val)
+            else:
+                structure.append("def")
             structure.append(":")
-            if indent_step > 0: depth += 1
+            if indent_step > 0:
+                depth += 1
             for child in node.children:
                 if child.type not in ['case', 'default', ':', 'number_literal'] and child != val:
                     append_indent()
                     traverse(child)
-            if indent_step > 0: depth -= 1
+            if indent_step > 0:
+                depth -= 1
             return
 
         if node.type == 'break_statement':
             structure.append("break;")
             return
-            
+
         if node.type == 'continue_statement':
             structure.append("continue;")
             return
@@ -200,24 +243,25 @@ def get_ast(code, indent_step=2):
         if node.type == 'goto_statement':
             structure.append("goto lbl;")
             return
-            
+
         if node.type == 'labeled_statement':
             if b'::' in node.children[0].text:
-                 for child in node.children:
-                    if child.type != ':': traverse(child)
-                 return
+                for child in node.children:
+                    if child.type != ':':
+                        traverse(child)
+                return
 
             structure.append("lbl:")
             append_indent()
-            
-            label_node = node.children[0] 
-            
+
+            label_node = node.children[0]
+
             for child in node.children:
                 if child.id == label_node.id:
                     continue
                 if child.type == ':':
                     continue
-                
+
                 traverse(child)
             return
 
@@ -236,13 +280,14 @@ def get_ast(code, indent_step=2):
             structure.append("*")
             traverse(node.child_by_field_name('declarator'))
             return
-            
+
         if node.type == 'abstract_pointer_declarator':
             structure.append("*")
             for child in node.children:
-                if child.type != '*': traverse(child)
+                if child.type != '*':
+                    traverse(child)
             return
-        
+
         if node.type == 'field_expression':
             traverse(node.child_by_field_name('argument'))
             operator = "."
@@ -253,7 +298,7 @@ def get_ast(code, indent_step=2):
                 elif child.type == '.':
                     operator = "."
                     break
-            
+
             structure.append(operator)
             traverse(node.child_by_field_name('field'))
             return
@@ -266,12 +311,12 @@ def get_ast(code, indent_step=2):
             structure.append(f" {op} ")
             traverse(node.child_by_field_name('right'))
             return
-        
+
         if node.type == 'update_expression':
             # for child in node.children:
             #     print(f"Update expression child: {child.type} - {child.text}")
             op = node.children[0].type
-            #print(f"Update expression operator: {op}")
+            # print(f"Update expression operator: {op}")
             if op in ['++', '--']:
                 structure.append(node.children[0].text.decode('utf8'))
                 traverse(node.children[1])
@@ -298,7 +343,8 @@ def get_ast(code, indent_step=2):
                 first = True
                 for child in args.children:
                     if child.type not in ['(', ')', ',']:
-                        if not first: structure.append(", ")
+                        if not first:
+                            structure.append(", ")
                         traverse(child)
                         first = False
             structure.append(")")
@@ -317,7 +363,8 @@ def get_ast(code, indent_step=2):
         if node.type == 'parenthesized_expression':
             structure.append("(")
             for child in node.children:
-                 if child.type not in ['(', ')']: traverse(child)
+                if child.type not in ['(', ')']:
+                    traverse(child)
             structure.append(")")
             return
 
@@ -326,25 +373,25 @@ def get_ast(code, indent_step=2):
             first = True
             for child in node.children:
                 if child.type in [
-                    'primitive_type', 'type_identifier', 'struct_specifier', 
-                    'enum_specifier', 'union_specifier', 'storage_class_specifier', 
+                    'primitive_type', 'type_identifier', 'struct_specifier',
+                    'enum_specifier', 'union_specifier', 'storage_class_specifier',
                     'type_qualifier', 'sizeless_type', 'sized_type_specifier',
                     'class_specifier', 'attribute_specifier', 'ms_declspec_modifier',
                     ';', ','
-                ]: 
+                ]:
                     continue
-                if not first: 
+                if not first:
                     structure.append(", ")
-                
-                traverse(child) 
+
+                traverse(child)
                 first = False
-            
+
             structure.append(";")
             return
-        
+
         if node.type == 'parameter_declaration':
             traverse(node.child_by_field_name('type'))
-            
+
             decl = node.child_by_field_name('declarator')
             if decl:
                 structure.append(" ")
@@ -352,41 +399,41 @@ def get_ast(code, indent_step=2):
             return
 
         if node.type == 'init_declarator':
-             traverse(node.child_by_field_name('declarator'))
-             structure.append(" = ")
-             traverse(node.child_by_field_name('value'))
-             return
-        
+            traverse(node.child_by_field_name('declarator'))
+            structure.append(" = ")
+            traverse(node.child_by_field_name('value'))
+            return
+
         if node.type == 'number_literal':
             n = node.text.decode('utf8')
-            #print(f"Number literal: {n}")
+            # print(f"Number literal: {n}")
             structure.append(n)
             return
-            
+
         if node.type in ['string_literal', 'char_literal', 'concatenated_string']:
             structure.append("str")
             return
-            
+
         if node.type in ['true', 'false', 'null']:
             structure.append("bool" if node.type != 'null' else "null")
             return
-            
+
         if node.type in ['primitive_type', 'type_identifier']:
             structure.append("type")
             return
-        
+
         if node.type == 'pointer_declarator':
             structure.append("*")
             traverse(node.child_by_field_name('declarator'))
             return
-        
+
         if node.type == 'subscript_expression':
             traverse(node.child_by_field_name('argument'))
             structure.append("[")
             traverse(node.child_by_field_name('index'))
             structure.append("]")
             return
-        
+
         if node.type == 'array_declarator':
             traverse(node.child_by_field_name('declarator'))
             structure.append("[")
@@ -395,21 +442,22 @@ def get_ast(code, indent_step=2):
                 traverse(size)
             structure.append("]")
             return
-        
+
         # Leaf nodes
         if node.child_count == 0:
             if node.type in ['identifier', 'field_identifier']:
                 structure.append("id")
                 return
             if len(node.type) == 1 and node.type in ";,(){}[]":
-                 return 
+                return
 
         for child in node.children:
             traverse(child)
 
     traverse(tree.root_node)
-    
+
     return clean_ast_output("".join(structure))
+
 
 def get_func_name(bin, dataset_path=DATASET_PATH):
     if not os.path.exists(dataset_path):

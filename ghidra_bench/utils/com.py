@@ -9,35 +9,6 @@ from tree_sitter import Language, Parser
 from .const import LLM_API_URL, DATASET_PATH
 
 
-def run_command(cmd, cwd=None, env=None, input_text=None):
-    verbose = 0
-    # subprocess.check_call(cmd, shell=True, cwd=cwd, env=env)
-    if verbose:
-        print(f"[CMD] Executing: {cmd}")
-    sys.stdout.flush()
-
-    process = subprocess.run(
-        cmd,
-        shell=True,
-        cwd=cwd,
-        env=env,
-        input=input_text,
-        stdout=subprocess.PIPE,    # Capture stdout and stderr as text
-        stderr=subprocess.STDOUT,  # Merge stderr into stdout
-        text=True                  # Decode bytes to string
-    )
-
-    if verbose:
-        if process.stdout:
-            print(process.stdout)
-
-    if process.returncode != 0:
-        print(f"[FATAL] Command failed with return code {process.returncode}")
-        if not verbose and process.stdout:
-            print(process.stdout)
-        raise subprocess.CalledProcessError(process.returncode, cmd)
-    
-
 def get_ast(code, indent_step=2):
     C_LANGUAGE = Language(tree_sitter_c.language())
     parser = Parser(C_LANGUAGE)
@@ -292,27 +263,21 @@ def get_ast(code, indent_step=2):
         if node.type == 'binary_expression':
             traverse(node.child_by_field_name('left'))
             op = node.children[1].text.decode('utf8')
-            if op in ['&&', '||']: structure.append(f" {op} ")
-            elif op in ['==', '!=', '<', '>', '<=', '>=']: structure.append(f" {op} ")
-            else: structure.append(" op ")
+            structure.append(f" {op} ")
             traverse(node.child_by_field_name('right'))
-            return
-
-        if node.type == 'unary_expression':
-            op = node.children[0].text.decode('utf8')
-            if op == '!': structure.append("!")
-            elif op == '-': structure.append("-")
-            else: structure.append("op")
-            traverse(node.child_by_field_name('argument'))
             return
         
         if node.type == 'update_expression':
-            if node.children[0].type in ['++', '--']:
-                structure.append("upd ")
+            # for child in node.children:
+            #     print(f"Update expression child: {child.type} - {child.text}")
+            op = node.children[0].type
+            #print(f"Update expression operator: {op}")
+            if op in ['++', '--']:
+                structure.append(node.children[0].text.decode('utf8'))
                 traverse(node.children[1])
             else:
                 traverse(node.children[0])
-                structure.append(" upd")
+                structure.append(node.children[1].text.decode('utf8'))
             return
 
         if node.type == 'assignment_expression':
@@ -393,7 +358,9 @@ def get_ast(code, indent_step=2):
              return
         
         if node.type == 'number_literal':
-            structure.append("num")
+            n = node.text.decode('utf8')
+            #print(f"Number literal: {n}")
+            structure.append(n)
             return
             
         if node.type in ['string_literal', 'char_literal', 'concatenated_string']:

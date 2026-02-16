@@ -241,7 +241,7 @@ class ModelEngine:
             self._clean_gpu_memory()
             raise e
 
-    def get_generation_strategy(self, model_id, max_new_tokens=2048):
+    def get_generation_strategy(self, model_id, max_new_tokens=4096):
         # Default strategy
         config = {
             "max_new_tokens": max_new_tokens,

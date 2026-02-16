@@ -76,7 +76,8 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None, is_ast=False):
                 if winner_match and motivation_match:
                     return {
                         "winner": winner_match.group(1),
-                        "motivation": motivation_match.group(1)
+                        "motivation": motivation_match.group(1),
+                        "raw_response": generated_text
                     }
                 return {"winner": "Error", "motivation": generated_text}
         else:
@@ -104,7 +105,7 @@ def run_judge_with_bias_check(content_base, content_pr, model_id, source_content
         content_base, content_pr, model_id=model_id, source=source_content, is_ast=is_ast
     )
     winner = analysis.get("winner", "Error")
-    if winner in ("TIE", "Error"):
+    if winner == "Error":
         return analysis
 
     print("checking bias...")
@@ -117,7 +118,8 @@ def run_judge_with_bias_check(content_base, content_pr, model_id, source_content
     if winner_swap not in ("A", "B"):
         return {
             "winner": "TIE",
-            "motivation": "Could not detect potential bias in LLM response declaring TIE."
+            "motivation": "Could not detect potential bias in LLM response declaring TIE.",
+            "raw_response": analysis_swap.get("raw_response", "")
         }
 
     if winner != winner_swap:
@@ -127,7 +129,9 @@ def run_judge_with_bias_check(content_base, content_pr, model_id, source_content
     else:
         return {
             "winner": "TIE",
-            "motivation": f"Detected potential bias in LLM response (Position Bias); declaring TIE. the LLM gave {'BASE' if winner == 'A' else 'PR' if winner == 'B' else 'Error'} in both original and swapped prompts."
+            "motivation": f"Detected potential bias in LLM response (Position Bias); declaring TIE. the LLM gave {'BASE' if winner == 'A' else 'PR' if winner == 'B' else 'Error'} in both original and swapped prompts.",
+            "raw_response1": analysis.get("raw_response", ""),
+            "raw_response2": analysis_swap.get("raw_response", "")
         }
 
 

@@ -10,7 +10,7 @@ from .const import LLM_API_URL, DATASET_PATH
 
 
 def run_command(cmd, cwd=None, env=None, input_text=None):
-    verbose = 0
+    verbose = 1
     # subprocess.check_call(cmd, shell=True, cwd=cwd, env=env)
     if verbose:
         print(f"[CMD] Executing: {cmd}")
@@ -32,10 +32,15 @@ def run_command(cmd, cwd=None, env=None, input_text=None):
             print(process.stdout)
 
     if process.returncode != 0:
-        print(f"[FATAL] Command failed with return code {process.returncode}")
+        print(
+            f"[FATAL] Command failed with return code {process.returncode}")
         if not verbose and process.stdout:
             print(process.stdout)
         raise subprocess.CalledProcessError(process.returncode, cmd)
+    if "ValueError:" in process.stdout:
+        print(
+            f"[FATAL] Command output indicates a ValueError: {process.stdout}")
+        raise ValueError("Command output indicates a ValueError")
 
 
 def get_ast(code, indent_step=2):

@@ -7,22 +7,16 @@ COPY frontend/ ./
 RUN npm run build
 
 # Build Backend & Serve
-FROM python:3.9-slim
+FROM nginx:alpine
 
-WORKDIR /app
-
-# Install Backend Dependencies
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy Backend Code
-COPY backend/ .
+# Copy Nginx Configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy Frontend Build
-COPY --from=frontend-builder /app/frontend/dist /app/static
+COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 
 # Expose Port
 EXPOSE 80
 
 # Run
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["nginx", "-g", "daemon off;"]

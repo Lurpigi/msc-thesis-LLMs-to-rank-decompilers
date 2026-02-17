@@ -9,7 +9,7 @@ The advent of \ac{LLM} has opened new avenues for enhancing reverse engineering 
 the quality of decompiled output. Recent research has explored using \ac{LLM} to refine decompiler output, generate comments, and even act as judges 
 to evaluate code quality. However, much of this work has focused on either generative refinement or broad benchmarking of decompilers, 
 often relying on proprietary models and tools~\cite{Paper:Tan_2024, Paper:Hu2024DeGPTOD}.
-In this thesis, we take a different approach by leveraging \ac{LLM} to evaluate the `humanness' of decompiled code using intrinsic model 
+In this thesis, we take a different approach by leveraging \ac{LLM} to evaluate the ``humanness'' of decompiled code using intrinsic model 
 metrics like \texttt{perplexity}~\cite{Paper:hindle2012naturalness}. We investigate how well local \ac{LLM} can distinguish between different versions of the same codebase, 
 such as \texttt{pull requests}, without modifying the code itself. This fine-grained analysis is crucial for assessing incremental changes in code 
 quality and readability, which is often more relevant in real-world reverse engineering tasks than wholesale comparisons of different decompilers.

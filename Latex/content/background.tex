@@ -30,7 +30,7 @@ describing the high-level code structure and syntax tokens.
 \section{SLEIGH and P-code}\label{sec:slap}
 
 As written in the documentation created by running \texttt{<make doc>}~\cite{DOC:shareGhidraDecompiler} The 
-decompiler provides its own \ac{RTL}, referred internally as p-code~\ref{tab:pcode_ops}. The disassembly of processor
+decompiler provides its own \ac{RTL}, referred internally as p-code, you can see some examples at~\Cref{tab:pcode_ops}. The disassembly of processor
 specific machine-code languages, and subsequent translation into p-code, forms a major sub-system 
 of the decompiler. There is a processor specification language, referred to as SLEIGH, which is 
 dedicated to this translation task, this piece of the code can be built as a standalone binary 
@@ -136,11 +136,11 @@ Ghidra normalizes this graph to ensure a unique entry block, often inserting emp
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.4\textwidth]{img/cfg1.png}
-    \caption{Control Flow Graph of a function}\label{img:cfg1}
+    \includegraphics[width=0.4\textwidth]{img/cfg1.png}\label{img:cfg1}
+    \caption{Control Flow Graph of a function~\cite{Paper:11129273}}
 \end{figure}
 
-In this example we have the C code of the function described in~\ref{img:cfg1} and its corresponding P-code representation\footnote{
+In this example we have the C code of the function described in figure~\ref{img:cfg1} and its corresponding P-code representation\footnote{
     P-codes varies during all phases of the decompilation process; due to optimization rules, dead code elimination, and other transformations, the P-code shown here are taken from the \texttt{collapseInternal} method using \texttt{printRaw} of the FlowBlock class.
     The BasicBlock order may not correspond directly to the original source code order
 }.
@@ -426,7 +426,7 @@ These are the preferred patterns, in order:
     \item \texttt{infinite loop}
     \item \texttt{switch}
 \end{itemize}
-These `rules' are implemented inside a loop that tries every pattern till no more changes are possible.
+These ``rules'' are implemented inside a loop that tries every pattern till no more changes are possible.
 
 in the \texttt{ruleBlockWhileDo} method we can see how the pattern matching is done:
 
@@ -632,15 +632,15 @@ We can see an example using \myhref{https://tiktokenizer.vercel.app/}{tiktokeniz
     \caption{Tokenization example using tiktokenizer}\label{img:tokenization}
 \end{figure}
 
-As shown in figure~\ref{img:tokenization}, the sentence `Hi i am Timossi Luigi' is tokenized into a sequence of tokens.
+As shown in figure~\ref{img:tokenization}, the sentence ``Hi i am Timossi Luigi'' is tokenized into a sequence of tokens.
 Each token corresponds to a specific integer ID in the model's vocabulary.
 
-For this example, for the model \texttt{gpt-4o} the token ` i' corresponds to the ID 575.
+For this example, for the model \texttt{gpt-4o} the token `` i'' corresponds to the ID 575.
 The tokenization process is crucial for \ac{LLM}s, as it transforms raw text into a format that the model can process.
 Different models use different tokenization values or schemes like \ac{BPE}.
 
 In the tokens we count also the special tokens like \texttt{$<|im\_start|>$} that indicates boundaries for roles messages like system, assistant, or user.
-in this case the token \texttt{$<|im\_start|>$} corresponds to `input message start' after that we have the role then the token `input message separator' the message and finally the token `input message end'.
+in this case the token \texttt{$<|im\_start|>$} corresponds to ``input message start'' after that we have the role then the token ``input message separator'' the message and finally the token ``input message end''.
 different models use different special tokens or does not use them at all.
 
 \subsection{Softmax}
@@ -689,9 +689,9 @@ where $T > 0$ is the temperature parameter. The temperature modifies the distrib
 
 \begin{itemize}
     \item $T < 1$ (Cooling): Differences between logits are amplified. The token with the highest logit receives a probability close to 1. 
-    The distribution becomes `peaked', reducing variety and increasing determinism. Useful for logical or mathematical tasks.
+    The distribution becomes ``peaked'', reducing variety and increasing determinism. Useful for logical or mathematical tasks.
     \item $T > 1$ (Heating): Differences are flattened. The distribution tends toward uniformity. Tokens with lower logits gain probability mass, 
-    increasing `creativity' but also the risk of incoherence (hallucinations).
+    increasing ``creativity'' but also the risk of incoherence (hallucinations).
     \item $T \to 0$: Equivalent to the \texttt{Greedy decoding}, where always the single most probable token is chosen.
 \end{itemize}
 
@@ -733,7 +733,7 @@ it stems from information theory and quantifies the model's uncertainty when pre
 
 Mathematically, \texttt{perplexity} is the exponential of the average negative log-likelihood (i.e., the exponentiated cross-entropy) 
 of the predicted tokens. Exponentiating the cross-entropy restores the measure to probability-like units, yielding an intuitive 
-`effective branching factor' the average number of plausible next-token choices the model considers.~\cite{site:cometPerplexityEvaluation}
+``effective branching factor'' the average number of plausible next-token choices the model considers.~\cite{site:cometPerplexityEvaluation}
 
 \[
 \mathrm{PPL}(X) = \exp\!\left( -\frac{1}{N} \sum_{i=1}^N \log P(x_i \mid x_{<i}) \right)
@@ -750,9 +750,9 @@ Note that a low \texttt{perplexity} reflects statistical predictability relative
 \ac{LLM} are designed to generate text that closely mimics human language, capturing nuances, context, and stylistic elements.
 This capability is achieved through extensive training on vast corpora of text, enabling the models to learn patterns and structures inherent in human communication.
 This mimic of human-like text generation has profound implications across various domains, including customer service, content creation, and education.
-since the generated text is often indistinguishable from that written by humans, \ac{LLM} we can use them to measure how `human-like' is a piece of text.
+since the generated text is often indistinguishable from that written by humans, \ac{LLM} we can use them to measure how ``human-like'' is a piece of text.
 If we have two C functions that perform the same task but generated with different decompilers (or different settings/version of the same decompiler), 
-we can probably assume that using an \ac{LLM} to measure how `human-like' is the generated code can be a good proxy for code quality/readability.
+we can probably assume that using an \ac{LLM} to measure how ``human-like'' is the generated code can be a good proxy for code quality/readability.
 
 Here we have two main path to measure the human-likeness of a piece of code:
 \begin{itemize}

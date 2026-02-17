@@ -94,5 +94,5 @@ services:
         ports:
             - "8501:80"
         volumes:
-            - ./ghidra_bench/outputs/:/data/ghidra:ro
-            - ./dogbolt_bench/outputs/:/data/dogbolt:ro
+            - ./ghidra_bench/outputs/:/usr/share/nginx/html/data/ghidra:ro
+            - ./dogbolt_bench/outputs/:/usr/share/nginx/html/data/dogbolt:ro

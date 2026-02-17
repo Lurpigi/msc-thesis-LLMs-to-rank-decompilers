@@ -648,7 +648,7 @@ if __name__ == '__main__':
                 a++;
             }  
         } else {
-            goto end;
+            goto end;//random comment
         }
         h[0] = 42;
         end:    
@@ -658,30 +658,6 @@ if __name__ == '__main__':
     }   
     """
 
-    code2="""
-    //This function does random stuff dont try to understand it
-    void complex(int a, char *b) {
-        long *f;
-        int *h = malloc(10 * sizeof(int));
-        if (a > 0) {
-            while (a < 10) {
-                printf("Value: %d\n", a);
-                a++;
-            }  
-        } else {
-            goto end;
-        }
-        *h = 42;
-        end:    
-        char c = b[0];
-        f->g(h[i]);
-        int c = 3 + -3;
-        for(int i=0; i<10; ++i) {
-            printf("%d", i);
-        }
-        (*(int *)(p + 4)) = 5;
-    }   
-    """
     # code="""
     # void file_replace(struct magic_set *ms, const char *pat, const char *rep)
     # {
@@ -690,4 +666,4 @@ if __name__ == '__main__':
     #     }
     # """
 
-    print(get_abstract_pseudocode(code2, indent_step=2)) #get_diff_text(get_abstract_pseudocode(code, indent_step=2), get_abstract_pseudocode(code2, indent_step=2)))
+    print(get_abstract_pseudocode(code, indent_step=2)) #get_diff_text(get_abstract_pseudocode(code, indent_step=2), get_abstract_pseudocode(code2, indent_step=2)))

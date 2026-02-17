@@ -49,7 +49,7 @@ app = Flask(__name__)
 MODELS_CONFIG = {
     "qwen-3": "Qwen/Qwen3-14B",
     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-    "qwen-2.5": "Qwen/Qwen2.5-Coder-14B-Instruct",
+    # "qwen-2.5": "Qwen/Qwen2.5-Coder-14B-Instruct",
     # "deepseek-lite": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
     # "starcoder2": "bigcode/starcoder2-15b-instruct-v0.1"
     # "gemma2": "google/gemma-2-9b-it"
@@ -291,6 +291,43 @@ class ModelEngine:
                     "mean_logbits": torch.mean(target_log_probs).item() if target_log_probs.numel() > 0 else 0.0
                 }
 
+    def analyze_token_loss(self, text, model_id):
+        with self.lock:
+            self.load_model(model_id)
+            with monitor_execution(model_id, "analyze_token_loss") as metrics:
+                inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=4096).to(
+                    self.model.device)
+                input_ids = inputs["input_ids"]
+                attention_mask = inputs["attention_mask"]
+                valid_tokens = attention_mask[:, 1:].sum(dim=-1)
+                if valid_tokens.item() == 0:
+                    return {"tokens": [], "losses": []}
+
+                metrics['prompt_tokens'] = input_ids.shape[1]
+                metrics['generated_tokens'] = 0
+
+                with torch.no_grad():
+                    outputs = self.model(
+                        input_ids, attention_mask=attention_mask)
+                    logits = outputs.logits
+
+                shift_logits = logits[:, :-1, :]
+                shift_labels = input_ids[:, 1:]
+
+                log_probs = torch.nn.functional.log_softmax(
+                    shift_logits, dim=-1)
+                target_log_probs = log_probs.gather(
+                    dim=-1, index=shift_labels.unsqueeze(-1)).squeeze(-1)
+        
+                nll_per_token = -target_log_probs
+                
+                tokens = self.tokenizer.convert_ids_to_tokens(input_ids[0])
+                
+                return {
+                    "tokens": tokens[1:],  # Skip the first token which has no loss
+                    "losses": nll_per_token[0].tolist()
+                }
+
     def generate(self, model_key, prompt):
         with self.lock:
             self.load_model(model_key)
@@ -420,6 +457,17 @@ def generate():
         return jsonify({"model": model_id, "response": response_text})
     except Exception as e:
         print(f"Error processing request: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/loss', methods=['POST'])
+def analyze_token_loss():
+    data = request.json
+    model_id = data.get('model_id', 'qwen-coder')
+    text = data.get('text')
+    try:
+        stats = engine.analyze_token_loss(text, model_id)
+        return jsonify(stats)
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 

@@ -14,7 +14,7 @@ function App() {
   const [showCode, setShowCode] = useState(false) // false = AST, true = Code
 
   useEffect(() => {
-    fetch('/api/data')
+    fetch('/data/ghidra/final_report.json')
       .then(res => res.json())
       .then(data => {
         if (data.error) {

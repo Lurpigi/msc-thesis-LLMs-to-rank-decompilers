@@ -7,7 +7,7 @@ reproducibility we used \emph{Docker Compose} to containerize both the server an
 The dataset creation is also a containerized process, and the result are mounted as volumes to the client container, allowing for easy access and manipulation of the data without the need for complex data transfer mechanisms.
 
 \section{Dataset Maker}
-As written on related works~\ref{sec:llmbench}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} for our evaluation,
+As written on related works in~\Cref{sec:llmbench}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} for our evaluation,
 specifically the four Open Source projects: \texttt{file, libxls, readstat, xz}, which are written in C and have a rich history of commits and pull requests on GitHub.
 These choice was motivated by the need to have a manageable dataset size for local evaluation, while still covering a set of real world code and functions to evaluate our approach.
 for every project the dataset maker extracts all the functions and recompiles them  into standalone binaries; this process create different optimization levels of the binary, specifically \texttt{-O0} and \texttt{-O2}, and \texttt{-O3} 
@@ -21,7 +21,7 @@ The result of the dataset maker is a folder named \texttt{Dataset} wich contains
 \begin{itemize}
     \item \textbf{binary}: contains the compiled binary of the functions, every file is named with the format \texttt{task\_project\_functionName-OX.so}, and can be used for decompilation and evaluation.
     \item \textbf{compiled\_ds}: contains a file structure of the dataset format used by the \texttt{Datasets} library~\cite{site:pypiDatasets}, which is a Python library for handling large datasets in a efficient way, and which we use for loading the dataset in our client code. 
-        This structure have a file `.arrow' that store data and two \ac{JSON} files for the metadata such as field names and types. In our case we are interested only in three fields \texttt{file}, which contain the name of the function, \texttt{path} wich contains the path `binary/namefile', and \texttt{func} wich contains the source code of the function.
+        This structure have a file ``.arrow'' that store data and two \ac{JSON} files for the metadata such as field names and types. In our case we are interested only in three fields \texttt{file}, which contain the name of the function, \texttt{path} wich contains the path ``binary/namefile'', and \texttt{func} wich contains the source code of the function.
     \item \textbf{eval}: contains also a dataset structure, but we will not use it since is used for recompile success and other metrics that we are not interested in, since we want to focus on the evaluation of the decompilation output rather than the compilation process.
 \end{itemize}
 
@@ -31,40 +31,82 @@ The server is responsible for hosting the \ac{LLM} and providing an \ac{API} for
 The server is designed to be modular, allowing for the integration of different \ac{LLM} models and evaluation metrics, and it is containerized using Docker for reproducibility and ease of deployment.
 
 It uses Gnunicorn as the WSGI HTTP server for handling incoming requests, and it is built on top of a Python web framework (Flask) to define the \ac{API} endpoints and handle the logic for processing requests and interacting with the \ac{LLM}.
-The server is configured with a single worker and thread to manage sequential requests with an extended timeout of 800 seconds to accommodate longer inference times (but more importantly the model loading and the context switch when changing models).
-On startup, it performs \ac{GPU} availability checks and pre-downloads all required model weights to the container's cache directory using the Hugging Face libraries~\ref{sec:configLLM}.
 
 \subsection{Models}
 The heavy part of the framework is without doubt the server, and the models that runs on it.
 In our case the local enviroment is a single \ac{GPU} machine with 16 GB of \ac{VRAM}, so we had to select models that can run on this hardware, and that can provide a good performance for our evaluation.
 We also used the \myhref{https://apxml.com/tools/VRAM-calculator}{\ac{VRAM} Calculator} to estimate the memory requirements of different models and ensure they fit within our hardware constraints, inside the \ac{VRAM} have to cohesist different areas, such as:
 \begin{itemize}
-    \item \textbf{Base Model Weights}: The trained parameters of the model, the `weights' with their precision (could be quantizated for reduced memory usage).
+    \item \textbf{Base Model Weights}: The trained parameters of the model, the ``weights'' with their precision (could be quantizated for reduced memory usage).
     \item \textbf{Activations}: Intermediate computation results during forward passes through the layers. This grows with batch size and input length, and is critical for stability during inference.
     \item \textbf{KV Cache}: Key-Value cache used to avoid recomputing attention for previously processed tokens. Given the lengthy decompilation prompts containing source code, this cache grows proportionally with input length.
     \item \textbf{Framework Overhead}: Fixed memory cost from PyTorch, CUDA drivers, and buffer management. This overhead exists regardless of model size.
 \end{itemize}
 
-Based on these considerations, we selected the following models for our evaluation:
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/old_models_distribution.png}
+    \caption{Distribution of winner bias, the TIE is when a model select always one choice (BASE, PR) even after swapping the input.}\label{fig:bias_winner}
+\end{figure}
+
+Initially we wanted to use modles in the range of 8B parameters, the canditates where Meta Llama 3.1 (8B), Qwen2.5-Coder-Instruct (7B), DeepSeek-R1-Distill-Qwen (7B) and Google Gemma 2 (9B)
+for various reasons, such as the availability of the model, the performance on code-related tasks, and the memory requirements, but after a lot of testing and variation of prompts, we decided to going up to use models in range of 14B parameters since 
+the firsts were not able to provide consistent and meaningful scores for our evaluation, falling into the Position Bias problem, which is a common issue in \ac{LLM}-based evaluation where the model's scoring is heavily influenced by the position of the input text rather than its content, leading to unreliable assessments (even when we tried to mitigate it with different prompt engineering techniques, such as randomizing the order of the inputs, or using different templates for the prompts).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/little_change.png}
+    \caption{Example of a function with only one difference between the BASE and the PR.}\label{fig:little_change}
+\end{figure}
+
+As example of this problem in~\Cref{fig:bias_winner} when the majority of the scores are in the ``TIE'' category, meaning that the model is always selecting the same choice (either BASE or PR) as the winner, even after swapping the input order, which indicates a strong position bias and a lack of meaningful differentiation between the two inputs based on their content.
+Even after checking the non TIE cases, we found that the motivation for the choice was not based on the content of the decompilation and the difference beetween the two inputs.
+In this case whe have a function with only one difference between the BASE and the PR, that can be seen in~\Cref{fig:little_change}, and the corrisponding responses in~\Cref{fig:Biases} from the model, 
+Among the TIEs we have two cases where the model consistently selected a winner, in the case of PR the motivation was consistent with the content of the decompilation and the difference between the two inputs, while in the case of BASE the motivation was on some superficial aspect of the input ignoring the context.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/biases.png}
+    \caption{Example of the motivation for the choice of the model, where the motivation is not based on the content of the decompilation and the difference beetween the two inputs, but rather on some superficial aspect of the input.}\label{fig:Biases}
+\end{figure}
+
+So for these reasons we decided to use bigger models, since with these results we were not able to draw any meaningful conclusion from the evaluation, and we wanted to have a more reliable and consistent evaluation for our study.
+
+\subsubsection{Model Selection}
+Based on these considerations, we wanted to select 4 models for our evaluation, the range of 14B parameters is the last range that can be run on our hardware with 4-bit quantization, and that can provide a good performance for our evaluation.
+Unfortunately, due to the scarcity of models in this range, and the tendency of relasing only very big or very small models, we did not have much choice in the selection (Exluding models done by Google, OpenAI or Meta), we found these state of art models:
+
 \begin{itemize}
-
-\item \textbf{Meta Llama 3.1 (8B)}: 
-A general-purpose instruction-tuned model from the Llama family, used as a strong baseline for multilingual dialogue and reasoning. We selected the \emph{8B} variant because it fits our single 16\,GB \ac{VRAM} setup with 4-bit quantization, while still providing competitive performance on code-related prompts. The model supports long-context inference (up to 128K tokens), which is particularly useful in our setting where prompts may include lengthy decompilations, structured evaluation instructions, and reference code. From an architectural standpoint, Llama~3.1 is an auto-regressive Transformer with \ac{GQA}, enabling more efficient inference at larger context lengths.~\cite{site:huggingfaceMetallamaLlama318BInstructHugging}
-
-\item \textbf{Qwen2.5-Coder-Instruct (7B)}: 
-Is a code-specialized instructed family of Qwen models, spanning multiple sizes to address different deployment constraints. In our experiments we use the \emph{7B} variant, since it fits comfortably on our \ac{VRAM} setup with 4-bit quantization while remaining competitive for program understanding tasks. Compared to earlier CodeQwen releases, Qwen2.5-Coder is trained on a substantially larger mixture of code and text-code data, improving code generation, code reasoning, and bug-fixing capabilities. It also supports long-context inference (up to 128K tokens).~\cite{Paper:hui2024qwen2}
-
-\item \textbf{DeepSeek-R1-Distill-Qwen (7B)}: 
-A distilled, reasoning-focused model derived from DeepSeek-R1 by fine-tuning a Qwen2.5-based 7B dense checkpoint on reasoning trajectories generated by the larger R1 model. This distillation transfers behaviors such as multi-step deliberation and self-verification into a smaller model that remains practical to run locally (our setup). We include it to evaluate whether a reasoning-specialized LLM provides more consistent and accurate assessments on code-understanding tasks compared to general instruction-tuned baselines.~\cite{Paper:deepseekai2025deepseekr1incentivizingreasoningcapability}
-
-\item \textbf{Google Gemma 2 (9B)}: 
-An instruction-tuned, decoder-only model from Google’s Gemma family of lightweight open-weight \acp{LLM}, derived from the same research and technology used for Gemini. We use the \emph{9B} variant, which offers a strong general-purpose baseline for text-to-text generation and reasoning while remaining feasible on our setup. Although primarily English-focused, it is trained on a diverse mixture of web documents, code, and mathematics, making it suitable for code understanding and structured evaluation prompts.~\cite{Paper:gemma_2024}
+    \item Qwen 3 (14B)
+    \item DeepSeek-R1 Distill Qwen (14B)
+    \item Phi 4 (14B)
+    \item Mistral Nemo instruct 2407 (14B)
 \end{itemize}
 
-These models were selected to provide a diverse range of architectures, training data, and specialization levels, allowing us to evaluate the effectiveness of \ac{LLM}-based evaluation across different model types and capabilities.
+Unfortunatly after some testing we found out that Phi 4 and Mistral Nemo were not able to provide consistent and meaningful scores for our evaluation, falling into the Position Bias problem as can be seen in~\Cref{fig:new_models_distribution}, we also tried to replace them with Qwen2.5 Coder and Starcoder2 (both 15B) but even with those models we were not able to get consistent results, so we decided to use only Qwen3 and DeepSeek-R1 Distill Qwen, since they were able to provide more reliable and consistent scores.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/new_models_distribution.png}
+    \caption{Distribution of winner bias for the new models, where we can see that Phi 4 and Mistral Nemo are still falling into the Position Bias problem, while Qwen3 and DeepSeek-R1 Distill Qwen are providing more reliable and consistent scores for our evaluation.}\label{fig:new_models_distribution}
+\end{figure}
+
+\begin{itemize}
+
+\item \textbf{Qwen 3 (14B)}: is the latest generation in the Qwen family and comes as a suite of both dense and mixture-of-experts (MoE) models. A distinctive feature of the series is the ability to switch within the same model between a \emph{thinking} mode (aimed at complex reasoning, mathematics, and coding) and a \emph{non-thinking} mode (optimized for efficient, general-purpose dialogue), allowing the same backbone to adapt to different interaction styles and difficulty levels~\cite{site:huggingfaceQwenQwen314BHugging}
+\item \textbf{DeepSeek-R1 Distill Qwen (14B/15B\footnote{In the name and the description it shown that is 14B parameters but in the tag of huggingface site its tagged as 15B})}: Part of the DeepSeek-R1 family, which introduces a reasoning-focused post-training pipeline combining cold-start supervised data and large-scale reinforcement learning to improve reasoning quality and readability over purely RL-trained variants (e.g., DeepSeek-R1-Zero). The \emph{Distill} checkpoints transfer (distill) the reasoning patterns learned by the larger DeepSeek-R1 model into smaller dense backbones (including Qwen-based models), providing strong math/code/reasoning capability in a size that is practical to run locally on our hardware~\cite{site:deepseekai2025deepseekr1incentivizingreasoningcapability}.
+%\item \textbf{Qwen 2.5 Coder Instruct (14B/15B\footnote{same as above})}: An earlier version of the Qwen series, specifically fine-tuned for code-related tasks. It serves as a useful benchmark to compare against the newer Qwen 3 and the distilled version, allowing us to assess the impact of model size and training on evaluation performance~\cite{site:qwen2, site:hui2024qwen2}.
+
+\end{itemize}
+
+We wanted to include different types of models but in the end we had to select models that are all based on the same architecture (Qwen), since they were the only ones that can provide consistent and meaningful scores 
+for our evaluation, and that can fit in our hardware constraints, but we acknowledge that this is a limitation of our study and that it would be interesting to include models with different architectures and training paradigms 
+in future work, to assess the generality of our findings across a wider range of \ac{LLM} designs.
 
 \subsection{Configuration}\label{sec:configLLM}
-The server supports multiple local \acp{LLM} through a simple configuration layer that maps a short, client-facing identifier to the corresponding Hugging Face repository ID. Concretely, a dictionary (\texttt{MODELS\_CONFIG}) defines the available models (e.g., \texttt{qwen-coder}, \texttt{deepseek-r1}, \texttt{llama3.1}, \texttt{gemma2}) and is the single source of truth for both the \texttt{/models} endpoint and for request-time model switching.
+The server supports multiple local \acp{LLM} through a simple configuration layer that maps a short, client-facing identifier to the corresponding Hugging Face repository name. 
+Concretely, a dictionary (\texttt{MODELS\_CONFIG}) defines the available models and is the single source of truth for both the \texttt{/models} endpoint and for request-time model switching.
 
 For ensure lightness, all models are loaded using 4-bit quantization via \texttt{bitsandbytes}.
 
@@ -77,9 +119,10 @@ bnb_config = BitsAndBytesConfig(
 )
 \end{verbatim}
 
-To reduce cold-start delays, the container optionally pre-downloads all model snapshots at startup using \texttt{snapshot\_download}, ensuring that evaluation runs are not affected by network variability. 
-Finally, since only one model can reside in GPU memory at a time, the server unloads the currently active model (explicit \texttt{del} + garbage collection + CUDA cache cleanup) 
-before loading a new one.
+On startup, the server checks the availability of the \ac{GPU}, CUDA and, to reduce cold-start delays, checks and optionally downloads all model snapshots before accepting requests, ensuring that evaluation runs are not affected by network variability.
+The greatest bottleneck in our setup is the model loading time and context switch (changing from one model to another), which can take various minutes per model due to the size and quantization overhead. We have organized the request pipeline in the Client to minimize the number of context switches but to mitigate further, 
+the server implements a simple caching mechanism: At the start, when checking if the weights are in Huggingface cache folder we load the model into the \ac{GPU} for quantization,
+after that we move the quantized weights and his tokenizer to CPU memory (RAM) and unload the model from \ac{VRAM}. When every model have been loaded the server opens up requests maintaining the quantized weights in RAM, so that every context switch can be fulfilled by quickly moving the quantized weights from RAM to \ac{VRAM}, which is much faster than loading from disk and quantizing on the fly.
 
 \subsection{Decoding strategy (temperature and top-p)}
 For the \texttt{/generate} endpoint, we configured the decoding parameters through a dedicated function that returns a dictionary of \texttt{transformers} generation arguments. 
@@ -90,7 +133,7 @@ Concretely, the default configuration is:
 \begin{itemize}
     \item \texttt{temperature=0.4}: reduces randomness by sharpening the token distribution. Lower values make outputs more stable across runs, which is desirable for evaluation.
     \item \texttt{top\_p=0.9}: nucleus sampling, i.e., tokens are sampled only from the smallest set whose cumulative probability mass is $p$. This prevents the model from selecting very unlikely tokens while still allowing variation.
-    \item \texttt{max\_new\_tokens=2048}: upper bound on completion length, used as a safety and latency-control measure.
+    \item \texttt{max\_new\_tokens=4096}: upper bound on completion length, used as a safety and latency-control measure.
 \end{itemize}
 
 \subsection{Routes}
@@ -125,7 +168,7 @@ prompt length, and decoding configuration on runtime and memory usage.
 The client is responsible for orchestrating the entire evaluation workflow, including building specific Ghidra versions, preparing code samples and prompts, invoking the server for decompilation and scoring, and collecting results in \ac{JSON} format for analysis.
 It is designed to be modular and flexible, allowing for easy integration of different evaluation strategies and metrics, and it is containerized using Docker for reproducibility and ease of deployment.
 
-The evaluation stage is an end-to-end pipeline over a set of target Ghidra pull requests. At a high level, the client:
+The evaluation stage is an end-to-end pipeline over a set of target Ghidra \acp{PR}. At a high level, the client:
 \begin{enumerate}
     \item Ensures that the \emph{base} version is built and has produced decompilations for all dataset binaries
     \item Iterates over the selected \ac{PR}, building each corresponding Ghidra revision and extracting the related decompilations
@@ -145,7 +188,7 @@ but since Ghidra in newer versions includes a wrapper for Gradle (\texttt{gradle
 One problem is that every version of Ghidra need a specific version of Java, so we have to check the \texttt{application.properties} file inside the repo for the required minimal Java version, and then install it in the container before building Ghidra.
 So inside the container we manage more than one version of Java, and we switch between them based on the requirements of the Ghidra version we are building.
 Another problem is that some \ac{PR}s are based on older versions of Ghidra wich does not have the gradle wrapper, so for building those versions we have to do the same thing we have done with Java, but for Gradle, 
-we have to install more than one version of Gradle and switch between them based on the requirements of the Ghidra version we are building; This only if \texttt{gradlew} is not available since is more preferible running it instead.
+we have to install more than one version of Gradle and switch between them based on the requirements of the Ghidra version we are building; This only if \texttt{gradlew} is not available since is more preferible running that instead.
 This is the main reason for using an Ubuntu image for the container, since it allows us to easily manage multiple versions of Java and Gradle using the package manager and environment variables.
 
 After building a specific version of Ghidra (Base or \ac{PR}), for every binary found in the dataset folder, we check if it is not already decompiled by that specific version of Ghidra (i.e., if the corresponding \ac{JSON} file with the decompilation output does not exist), 
@@ -153,10 +196,10 @@ after creating the list of the files not yet decompiled, we start the decompilat
 
 \subsection{Ghidra Headless}
 
-For decompilation we use the headless mode of Ghidra, which allows us to run Ghidra in a command-line environment without the need for a graphical user interface~\cite{site:githubGhidraGhidraRuntimeScriptsCommonsupportanalyzeHeadlessREADMEmdMaster}.
+For decompilation we use the headless mode of Ghidra, which allows us to run Ghidra in a command-line environment without the need for a \ac{GUI}~\cite{site:githubGhidraGhidraRuntimeScriptsCommonsupportanalyzeHeadlessREADMEmdMaster}.
 This is particularly useful for automating the decompilation process and integrating it into our evaluation workflow.
 The headless mode is invoked via a command-line script; 
-the entry point is \texttt{support/pyghidraRun} (preferred, when available) executed in headless mode, creating a temporary per-binary Ghidra project, importing the binary, and finally running a post-script (\texttt{extract.py}) that performs the actual decompilation and exports the results to \ac{JSON}.
+the entry point is \texttt{support/pyghidraRun} (preferred, when available) executed in headless mode (\texttt{--headless}), creating a temporary per-binary Ghidra project, importing the binary, and finally running a post-script (\texttt{extract.py}) that performs the actual decompilation and exports the results to \ac{JSON}.
 We use parallel execution to speed up the decompilation of multiple binaries; To avoid race conditions and project-file locks during parallel execution, we create an isolated project directory for each binary and delete it at the end of the run.
 
 The headless invocation follows this template:
@@ -181,12 +224,23 @@ the binary for requirements). This allows the same \texttt{extract.py} script to
 Not every decompilation difference is relevant for our study: superficial variations (e.g., whitespace, renaming, minor formatting) would introduce noise. For this reason, before invoking the \ac{LLM}, the client performs a structural comparison between the baseline and \ac{PR} outputs:
 \begin{itemize}
     \item it loads the \ac{JSON} produced by the decompiler for both \texttt{base} and \texttt{pr\_\#ID},
-    \item it compares the abstracted representation (via our \texttt{tree-sitter}-based abstraction, see Section~\ref{sec:anonim}) of the two outputs,
+    \item it compares the abstracted representation (via our \texttt{tree-sitter}-based abstraction, see~\Cref{sec:anonim}) of the two outputs,
     \item it retains only binaries for which the abstracted forms differ, i.e., where control-flow or structure plausibly changed.
 \end{itemize}
-For each retained binary we compute a complexity proxy (\emph{cyclomatic complexity}\footnote{Cyclomatic complexity is a software metric developed by Thomas McCabe in 1976 that measures the number of linearly independent paths through a program's source code. It quantifies code complexity based on decision points (e.g., if, while, case), where higher scores indicate harder-to-test, maintain, and error-prone code~\cite{site:sonarsourceCyclomaticComplexity}}) 
-and sort candidates by decreasing complexity; we then keep only the top \texttt{MAX\_SAMPLES}. This emphasizes samples where changes are more likely to be semantically meaningful and where readability improvements matter most.
+For each retained binary we compute a complexity proxy (\emph{cyclomatic complexity}) based on the control-flow graph of the decompilation, which is defined as:
 
+\[
+M = E - N + 2P,
+\]
+where:
+\begin{itemize}
+    \item $E$ is the number of edges in the control-flow graph,
+    \item $N$ is the number of nodes in the control-flow graph,
+    \item $P$ is the number of connected components (one function is considered a single connected component, since we decompile at function level this is always 1 in our case).
+\end{itemize}
+
+The cyclomatic complexity quantifies code complexity based on decision points (e.g., if, while, case), where higher scores indicate harder-to-test, maintain, and error-prone code~\cite{site:sonarsourceCyclomaticComplexity}.
+Then for sampling reasons, we sort candidates by decreasing complexity and keep only the top \texttt{MAX\_SAMPLES}. This strategy ensures that our evaluation focuses on the most challenging and relevant cases, where improvements in decompilation quality are most impactful.
 \subsubsection{LLM-based scoring}
 For each selected binary and for each model exposed by the server, we score:
 \begin{itemize}
@@ -194,7 +248,7 @@ For each selected binary and for each model exposed by the server, we score:
     \item the \ac{PR} decompilation,
     \item the original source function (dataset ground truth),
 \end{itemize}
-using the server \texttt{/score} endpoint, which returns token-level negative log-likelihood aggregated into a perplexity value. 
+using the server \texttt{/score} endpoint, which returns token-level negative log-likelihood aggregated into a \emph{perplexity} value. 
 In addition, we compute the perplexity of the abstracted \ac{AST} forms (base/\ac{PR}/source), enabling an evaluation that is less sensitive to naming and formatting. 
 To reduce redundant server calls across repeated evaluations, the client maintains a cache keyed by \texttt{(func\_name, model\_id, test\_binary\_name, ppl\_type)} for perplexity of base, source and their abstracted forms.
 
@@ -209,10 +263,10 @@ which we interpret as a proxy for improved fluency/regularity. Conversely, a pos
 \subsection{Abstraction and Anonymization}\label{sec:anonim}
 To evaluate the structural quality of the decompilation independently of variable naming and formatting, we implemented an abstraction mechanism using \texttt{tree-sitter} a 
 Parser used by \texttt{ATOM}~\cite{site:wikipediaAtomtext}, specifically the language for C with \texttt{tree-sitter-c}.
-The Python client parses the decompiled C code into an \ac{AST} and traverses it to generate a `skeletal' representation of the code.
+The Python client parses the decompiled C code into an \ac{AST} and traverses it to generate a ``skeletal'' representation of the code.
 
 In this representation, specific identifiers, literals, and types are replaced with generic placeholders (e.g., \texttt{id}, \texttt{num}, \texttt{type}), while control flow keywords (\texttt{if}, \texttt{while}, \texttt{for}, \texttt{switch}, \texttt{goto}) and block structures are preserved.
-This process effectively anonymizes the code and create a filter/standard for identation and formatting, cleaning out the possible noise and forcing the \ac{LLM} to focus purely on the control flow logic and structural complexity (e.g., the presence of `goto' statements vs\. structured loops)
+This process effectively anonymizes the code and create a filter/standard for identation and formatting, cleaning out the possible noise and forcing the \ac{LLM} to focus purely on the control flow logic and structural complexity (e.g., the presence of ``goto'' statements vs\. structured loops)
 rather than being biased by variable names, comments or formatting.
 
 We can see from this example how the original code (left) is transformed into the abstracted version (right), where all identifiers and literals are replaced with placeholders, while the control flow and structure are maintained.
@@ -252,56 +306,85 @@ void complex(int a, char *b) {
         \begin{lstlisting}[style=CStyle]
 type id(type id, type *id){
     type *id;
-    type id[num];
-    if(id > num){
-        while(id < num){
-            call(str, id);
-            id upd;
+    type id[10];
+    if(id > 0){
+        while(id < 10){
+        call(str, id);
+        id++;
         }
     }else{
         goto lbl;
     }
-    id[num] = num;
+    id[0] = 42;
     lbl:
-    type id = id[num];
+    type id = id[0];
     call(id[id]);
-    (*(type)(id op num)) = num;
+    (*(type)(id + 4)) = 5;
 }
+
 
         \end{lstlisting}
     \end{minipage} 
     \\ \hline
 \end{longtable}
 
-This allows us to evaluate the `humanness' of the decompilation output based on its logical structure and flow, 
+This allows us to evaluate the ``humanness'' of the decompilation output based on its logical structure and flow, 
 rather than being influenced by specific naming choices or formatting styles that may vary widely across different decompilers and Ghidra versions.
 
-\begin{figure}[H]\label{fig:ast_ppl_vs}
+
+\begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{img/ast_vs_ppl.png}
-    \caption{Pearson correlation between the abstracted \ac{AST} perplexity and source code perplexity for the same decompilation output, across all evaluated samples.}
+    \caption{Pearson correlation between the abstracted \ac{AST} perplexity and source code perplexity for the same decompilation output, across all evaluated samples.}\label{fig:ast_ppl_vs}
 \end{figure}
 
 This anonimation also allows us to compute a separate perplexity score for the abstracted \ac{AST} representation, which can be compared against the perplexity of the original source code decompilation.
 By analyzing the correlation between these two scores, we can gain insights into how well the \ac{LLM} is capturing the structural and logical aspects of the code, as opposed to just surface-level token patterns.
 
-As shown in the figure~\ref{fig:ast_ppl_vs}, we observed a positive correlation (Pearson's $r > 0.6$, $p < 0.001$) between the perplexity of the fully abstracted \ac{AST} and that of the original source code across all evaluated models.
-In other words, samples that were rated as more `surprising' or `incoherent' in their original form also tended to have higher perplexity in their abstracted \ac{AST} representation, and vice versa. 
-In most of the cases the \ac{AST} perplexity was higher than the source code perplexity, which is expected since the abstraction process removes a lot of the surface-level information and leaves only the structural aspects of the code, which are more challenging for the \ac{LLM} to predict accurately.
+As shown in~\Cref{fig:ast_ppl_vs}, we observed a positive correlation (Pearson's $r > 0.7$, $p < 0.001$) between the perplexity of the fully abstracted \ac{AST} and that of the original source code across all evaluated models.
+In other words, samples that were rated as more ``surprising'' or ``incoherent'' in their original form also tended to have higher perplexity in their abstracted \ac{AST} representation, and vice versa. 
 
 \subsection{Prompting}
 
-\dots
+One key element of our evaluation framework is the design of the prompts used to query the \ac{LLM} for scoring the decompilation outputs.
+We divide our analisys in two main types of prompts:
+\begin{itemize}
+    \item \textbf{Human evaluation prompt}: This type of prompt is designed to elicit a qualitative assessment from the \ac{LLM} about which version of the decompilation output is better in terms of human readability.
+    \item \textbf{Closer to source prompt}: This type of prompt is designed to elicit a qualitative assessment from the \ac{LLM} about which version of the decompilation output is closer to the original source code.
+\end{itemize}
+
+for each type of prompt we have two version, the one with the code in the original form and the one with the code in the abstracted form, this is to check if the model prefers one version over the other and if the abstraction process is effective in making the model focus on the structural aspects of the code rather than being influenced by specific naming choices or formatting styles.
+
+\subsubsection{Biases and prompt design}
+
+We had to design the prompts carefully to avoid introducing bias and help the model to focus on the relevant aspects of the decompilation outputs.
+For avoid ``update version'' bias, we used a template that does not explicitly mention the concept of ``base'' and ``\ac{PR}'', but rather presents the two decompilation outputs as ``Version A'' and ``Version B'', and then asks the model to compare them based on specific criteria.
+To help the model from possible hallucinations it is important to make it generate the motivation for the choice \emph{before} revealing the correct answer, so we ask the model to first provide an explanation of which version it thinks is better and why, since it will use the token generated to fill his context window.
+
+For avoid ``position bias'' we perform a consistency check by swapping the inputs (the one referred to as Version A and the one as Version B) and re-querying the model to see if it still prefers the same version, which can help us to identify and mitigate cases where the model's preference is influenced by the position of the input rather than its content. If the model's choice changes after swapping, it suggests that the original preference may have been due to position bias rather than a genuine assessment of the decompilation quality, so is flagged as \emph{TIE}.
+To optimize the context window for the input, we designed the prompt to put version A and version B in a Diff format, where we include all the code of the first version but only the lines that differ in the second version (in the same position using the diff standard with ++ and --), this way we can reduce the amount of tokens in the input and make it easier for the model to focus on the relevant differences between the two versions.
 
 \section{Pull requests}
 
-\dots
+Ghidra's development is organized around \acp{PR} on GitHub, where contributors propose changes to the codebase that can include bug fixes, new features, or improvements to existing functionality. Each \ac{PR} represents a specific set of changes that can affect the decompilation output in different ways.
+Fortunatly in the GitHub repository the \acp{PR} have tags (in our case label:``Feature: Decompiler''), since a lot of them does not modify decompiler logic, so we can easily select only those that are relevant for our evaluation, and that can provide meaningful insights into the impact of specific changes on decompilation quality.
+
+For our evaluation, we select a subset of PRs:
+\begin{itemize}
+\item \textbf{\ac{PR}~\#8628}: improves the cleanup rule \texttt{Rule2Comp2Sub} so that it also handles \emph{constant} subtractions that are rewritten during decompilation as additions with negative immediates (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}), improving readability and bringing the output closer to typical C source style.
+\item \textbf{\ac{PR}~\#8587}: extends the \texttt{constantptr} rule to automatically detect and correct \emph{one-based} indexing patterns for spacebase constants (e.g., *(undefined *) ((long)i * 0x30 + 0xaddr + (long)j * 4) $\rightarrow$ globalArray[(long)i + -1].field[j]). 
+\item \textbf{\ac{PR}~\#8161}: fixes an issue in \texttt{BlockWhileDo} where the decision to use overflow syntax could be made using unoptimized pcode and then treated as permanent: after pcode optimization the exit-condition block may no longer be ``complex,'' but the stale overflow flag would still block for-loop recovery; the patch re-checks that overflow-marked \texttt{BlockWhileDo} blocks are still complex at the time of for-loop recovery and clears the overflow decision when it is no longer justified.
+\item \textbf{\ac{PR}~\#7253}: sorts \texttt{switch} \texttt{case} entries by their target address (i.e., the destination basic-block address) rather than leaving them in an arbitrary/disassembler-dependent order.
+\item \textbf{\ac{PR}~\#6722}: fixes cases where the decompiler fails to recover submember array access due to \texttt{RulePtrArith} distributing an addition through an \texttt{INT\_MULT} (e.g., \texttt{(idx + -0x30) * 4 + 4} $\rightarrow$ \texttt{idx * 4 + (-0x30 * 4 + 4)}), which prevents matching the struct member; the rule now undoes this distribution and retries, allowing clean output such as \texttt{PTR\_0041a1b8->ar[local\_18]} instead of raw pointer casts and offsets.
+\end{itemize}
+
+Ghidra is a large and complex codebase, \acp{PR} are modifications that can affect some specific aspect of the decompilation output, it will never be the case that a \ac{PR} will improve all the decompilations or change the decompilation core aspects in a drastic way, but rather it will improve some specific cases and make them more readable, while in other cases it can make them worse, so we want to evaluate the impact of these specific changes on the decompilation quality and readability, and see if the \ac{LLM}-based evaluation can capture these improvements or regressions in a meaningful way.
 
 \section{Reporting}
 For each \ac{PR} the client writes a dedicated report file (\texttt{reports/\#PR.json}) containing aggregate statistics such as mean $\Delta\mathrm{PPL}$ across samples, mean baseline/\ac{PR}/source perplexities, and their abstracted counterparts, and then a list of results for each model:
 \begin{inparaenum}[\it (i)]
     \item the list of evaluated samples with their individual perplexities and $\Delta\mathrm{PPL}$ values, and
-    \item results of qualitative analysis from the \ac{LLM}
+    \item results of qualitative analysis from the \ac{LLM}.
 \end{inparaenum}
 At the end of the full run, a \texttt{final\_report.json} aggregates all per-\ac{PR} summaries. If a report already exists, the client loads it and skips re-evaluation, enabling robust recovery after interruptions.
 

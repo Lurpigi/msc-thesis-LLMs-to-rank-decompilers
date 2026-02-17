@@ -4,7 +4,7 @@ import json
 import re
 from .com import get_ast, get_func_name, get_source_code
 from .prompt import get_ast_prompt_s, get_quality_prompt, get_ast_prompt, get_quality_prompt_s
-from .const import LLM_API_FREE, LLM_API_GEN, LLM_API_SCORE
+from .const import LLM_API_FREE, LLM_API_GEN, LLM_API_SCORE, LLM_API_LOSS
 
 
 def get_code_metrics(code_snippet, model_id):
@@ -21,6 +21,18 @@ def get_code_metrics(code_snippet, model_id):
         print(f"[ERR] Failed to get metrics: {e}")
         return {"perplexity": -1, "mean_logbits": 0}
 
+def get_loss_tokens(code_snippet, model_id):
+    try:
+        resp = requests.post(LLM_API_LOSS, json={
+                             "text": code_snippet, "model_id": model_id, "return_tokens": True})
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"[WARN] Score API error: {resp.status_code}")
+            return {"tokens": [], "losses": []}
+    except Exception as e:
+        print(f"[ERR] Failed to get token loss data: {e}")
+        return {"tokens": [], "losses": []}
 
 def get_diff_text(text_a, text_b, context_lines=3):
 
@@ -79,7 +91,7 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None, is_ast=False):
                         "motivation": motivation_match.group(1),
                         "raw_response": generated_text
                     }
-                return {"winner": "Error", "motivation": generated_text}
+                return {"winner": "Error", "motivation": generated_text, "raw_response": generated_text}
         else:
             return {"error": f"API Error: {resp.status_code}"}
     except Exception as e:
@@ -201,6 +213,14 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
 
     print(f"Finished AST analysis for {func_name}")
 
+    print(f"starting loss token analysis for {func_name}")
+    source_loss = get_loss_tokens(source_code, model_id)
+    function_base_loss = get_loss_tokens(base_code, model_id)
+    function_pr_loss = get_loss_tokens(pr_code, model_id)
+    source_ast_loss = get_loss_tokens(source_ast, model_id)
+    base_ast_loss = get_loss_tokens(base_ast, model_id)
+    pr_ast_loss = get_loss_tokens(pr_ast, model_id)
+
     entry = {
         "binary": test_binary_name,
         "function": func_name,
@@ -218,6 +238,12 @@ def evaluate_with_llm(base_code, pr_code, model_id, test_binary_name, metrics_ca
             "base_ast_ppl": base_ast_metrics['perplexity'],
             "pr_ast_ppl": pr_ast_metrics['perplexity'],
             "delta_ppl": ppl_delta,
+            "source_loss": source_loss,
+            "function_base_loss": function_base_loss,
+            "function_pr_loss": function_pr_loss,
+            "source_ast_loss": source_ast_loss,
+            "base_ast_loss": base_ast_loss,
+            "pr_ast_loss": pr_ast_loss
         },
         "llm_qualitative": qualitative_analysis,
         "llm_qualitative_source": qualitative_analysis_s,

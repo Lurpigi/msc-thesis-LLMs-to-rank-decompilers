@@ -106,7 +106,8 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                                 <span className={clsx(
                                     "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
                                     item.winner === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : "bg-gray-400 text-white"
+                                    item.winner === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
+                                    item.winner === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
                                 )}>
                                     {item.winner || 'TIE'}
                                 </span>
@@ -119,7 +120,8 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                                 <span className={clsx(
                                     "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
                                     item.winner_ast === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner_ast === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : "bg-gray-400 text-white"
+                                    item.winner_ast === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
+                                    item.winner_ast === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
                                 )}>
                                     {item.winner_ast || 'TIE'}
                                 </span>
@@ -144,7 +146,8 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                                 <span className={clsx(
                                     "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
                                     item.winner_s === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner_s === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : "bg-gray-400 text-white"
+                                    item.winner_s === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
+                                    item.winner_s === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
                                 )}>
                                     {item.winner_s || 'TIE'}
                                 </span>
@@ -157,7 +160,8 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                                 <span className={clsx(
                                     "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
                                     item.winner_ast_s === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner_ast_s === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : "bg-gray-400 text-white"
+                                    item.winner_ast_s === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
+                                    item.winner_ast_s === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
                                 )}>
                                     {item.winner_ast_s || 'TIE'}
                                 </span>
@@ -179,18 +183,32 @@ export default function DogboltBench() {
     const [showCode, setShowCode] = useState(false) // false = AST, true = Code
 
     useEffect(() => {
-        fetch('/api/dogbolt-data')
+        fetch('/data/dogbolt/dogbolt_report.json')
             .then(res => res.json())
-            .then(res => {
-                if (res.error) {
-                    console.error(res.error);
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
                     return;
                 }
-                setData(res)
-                const models = Object.keys(res);
+                
+                // Group data by model_id and binary (moved from backend)
+                const structuredData = {};
+                Object.entries(data).forEach(([model_id, items]) => {
+                    structuredData[model_id] = {};
+                    items.forEach(item => {
+                        const binary = item.binary;
+                        if (!structuredData[model_id][binary]) {
+                            structuredData[model_id][binary] = [];
+                        }
+                        structuredData[model_id][binary].push(item);
+                    });
+                });
+
+                setData(structuredData)
+                const models = Object.keys(structuredData);
                 if (models.length > 0) {
                     setSelectedModel(models[0]);
-                    const binaries = Object.keys(res[models[0]]);
+                    const binaries = Object.keys(structuredData[models[0]]);
                     if (binaries.length > 0) setSelectedBinary(binaries[0]);
                 }
             })

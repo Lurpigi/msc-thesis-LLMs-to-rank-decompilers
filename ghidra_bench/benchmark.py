@@ -186,37 +186,35 @@ def analyze_token_loss(prs_number):
             OUTPUT_DIR, "reports", f"{pr_number}.json")
         if os.path.exists(cache_path):
             with open(cache_path, 'r') as f:
-                data = json.load(f)
-                results = data if isinstance(data, list) else [data]
+                results = json.load(f)
 
-                for entry in results:
-                    for model_id in MODELS_TO_BENCHMARK:
-                        if 'results' in entry and model_id in entry['results']:
-                            for result_item in entry['results'][model_id]:
+                results_dict = results.get('results', {})
+                for model_id in MODELS_TO_BENCHMARK:
+                    for model_id, items in results_dict.items():
+                        for result_item in items:
+                            source_code = result_item.get(
+                                'source_code', "")
+                            function_base = result_item.get(
+                                'function_base', "")
+                            function_pr = result_item.get(
+                                'function_pr', "")
+                            source_ast = result_item.get('source_ast', "")
+                            base_ast = result_item.get('base_ast', "")
+                            pr_ast = result_item.get('pr_ast', "")
 
-                                source_code = result_item.get(
-                                    'source_code', "")
-                                function_base = result_item.get(
-                                    'function_base', "")
-                                function_pr = result_item.get(
-                                    'function_pr', "")
-                                source_ast = result_item.get('source_ast', "")
-                                base_ast = result_item.get('base_ast', "")
-                                pr_ast = result_item.get('pr_ast', "")
+                            metrics_updates = {
+                                'source_loss': get_loss_tokens(source_code, model_id),
+                                'function_base_loss': get_loss_tokens(function_base, model_id),
+                                'function_pr_loss': get_loss_tokens(function_pr, model_id),
+                                'source_ast_loss': get_loss_tokens(source_ast, model_id),
+                                'base_ast_loss': get_loss_tokens(base_ast, model_id),
+                                'pr_ast_loss': get_loss_tokens(pr_ast, model_id)
+                            }
 
-                                metrics_updates = {
-                                    'source_loss': get_loss_tokens(source_code, model_id),
-                                    'function_base_loss': get_loss_tokens(function_base, model_id),
-                                    'function_pr_loss': get_loss_tokens(function_pr, model_id),
-                                    'source_ast_loss': get_loss_tokens(source_ast, model_id),
-                                    'base_ast_loss': get_loss_tokens(base_ast, model_id),
-                                    'pr_ast_loss': get_loss_tokens(pr_ast, model_id)
-                                }
+                            if 'metrics' not in result_item:
+                                result_item['metrics'] = {}
 
-                                if 'metrics' not in result_item:
-                                    result_item['metrics'] = {}
-
-                                result_item['metrics'].update(metrics_updates)
+                            result_item['metrics'].update(metrics_updates)
             with open(cache_path, 'w') as f:
                 json.dump(results, f, indent=2)
 

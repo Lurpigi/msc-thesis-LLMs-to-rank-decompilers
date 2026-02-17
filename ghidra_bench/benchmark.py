@@ -169,7 +169,7 @@ def main(prs_number=None):
         final_report.append(rep)
         with open(os.path.join(OUTPUT_DIR, "reports", f"{pr_number}.json"), "w") as f:
             json.dump(rep, f, indent=2)
-        
+
         analyze_token_loss([pr_number])
 
     with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
@@ -179,38 +179,46 @@ def main(prs_number=None):
     print("[END] Finished all processing")
     free_llm_model()
 
+
 def analyze_token_loss(prs_number):
     for pr_number in prs_number:
         cache_path = os.path.join(
-                OUTPUT_DIR, "reports", f"{pr_number}.json")
+            OUTPUT_DIR, "reports", f"{pr_number}.json")
         if os.path.exists(cache_path):
-                with open(cache_path, 'r') as f:
-                    results = json.load(f)
-                    for entry in results:
-                        for model_id in MODELS_TO_BENCHMARK:
-                            for result in entry['results'][model_id]:
-                                source_code = entry['results'][model_id][result]['source_code']
-                                function_base = entry['results'][model_id][result]['function_base']
-                                function_pr = entry['results'][model_id][result]['function_pr']
-                                source_ast = entry['results'][model_id][result]['source_ast']
-                                base_ast = entry['results'][model_id][result]['base_ast']
-                                pr_ast = entry['results'][model_id][result]['pr_ast']
+            with open(cache_path, 'r') as f:
+                data = json.load(f)
+                results = data if isinstance(data, list) else [data]
 
-                                source_loss = get_loss_tokens(source_code, model_id)
-                                function_base_loss = get_loss_tokens(function_base, model_id)
-                                function_pr_loss = get_loss_tokens(function_pr, model_id)
-                                source_ast_loss = get_loss_tokens(source_ast, model_id)
-                                base_ast_loss = get_loss_tokens(base_ast, model_id)
-                                pr_ast_loss = get_loss_tokens(pr_ast, model_id)
+                for entry in results:
+                    for model_id in MODELS_TO_BENCHMARK:
+                        if 'results' in entry and model_id in entry['results']:
+                            for result_item in entry['results'][model_id]:
 
-                                entry['results'][model_id][result]['metrics']['source_loss'] = source_loss
-                                entry['results'][model_id][result]['metrics']['function_base_loss'] = function_base_loss
-                                entry['results'][model_id][result]['metrics']['function_pr_loss'] = function_pr_loss
-                                entry['results'][model_id][result]['metrics']['source_ast_loss'] = source_ast_loss
-                                entry['results'][model_id][result]['metrics']['base_ast_loss'] = base_ast_loss
-                                entry['results'][model_id][result]['metrics']['pr_ast_loss'] = pr_ast_loss
-                with open(cache_path, 'w') as f:
-                    json.dump(results, f, indent=2)
+                                source_code = result_item.get(
+                                    'source_code', "")
+                                function_base = result_item.get(
+                                    'function_base', "")
+                                function_pr = result_item.get(
+                                    'function_pr', "")
+                                source_ast = result_item.get('source_ast', "")
+                                base_ast = result_item.get('base_ast', "")
+                                pr_ast = result_item.get('pr_ast', "")
+
+                                metrics_updates = {
+                                    'source_loss': get_loss_tokens(source_code, model_id),
+                                    'function_base_loss': get_loss_tokens(function_base, model_id),
+                                    'function_pr_loss': get_loss_tokens(function_pr, model_id),
+                                    'source_ast_loss': get_loss_tokens(source_ast, model_id),
+                                    'base_ast_loss': get_loss_tokens(base_ast, model_id),
+                                    'pr_ast_loss': get_loss_tokens(pr_ast, model_id)
+                                }
+
+                                if 'metrics' not in result_item:
+                                    result_item['metrics'] = {}
+
+                                result_item['metrics'].update(metrics_updates)
+            with open(cache_path, 'w') as f:
+                json.dump(results, f, indent=2)
 
         else:
             print(f"No cache found for PR #{pr_number} and model {model_id}.")

@@ -21,6 +21,7 @@ def get_code_metrics(code_snippet, model_id):
         print(f"[ERR] Failed to get metrics: {e}")
         return {"perplexity": -1, "mean_logbits": 0}
 
+
 def get_loss_tokens(code_snippet, model_id):
     try:
         resp = requests.post(LLM_API_LOSS, json={
@@ -33,6 +34,7 @@ def get_loss_tokens(code_snippet, model_id):
     except Exception as e:
         print(f"[ERR] Failed to get token loss data: {e}")
         return {"tokens": [], "losses": []}
+
 
 def get_diff_text(text_a, text_b, context_lines=3):
 

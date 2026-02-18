@@ -54,7 +54,7 @@ Initially we wanted to use modles in the range of 8B parameters, the canditates 
 for various reasons, such as the availability of the model, the performance on code-related tasks, and the memory requirements, but after a lot of testing and variation of prompts, we decided to going up to use models in range of 14B parameters since 
 the firsts were not able to provide consistent and meaningful scores for our evaluation, falling into the Position Bias problem, which is a common issue in \ac{LLM}-based evaluation where the model's scoring is heavily influenced by the position of the input text rather than its content, leading to unreliable assessments (even when we tried to mitigate it with different prompt engineering techniques, such as randomizing the order of the inputs, or using different templates for the prompts).
 
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/little_change.png}
     \caption{Example of a function with only one difference between the BASE and the PR.}\label{fig:little_change}
@@ -65,7 +65,7 @@ Even after checking the non TIE cases, we found that the motivation for the choi
 In this case whe have a function with only one difference between the BASE and the PR, that can be seen in~\Cref{fig:little_change}, and the corrisponding responses in~\Cref{fig:Biases} from the model, 
 Among the TIEs we have two cases where the model consistently selected a winner, in the case of PR the motivation was consistent with the content of the decompilation and the difference between the two inputs, while in the case of BASE the motivation was on some superficial aspect of the input ignoring the context.
 
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/biases.png}
     \caption{Example of the motivation for the choice of the model, where the motivation is not based on the content of the decompilation and the difference beetween the two inputs, but rather on some superficial aspect of the input.}\label{fig:Biases}
@@ -86,7 +86,7 @@ Unfortunately, due to the scarcity of models in this range, and the tendency of 
 
 Unfortunatly after some testing we found out that Phi 4 and Mistral Nemo were not able to provide consistent and meaningful scores for our evaluation, falling into the Position Bias problem as can be seen in~\Cref{fig:new_models_distribution}, we also tried to replace them with Qwen2.5 Coder and Starcoder2 (both 15B) but even with those models we were not able to get consistent results, so we decided to use only Qwen3 and DeepSeek-R1 Distill Qwen, since they were able to provide more reliable and consistent scores.
 
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/new_models_distribution.png}
     \caption{Distribution of winner bias for the new models, where we can see that Phi 4 and Mistral Nemo are still falling into the Position Bias problem, while Qwen3 and DeepSeek-R1 Distill Qwen are providing more reliable and consistent scores for our evaluation.}\label{fig:new_models_distribution}
@@ -374,7 +374,7 @@ For our evaluation, we select a subset of PRs:
 \item \textbf{\ac{PR}~\#8628}: improves the cleanup rule \texttt{Rule2Comp2Sub} so that it also handles \emph{constant} subtractions that are rewritten during decompilation as additions with negative immediates (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}), improving readability and bringing the output closer to typical C source style.
 \item \textbf{\ac{PR}~\#8587}: extends the \texttt{constantptr} rule to automatically detect and correct \emph{one-based} indexing patterns for spacebase constants (e.g., *(undefined *) ((long)i * 0x30 + 0xaddr + (long)j * 4) $\rightarrow$ globalArray[(long)i + -1].field[j]). 
 \item \textbf{\ac{PR}~\#8161}: fixes an issue in \texttt{BlockWhileDo} where the decision to use overflow syntax could be made using unoptimized pcode and then treated as permanent: after pcode optimization the exit-condition block may no longer be ``complex,'' but the stale overflow flag would still block for-loop recovery; the patch re-checks that overflow-marked \texttt{BlockWhileDo} blocks are still complex at the time of for-loop recovery and clears the overflow decision when it is no longer justified.
-\item \textbf{\ac{PR}~\#7253}: sorts \texttt{switch} \texttt{case} entries by their target address (i.e., the destination basic-block address) rather than leaving them in an arbitrary/disassembler-dependent order.
+%\item \textbf{\ac{PR}~\#7253}: sorts \texttt{switch} \texttt{case} entries by their target address (i.e., the destination basic-block address) rather than leaving them in an arbitrary/disassembler-dependent order.
 \item \textbf{\ac{PR}~\#6722}: fixes cases where the decompiler fails to recover submember array access due to \texttt{RulePtrArith} distributing an addition through an \texttt{INT\_MULT} (e.g., \texttt{(idx + -0x30) * 4 + 4} $\rightarrow$ \texttt{idx * 4 + (-0x30 * 4 + 4)}), which prevents matching the struct member; the rule now undoes this distribution and retries, allowing clean output such as \texttt{PTR\_0041a1b8->ar[local\_18]} instead of raw pointer casts and offsets.
 \end{itemize}
 

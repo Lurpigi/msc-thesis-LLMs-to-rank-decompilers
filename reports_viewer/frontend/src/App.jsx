@@ -14,23 +14,61 @@ function App() {
   const [showCode, setShowCode] = useState(false) // false = AST, true = Code
 
   useEffect(() => {
-    fetch('/data/ghidra/final_report.json')
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) {
-            console.error(data.error);
-            return;
+    // Fetch individual report files from /data/ghidra/reports/
+    // Use nginx autoindex (JSON format) to discover files, fallback to known list
+    const loadReports = async () => {
+      try {
+        // Try to get directory listing from nginx autoindex
+        const dirRes = await fetch('/data/ghidra/reports/');
+        const dirText = await dirRes.text();
+        
+        // Parse JSON autoindex or extract .json filenames from HTML
+        let jsonFiles = [];
+        try {
+          // If autoindex_format is json
+          const dirData = JSON.parse(dirText);
+          jsonFiles = dirData
+            .filter(f => f.name && f.name.endsWith('.json'))
+            .map(f => f.name);
+        } catch {
+          // Fallback: parse HTML autoindex for .json links
+          const matches = dirText.match(/href="([^"]+\.json)"/g);
+          if (matches) {
+            jsonFiles = matches.map(m => m.match(/href="([^"]+)"/)[1]);
+          }
         }
-        const validData = data.filter(r => r && r.pr);
-        setReports(validData)
+
+        if (jsonFiles.length === 0) {
+          console.warn("No report files found in /data/ghidra/reports/");
+          return;
+        }
+
+        // Fetch all report files in parallel
+        const reportPromises = jsonFiles.map(async (filename) => {
+          try {
+            const res = await fetch(`/data/ghidra/reports/${filename}`);
+            return await res.json();
+          } catch (err) {
+            console.error(`Failed to load report ${filename}:`, err);
+            return null;
+          }
+        });
+
+        const allReports = await Promise.all(reportPromises);
+        const validData = allReports.filter(r => r && r.pr);
+
+        setReports(validData);
         if (validData.length > 0) {
-            // Select first function of first PR by default
-            const firstPr = validData[0];
-            const functions = getFunctions(firstPr);
-            if (functions.length > 0) setSelectedFunction(functions[0]);
+          const firstPr = validData[0];
+          const functions = getFunctions(firstPr);
+          if (functions.length > 0) setSelectedFunction(functions[0]);
         }
-      })
-      .catch(err => console.error("Failed to load reports:", err))
+      } catch (err) {
+        console.error("Failed to load reports:", err);
+      }
+    };
+
+    loadReports();
   }, [])
 
   const currentPr = reports[selectedPrIndex]

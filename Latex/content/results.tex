@@ -4,11 +4,11 @@
 
 \section{LLM performance}
 
+\dots
 
+\section{Perplexity as a Metric for ``Humanness''}\label{sec:perplexityres}
 
-\section{Perplexity as a Metric for ``Humanness''}
-
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/ppl_distribution.png}
     \caption{On the left perplexity values across original source code, base code, and pr code. On the right perplexity values across abstracted representations of the same functions.}\label{fig:ppl_distribution}
@@ -23,13 +23,94 @@ Another observation is that the abstracted representations of the code (right si
 This is likely because the abstraction process removes specific identifiers and literals, which can make the code less predictable and more ``surprising'' to the language model, 
 but even in this case, the original source code still has higher perplexity than the decompiled versions, reinforcing the idea that the decompilation process may be introducing more predictable patterns into the code.
 
-... study for trying to know why this happens ...
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.99\textwidth]{img/global_loss.png}
+    \caption{Density distribution of cross-entropy loss values for all tokens in the original source code and the decompiled versions.}\label{fig:global_loss}
+\end{figure}
+
+In \Cref{fig:global_loss} we can observe that the original code exhibits a wider, slightly flatter distribution with a higher mean loss compared to the decompiled output, which is characterized by a sharper peak shifted towards zero.
+This visualization highlights a counter-intuitive phenomenon: despite the original source code being the ``human ground truth'', the language model finds the decompiled code significantly more predictable.
+
+We attribute this behavior to Token Inflation and Loss Dilution:
+As indicated by the token counts in the figure (e.g., $\sim$168k tokens for decompiled vs $\sim$120k for original source), the decompilation process introduces a substantial \emph{token inflation}.
+Ghidra generate verbose, explicit code full of boilerplate structures (e.g., redundant casts, standard control flow patterns, explicit initializations, and restricted vocabulary). These pattern tokens are syntactically rigid and in a context where are used, they are easy to predict for the model, leading to a large number of tokens with very low loss values (close to zero). 
+Their sheer volume effectively dilutes the mean loss, artificially lowering the overall perplexity score compared to the denser, more information-rich human code.
+In contrast, the original source code reflects human authorship, which includes domain-specific naming conventions, creative syntactic choices, and stylistic variability. This ``human entropy'' flattens the density curve and shifts the mean loss to the right, as the model is more frequently ``surprised'' by the programmer's unique choices compared to the machine's standardized output.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.99\textwidth]{img/global_loss_ast.png}
+    \caption{Density distribution of cross-entropy loss values for all tokens in the original source code and the decompiled versions.}\label{fig:global_loss_ast}
+\end{figure}
+
+In \Cref{fig:global_loss_ast} we can see the \ac{AST} version of the previous analysis, where we abstracted away variable names and literals to focus on the structural aspects of the code.
+Comparing these results with the previous analysis on raw code tokens, we observe two critical phenomena:
+
+\begin{enumerate}
+    \item \textbf{Persistence of structural inflation:} Even in the anonymized form, the \textit{token inflation} remains significant. The decompiled AST contains $\sim$107k tokens compared to $\sim$70k for the original source ($\sim$+52\%). 
+        This confirms that the verbosity of the decompiled code is not merely lexical (e.g., long variable names) but syntactical. The decompiler introduces explicit casts, redundant blocks, and verbose control flow structures that persist even after anonymization, continuing to dilute the mean loss with predictable tokens.
+    \item \textbf{The closer entropy:}
+    Unlike the raw code analysis, where the gap between the distributions was pronounced, the AST distributions for Source and Decompiled code are more similar in shape. The difference in Mean Loss has narrowed (e.g., for \emph{deepseek-r1}, the gap represents only $\sim 0.047$, compared to larger margins in the raw code).
+
+    This convergence suggests that the \emph{lexical entropy} was a discriminator in the previous analysis.
+    \begin{itemize}
+        \item In the raw code, human-written names provided high variability (surprisal), while decompiled names were generic.
+        \item In the AST version, the anonymization process effectively ``standardizes'' the two codes; Consequently, the source code becomes more predictable by the model.
+    \end{itemize}
+\end{enumerate}
 
 
+\begin{wrapfigure}{r}{0.55\textwidth}
+    \centering
+    \includegraphics[width=0.45\textwidth]{img/example_loss_func.png}
+    \caption{Loss values for \texttt{xls\_parseWorkBook} in the decompiled base code}\label{fig:example_loss_func}
+\end{wrapfigure}
+
+The token-level analisys allow us to verify the tokens that contribute the most to the loss, and consequently to the perplexity, in a specific function.
+We can observe that the token itself is not the only factor that contributes to the loss, but especially the context in which it is used.
+For example, in \Cref{fig:example_loss_func} we can see the loss values for the token ``\texttt{LAB}'', which is a common label used in the decompiled code to indicate jump targets.
+This token has a low loss value (1.664) when it appears after the \texttt{do{}while loop}, but it has a much higher loss value (11.812) when it appears inside the \texttt{if} allowing a flow branch to ignore the condition and entering the scope without checks.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.99\textwidth]{img/example_loss.png}
+    \caption{Example of loss values for a function in the decompiled code.}\label{fig:example_loss}
+\end{figure}
+
+Obviously every function has a different distribution of loss values, and some functions may be more ``natural'' than others.
+In \Cref{fig:example_loss} we can see an example of the loss values for \texttt{xls\_parseWorkBook} function from the DeepSeek analisys, 
+remembering that the perplexity is calculated as the exponential of the mean loss~\ref{sec:perplexity}, we can see that the original source code has a perplexity of $\sim 3.06$ (mean loss $\sim 1.12$), while the decompiled base version has a perplexity of $\sim 2.4$ (mean loss $\sim 0.89$).
+We can see that the max values for the loss are higher for the decompiled version, in contrary to the global distribution where the decompiled code had a sharper peak towards zero, but then when we look at the anonymized version of the same function, the original source code became the one with a higher max loss value than the decompiled version.
+However, the anonymization process manages to bring the two versions significantly closer, both in terms of loss values and, consequently, perplexity.
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.99\textwidth]{img/std_dev_loss.png}
+    \caption{Standard deviation of loss values across all functions in the normal version and anonymized version.}\label{fig:std_dev_loss}
+\end{figure}
+
+In \Cref{fig:std_dev_loss} we investigate the \emph{Entropy Variance} of the code by analyzing the standard deviation of the token loss.
+While the mean loss indicates the average predictability, the standard deviation reveals the \emph{dynamic range} of the code complexity.
+
+We can observe a clear trend across both models:
+\begin{itemize}
+    \item \textbf{Difference in Variance:} The original source code consistently exhibits higher standard deviation compared to the decompiled versions. This confirms that human-written code is characterized by \textit{burstiness}: it alternates between low-entropy boilerplate and high-entropy domain-specific logic. The language model struggles to predict this rhythm, leading to fluctuating loss values.
+    The decompiled code shows significantly lower variance. This reflects the \textit{monotonicity} of machine-generated code. In our case Ghidra applies consistent transformation rules throughout the binary, resulting in more predictabile results.
+    
+    \item \textbf{The Lexical Factor:} Comparing the code panel with the \ac{AST} one, we notice that the gap between Source and Decompiled shrinks significantly in the AST representation. This implies that a substantial portion of the entropy variance in human code is driven by \emph{lexical choices} (variable naming and literals) as we predicted. Once these are removed, the structural variability of human code is only marginally higher than that of the decompiled code.
+\end{itemize}
+
+This result reinforces our conclusion: in our case (Ghidra vs Source) Human-Likeness is not defined by raw predictability (where the machine wins), but by the \textbf{variance of unpredictability}. A ``natural'' code signature is one that surprises the model in inconsistent, context-dependent bursts, rather than being uniformly predictable.
+Meanwhile for the anonymized code, the gap in variance is smaller but it still exists, suggesting that even at the structural level, human code retains a degree of unpredictability that machine-generated code lacks.
+
+\dots
 
 \section{LLM-as-a-Judge Evaluation}
 
-\begin{figure}
+\begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/winner_distribution.png}
     \caption{Distribution of winners across all evaluated models.}\label{fig:winner_distribution}
@@ -51,11 +132,11 @@ Unfortunatly for highlight changes through versions and save on the context wind
 
 \subsection{PR \#8161}
 
-\subsection{PR \#7253}
+%\subsection{PR \#7253}
 
 \subsection{PR \#6722}
 
-
+\section{Correlation Perplexity \& LLM}
 
 \section{Vs Human Evaluation}
 

@@ -1,5 +1,6 @@
 import React from "react";
 import clsx from "clsx";
+import LossHeatmap from "./LossHeatmap";
 
 export default function Stats({ func, prData }) {
   if (!func) return null;
@@ -143,6 +144,11 @@ export default function Stats({ func, prData }) {
                     </dd>
                   </div>
                 </div>
+              </div>
+
+              {/* Token Loss Heatmap */}
+              <div className="mt-6">
+                <LossHeatmap metrics={m} />
               </div>
             </div>
           );

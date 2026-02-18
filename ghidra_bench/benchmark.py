@@ -170,7 +170,7 @@ def main(prs_number=None):
         with open(os.path.join(OUTPUT_DIR, "reports", f"{pr_number}.json"), "w") as f:
             json.dump(rep, f, indent=2)
 
-        analyze_token_loss([pr_number])
+        #analyze_token_loss([pr_number])
 
     with open(os.path.join(OUTPUT_DIR, "final_report.json"), "w") as f:
         json.dump(final_report, f, indent=2)

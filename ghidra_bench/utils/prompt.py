@@ -11,7 +11,6 @@ def get_quality_prompt_s(diff_text, source_code):
         "1. **Structural Isomorphism**: Which version (A or B) matches the control flow structures of the Source Code?\n"
         "   - Source `switch` -> Winner must have `switch`.\n"
         "   - Source `for` -> Winner must have `for`.\n"
-        "2. **Correction vs Regression**: Does the `+` line fix a logic error present in `-`, or does it introduce noise?\n\n"
 
         "### INPUT DATA\n"
         "--- GROUND TRUTH (SOURCE CODE) ---\n"
@@ -38,12 +37,13 @@ def get_ast_prompt_s(diff_text, source_ast):
         "- Lines `+` = **Candidate B**.\n\n"
 
         "### CRITERIA\n"
-        "1. **Topology Match**: Does the `+` code restore a node type (e.g. `SwitchStatement`) present in the Source but missing in `-`?\n"
-        "2. **Complexity**: Does the `+` code match the nesting depth of the Source?\n\n"
+        "1. **Topology Match**: Which version (A or B) preserves the Source AST node types and structure?\n"
+        "2. **Complexity**: Does the one version of code match better the nesting depth of the Source?\n\n"
 
         "### INPUT DATA\n"
         f"--- GROUND TRUTH (SOURCE AST) ---\n{source_ast}\n\n"
-        f"--- AST DIFF (A vs B) ---\n{diff_text}\n\n"
+        f"--- AST DIFF (A vs B) ---\n"
+        f"```diff\n{diff_text}\n```\n"
 
         "### OUTPUT FORMAT\n"
         "Output ONLY valid JSON:\n"
@@ -57,7 +57,7 @@ def get_ast_prompt_s(diff_text, source_ast):
 def get_quality_prompt(diff_text):
     return (
         "You are a Lead C Code Auditor performing a blind review of a patch (Diff).\n"
-        "Your goal is to decide which version in the diff (the original '-' lines or the new '+' lines) represents better **Human Engineering Practices**.\n"
+        "Your goal is to decide which version in the diff (the version A '-' lines or the version B '+' lines) represents better **Human Engineering Practices**.\n"
         "**CRITICAL RULE**: Focus ONLY on the logic flow and readability changes shown in the diff.\n\n"
 
         "### HOW TO READ THE DIFF\n"
@@ -127,6 +127,116 @@ def get_ast_prompt(diff_text):
         "Output ONLY valid JSON:\n"
         "{\n"
         '  "motivation": "Why the winner is more human-like.",\n'
+        '  "winner": "A" | "B"\n'
+        "}"
+    )
+
+#########################################################
+
+
+def Cget_quality_prompt_s(code_a, code_b, source_code):
+    return (
+        "You are a Senior Compiler Engineer evaluating decompilation fidelity.\n"
+        "Your goal: Determine which candidate version (A or B) is **closer to the Source Code structure**.\n\n"
+
+        "### EVALUATION CRITERIA\n"
+        "1. **Structural Isomorphism**: Which version matches the control flow structures of the Source Code?\n"
+        "   - Source `switch` -> Winner should have `switch`.\n"
+        "   - Source `for` -> Winner should have `for`.\n"
+        "2. **Logical Fidelity**: Which version correctly represents the logic of the source without introducing assembly-level artifacts (like unnecessary gotos)?\n\n"
+
+        "### INPUT DATA\n"
+        "--- GROUND TRUTH (SOURCE CODE) ---\n"
+        f"```c\n{source_code}\n```\n\n"
+        "--- CANDIDATE A ---\n"
+        f"```c\n{code_a}\n```\n\n"
+        "--- CANDIDATE B ---\n"
+        f"```c\n{code_b}\n```\n\n"
+
+        "### OUTPUT FORMAT\n"
+        "Output ONLY valid JSON:\n"
+        "{\n"
+        '  "motivation": "Briefly describe which candidate aligns better with the Source structure.",\n'
+        '  "winner": "A" | "B"\n'
+        "}"
+    )
+
+
+def Cget_ast_prompt_s(ast_a, ast_b, source_ast):
+    return (
+        "You are a Decompilation Architect comparing AST topologies against a Ground Truth.\n"
+        "Your goal: Determine which candidate (A or B) mirrors the **Source AST topology**.\n\n"
+
+        "### EVALUATION CRITERIA\n"
+        "1. **Topology Match**: Does one Candidate restore a node type (e.g. `SwitchStatement`) present in the Source but missing in the other?\n"
+        "2. **Complexity**: Does the candidate match the nesting depth and statement hierarchy of the Source?\n\n"
+
+        "### INPUT DATA\n"
+        "--- GROUND TRUTH (SOURCE AST) ---\n"
+        f"{source_ast}\n\n"
+        "--- CANDIDATE A AST ---\n"
+        f"{ast_a}\n\n"
+        "--- CANDIDATE B AST ---\n"
+        f"{ast_b}\n\n"
+
+        "### OUTPUT FORMAT\n"
+        "Output ONLY valid JSON:\n"
+        "{\n"
+        '  "motivation": "Identify specific node types or nesting levels that match the Ground Truth.",\n'
+        '  "winner": "A" | "B"\n'
+        "}"
+    )
+
+
+def Cget_quality_prompt(code_a, code_b):
+    return (
+        "You are a Lead C Code Auditor performing a blind review of two decompilation candidates.\n"
+        "Your goal: Decide which version represents better **Human Engineering Practices**.\n\n"
+
+        "### THE HIERARCHY OF IDIOMATIC CONTROL FLOW\n"
+        "Prioritize structures that map to high-level human thinking over raw machine output:\n"
+        "1. **Semantic Structure (Preferred)**: `for` loops, `do-while`, `switch` statements, and clean scoping.\n"
+        "2. **Graph Artifacts (Avoid)**: `goto` spaghetti, deep `if-else` cascades where `switch` applies, or artificial `{ { ... } }` wrapper blocks.\n\n"
+
+        "### FORCED DECISION RULES\n"
+        "- **NO NEUTRALITY**: Pick a winner.\n"
+        "- **Tie-Breaker**: If logic is identical, choose the version with less artificial nesting depth.\n\n"
+
+        "### INPUT DATA\n"
+        "--- CANDIDATE A ---\n"
+        f"```c\n{code_a}\n```\n\n"
+        "--- CANDIDATE B ---\n"
+        f"```c\n{code_b}\n```\n\n"
+
+        "### OUTPUT FORMAT\n"
+        "Output ONLY valid JSON:\n"
+        "{\n"
+        '  "motivation": "Describe why the winner is more human-readable/idiomatic.",\n'
+        '  "winner": "A" | "B"\n'
+        "}"
+    )
+
+
+def Cget_ast_prompt(ast_a, ast_b):
+    return (
+        "You are a Static Analysis Expert evaluating Control Flow Skeletons (AST).\n"
+        "Your goal: Decide which structural representation (A or B) is more **Idiomatic**.\n\n"
+
+        "### CRITERIA\n"
+        "We prioritize high-level human abstractions over raw assembly-derived graphs:\n"
+        "- **Winner**: Natural loops (`for`/`while`), `switch` cases, and logical nesting.\n"
+        "- **Loser**: Conditional jumps to labels (`goto`), excessive `if-else` cascades, and redundant wrapper blocks.\n\n"
+
+        "### INPUT DATA\n"
+        "--- CANDIDATE A AST ---\n"
+        f"{ast_a}\n\n"
+        "--- CANDIDATE B AST ---\n"
+        f"{ast_b}\n\n"
+
+        "### OUTPUT FORMAT\n"
+        "Output ONLY valid JSON:\n"
+        "{\n"
+        '  "motivation": "Explain the structural advantages of the winner.",\n'
         '  "winner": "A" | "B"\n'
         "}"
     )

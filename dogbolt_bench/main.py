@@ -3,7 +3,13 @@ import json
 import os
 import itertools
 import random
-from utils.llm import get_llm_analysis, free_llm_model, get_code_metrics
+import re
+
+import requests
+from utils.const import LLM_API_GEN
+from utils.llm import get_loss_tokens
+from utils.prompt import Cget_quality_prompt_s, Cget_ast_prompt, Cget_ast_prompt_s, Cget_quality_prompt
+from utils.llm import free_llm_model, get_code_metrics
 from utils.com import get_ast, get_func_name, get_source_code, get_models
 from utils.const import OUTPUT_DIR
 
@@ -102,6 +108,49 @@ class binary_item:
         return list(self.funcs.keys())
 
 
+def get_llm_analysis(code_a, code_b, model_id, source=None, is_ast=False):
+    """Call the LLM to get analysis"""
+
+    if source is not None and code_a == code_b:
+        return {
+            "winner": "NO DIFFERENCE",
+            "motivation": "BASE and PR AST are identical; no differences to evaluate."
+        }
+
+    prompt = (Cget_ast_prompt(code_a, code_b) if source is None else Cget_ast_prompt_s(
+        code_a, code_b, source)) if is_ast else (Cget_quality_prompt_s(code_a, code_b, source) if source is not None else Cget_quality_prompt(code_a, code_b))
+
+    try:
+        resp = requests.post(LLM_API_GEN, json={
+                             "prompt": prompt, "model_id": model_id})
+
+        if resp.status_code == 200:
+            result = resp.json()
+
+            generated_text = result.get("response", "")
+
+            match = re.search(
+                r'\{\s*"(?:winner|motivation)"\s*:.*\}', generated_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            else:
+                winner_match = re.search(
+                    r'"winner"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+                motivation_match = re.search(
+                    r'"motivation"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+                if winner_match and motivation_match:
+                    return {
+                        "winner": winner_match.group(1),
+                        "motivation": motivation_match.group(1),
+                        "raw_response": generated_text
+                    }
+                return {"winner": "Error", "motivation": generated_text, "raw_response": generated_text}
+        else:
+            return {"error": f"API Error: {resp.status_code}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 def run_judge_with_bias_check(content_base, content_pr, model_id, source_content=None, is_ast=False):
     analysis = get_llm_analysis(
         content_base, content_pr, model_id=model_id, source=source_content, is_ast=is_ast
@@ -128,7 +177,7 @@ def run_judge_with_bias_check(content_base, content_pr, model_id, source_content
     else:
         return {
             "winner": "TIE",
-            "motivation": "Detected potential bias in LLM response (Position Bias); declaring TIE."
+            "motivation": f"Detected potential bias in LLM response (Position Bias); the model have chosen always version {winner}. declaring TIE."
         }
 
 
@@ -321,7 +370,68 @@ def main():
     print(f"Saving {len(results)} comparisons to {output_file}...")
     with open(output_file, "w", encoding='utf-8') as f:
         json.dump(results, f, indent=2)
+    generate_loss_report(os.path.join(OUTPUT_DIR, "dogbolt_report.json"), os.path.join(
+        OUTPUT_DIR, "dogbolt_report_loss.json"))
     free_llm_model()
+
+
+def generate_loss_report(input_json_path, output_json_path):
+    if not os.path.exists(input_json_path):
+        print(f"File {input_json_path} non trovato.")
+        return
+
+    with open(input_json_path, 'r') as f:
+        data = json.load(f)
+
+    new_results = {}
+
+    for model_id, comparisons in data.items():
+        new_results[model_id] = {}
+
+        for entry in comparisons:
+            func_name = entry.get("function")
+            binary_name = entry.get("binary")
+
+            unique_func_key = f"{binary_name}::{func_name}"
+
+            if unique_func_key not in new_results[model_id]:
+                new_results[model_id][unique_func_key] = {}
+
+            func_dict = new_results[model_id][unique_func_key]
+
+            if "source_loss" not in func_dict:
+                source_code = entry.get("source_code", "")
+                source_ast = entry.get("ast_Source", "")
+
+                func_dict["source_loss"] = get_loss_tokens(
+                    source_code, model_id)
+                func_dict["source_ast_loss"] = get_loss_tokens(
+                    source_ast, model_id)
+
+            decomp_a = entry.get("decompiler_A")
+            if decomp_a and f"{decomp_a}_loss" not in func_dict:
+                code_a = entry.get("code_A", "")
+                ast_a = entry.get("ast_A", "")
+
+                func_dict[f"{decomp_a}_loss"] = get_loss_tokens(
+                    code_a, model_id)
+                func_dict[f"{decomp_a}_ast_loss"] = get_loss_tokens(
+                    ast_a, model_id)
+
+            decomp_b = entry.get("decompiler_B")
+            if decomp_b and f"{decomp_b}_loss" not in func_dict:
+                code_b = entry.get("code_B", "")
+                ast_b = entry.get("ast_B", "")
+
+                func_dict[f"{decomp_b}_loss"] = get_loss_tokens(
+                    code_b, model_id)
+                func_dict[f"{decomp_b}_ast_loss"] = get_loss_tokens(
+                    ast_b, model_id)
+
+    with open(output_json_path, 'w') as f:
+        json.dump(new_results, f, indent=2)
+
+    print(f"Report loss saved in: {output_json_path}")
 
 
 if __name__ == "__main__":

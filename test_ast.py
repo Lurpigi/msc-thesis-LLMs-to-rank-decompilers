@@ -612,7 +612,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
         )
         self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
 
-def get_diff_text(text_a, text_b, context_lines=3):
+def get_diff_text(text_a, text_b):
 
     a_lines = text_a.splitlines()
     b_lines = text_b.splitlines()
@@ -622,13 +622,11 @@ def get_diff_text(text_a, text_b, context_lines=3):
         b_lines, 
         fromfile='Candidate A', 
         tofile='Candidate B', 
-        n=context_lines,
+        n=max(len(a_lines), len(b_lines)),
         lineterm=''
     )
-    
-    diff_str = "\n".join(diff)
         
-    return diff_str
+    return "\n".join(list(diff)[2:])
 
 
 
@@ -658,6 +656,27 @@ if __name__ == '__main__':
     }   
     """
 
+    code2="""
+    //This function does random stuff dont try to understand it
+    void complex(int a, char *b) {
+        long *f;
+        int h[10];
+        if (a > 0) {
+            while (a < 10) {
+                printf("Value: %d\n", a);
+                a++;
+            }  
+        } else {
+            goto end;//random comment
+        }
+        h[0] = 42;
+        end:    
+        char c = b->id;
+        f->g(h[i]);
+        (*(int *)(p + -4)) = 5;
+    }   
+    """
+
     # code="""
     # void file_replace(struct magic_set *ms, const char *pat, const char *rep)
     # {
@@ -666,4 +685,5 @@ if __name__ == '__main__':
     #     }
     # """
 
-    print(get_abstract_pseudocode(code, indent_step=2)) #get_diff_text(get_abstract_pseudocode(code, indent_step=2), get_abstract_pseudocode(code2, indent_step=2)))
+    #print(get_abstract_pseudocode(code, indent_step=2)) #
+    print(get_diff_text(get_abstract_pseudocode(code, indent_step=2), get_abstract_pseudocode(code2, indent_step=2)))

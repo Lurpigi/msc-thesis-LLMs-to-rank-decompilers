@@ -6,7 +6,7 @@ Every service is designed to be modular, allowing for the integration of differe
 reproducibility we used \emph{Docker Compose} to containerize both the server and client components, ensuring consistent environments across different machines and operating systems.
 The dataset creation is also a containerized process, and the result are mounted as volumes to the client container, allowing for easy access and manipulation of the data without the need for complex data transfer mechanisms.
 
-\section{Dataset Maker}
+\section{Dataset Maker}\label{sec:datmak}
 As written on related works in~\Cref{sec:llmbench}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} for our evaluation,
 specifically the four Open Source projects: \texttt{file, libxls, readstat, xz}, which are written in C and have a rich history of commits and pull requests on GitHub.
 These choice was motivated by the need to have a manageable dataset size for local evaluation, while still covering a set of real world code and functions to evaluate our approach.
@@ -374,7 +374,7 @@ For our evaluation, we select a subset of PRs:
 \item \textbf{\ac{PR}~\#8628}: improves the cleanup rule \texttt{Rule2Comp2Sub} so that it also handles \emph{constant} subtractions that are rewritten during decompilation as additions with negative immediates (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}), improving readability and bringing the output closer to typical C source style.
 \item \textbf{\ac{PR}~\#8587}: extends the \texttt{constantptr} rule to automatically detect and correct \emph{one-based} indexing patterns for spacebase constants (e.g., *(undefined *) ((long)i * 0x30 + 0xaddr + (long)j * 4) $\rightarrow$ globalArray[(long)i + -1].field[j]). 
 \item \textbf{\ac{PR}~\#8161}: fixes an issue in \texttt{BlockWhileDo} where the decision to use overflow syntax could be made using unoptimized pcode and then treated as permanent: after pcode optimization the exit-condition block may no longer be ``complex,'' but the stale overflow flag would still block for-loop recovery; the patch re-checks that overflow-marked \texttt{BlockWhileDo} blocks are still complex at the time of for-loop recovery and clears the overflow decision when it is no longer justified.
-%\item \textbf{\ac{PR}~\#7253}: sorts \texttt{switch} \texttt{case} entries by their target address (i.e., the destination basic-block address) rather than leaving them in an arbitrary/disassembler-dependent order.
+\item \textbf{\ac{PR}~\#7253}: sorts \texttt{switch} \texttt{case} entries by their target address (i.e., the destination basic-block address) rather than leaving them in an arbitrary/disassembler-dependent order.
 \item \textbf{\ac{PR}~\#6722}: fixes cases where the decompiler fails to recover submember array access due to \texttt{RulePtrArith} distributing an addition through an \texttt{INT\_MULT} (e.g., \texttt{(idx + -0x30) * 4 + 4} $\rightarrow$ \texttt{idx * 4 + (-0x30 * 4 + 4)}), which prevents matching the struct member; the rule now undoes this distribution and retries, allowing clean output such as \texttt{PTR\_0041a1b8->ar[local\_18]} instead of raw pointer casts and offsets.
 \end{itemize}
 
@@ -391,4 +391,17 @@ At the end of the full run, a \texttt{final\_report.json} aggregates all per-\ac
 Finally, to avoid leaving a large model resident in \ac{GPU} memory, the client calls the server cleanup endpoint at the end of the run, explicitly unloading the active model.
 
 
-%\section{Dogbolt}
+\section{Dogbolt}
+Our analysis is focused on evaluating the impact of specific \acp{PR} on decompilation readability and humanness for Ghidra, but it is also interesting to see how the decompilation quality has evolved over time across different decompilers, and to have a more general overview of the trends and patterns in the decompilation output horizzontally (not vertical on only Ghidra).
+For this reason, we also created a framework of three different decompilers (Ghidra 12.0.1, Binary Ninja 5.2, and Hex-Rays 9.2) using \myhref{https://dogbolt.org/}{Dogbolt}, an interactive online \emph{Decompiler Explorer} that displays outputs from multiple decompilers for the same input binary, as can be seen in \Cref{fig:dogbolt}. 
+Dogbolt is community-maintained and open source but intentionally does not provide a public automation API, we used it in a restricted version of our Dataset (only the project ``file''), while all large-scale and reproducible measurements in this thesis were executed in our own local pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/dogbolt.png}
+    \caption{Example of the Dogbolt interface, where we can see the decompilation outputs from three different decompilers}\label{fig:dogbolt}
+\end{figure}
+
+Other differences with our main evaluation framework are the fact that the outputs of decompilers are not directly comparable using Diff since they generate different code, names, and formatting, so we rely, in this case, on giving all the code to the \ac{LLM}.
+For the evaluation we use the same prompting strategy described in~\Cref{sec:configLLM}, but we used a pipeline when for every function we create three different prompts, one for each pair of decompilers (Binary Ninja vs Ghidra, Ghidra vs Hex-Rays, Binary Ninja vs Hex-Rays), and then we aggregate the results to have a more general overview of the trends and patterns in the decompilation output across different decompilers.
+We also had to parse the results for extracting the functions from the dogbolt results since this is external to the Dataset maker framework in \Cref{sec:datmak}

@@ -35,11 +35,16 @@ class binary_item:
         start_idx = -1
         brace_idx = -1
         search_pos = 0
+        def_start = 0
+
         while True:
             start_idx = code.find(search_str, search_pos)
             if start_idx == -1:
-                raise ValueError(
-                    f"Function definition for '{self.name}' not found")
+                raise ValueError(f"Function definition for '{self.name}' not found")
+
+            if start_idx > 0 and (code[start_idx - 1].isalnum() or code[start_idx - 1] == '_'):
+                search_pos = start_idx + 1
+                continue
 
             curr_idx = start_idx + len(self.name)
             paren_count = 0
@@ -58,14 +63,24 @@ class binary_item:
 
             if not args_closed:
                 raise ValueError("Unmatched parentheses in function arguments")
+            
             while curr_idx < len(code) and code[curr_idx].isspace():
                 curr_idx += 1
 
             if curr_idx < len(code) and code[curr_idx] == '{':
                 brace_idx = curr_idx
+                
+                def_start = start_idx
+                while def_start > 0:
+                    prev_char = code[def_start - 1]
+                    if prev_char in {';', '}', '{'}:
+                        break
+                    def_start -= 1
+                    
                 break
             else:
                 search_pos = curr_idx
+
         brace_count = 1
         end_idx = brace_idx + 1
         while end_idx < len(code) and brace_count > 0:
@@ -78,9 +93,7 @@ class binary_item:
         if brace_count != 0:
             raise ValueError("Unmatched braces in function code")
 
-        # print(f"[INFO] Extracted function {self.name} from decompiler {decompiler_name}")
-        # print(f"[DEBUG] Function code:\n{code[start_idx:end_idx]}")
-        self.funcs[decompiler_name] = code[start_idx:end_idx]
+        self.funcs[decompiler_name] = code[def_start:end_idx].strip()
 
     def get_ast(self, decompiler_name):
         func = self.funcs.get(decompiler_name, "")

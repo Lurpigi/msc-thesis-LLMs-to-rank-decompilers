@@ -7,3 +7,4 @@ huggingface-hub
 bitsandbytes
 gunicorn
 psutil
+google-generativeai

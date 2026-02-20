@@ -15,6 +15,8 @@ from transformers import logging as transformers_logging
 transformers_logging.set_verbosity_error()
 transformers_logging.disable_progress_bar()
 
+import google.generativeai as genai
+
 # File logging
 metrics_logger = logging.getLogger('metrics')
 metrics_logger.setLevel(logging.INFO)
@@ -49,6 +51,8 @@ app = Flask(__name__)
 MODELS_CONFIG = {
     "qwen-3": "Qwen/Qwen3-14B",
     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+    #"gemini-2.5-pro": "gemini-2.5-pro",
+    #"gemini-3-flash": "gemini-3-flash-preview"
     # "qwen-2.5": "Qwen/Qwen2.5-Coder-14B-Instruct",
     # "deepseek-lite": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
     # "starcoder2": "bigcode/starcoder2-15b-instruct-v0.1"
@@ -109,6 +113,9 @@ class ModelEngine:
 
         # RAM Cache: stores {model_id: {'model': obj, 'tokenizer': obj}}
         self.ram_cache = {}
+
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
+        genai.configure(api_key=self.gemini_api_key)
 
     def _clean_gpu_memory(self):
         """Helper to force VRAM cleanup"""
@@ -186,6 +193,9 @@ class ModelEngine:
         if model_key not in MODELS_CONFIG:
             raise ValueError(f"Model {model_key} not supported.")
 
+        if "gemini" in model_key:
+            return
+        
         if self.current_model_id == model_key:
             return
 
@@ -248,11 +258,17 @@ class ModelEngine:
             "do_sample": True,
             "temperature": 0.4,
             "top_p": 0.9,
+            #"repetition_penalty": 1.01,
             "pad_token_id": self.tokenizer.eos_token_id
         }
         return config
 
     def compute_perplexity(self, text, model_id):
+        if "gemini" in model_id:
+                return {
+                    "perplexity": float('nan'),
+                    "mean_logbits": float('nan')
+                }
         with self.lock:
             self.load_model(model_id)
             with monitor_execution(model_id, "score") as metrics:
@@ -292,6 +308,11 @@ class ModelEngine:
                 }
 
     def analyze_token_loss(self, text, model_id):
+        if "gemini" in model_id:
+                return {
+                    "tokens": [],
+                    "losses": []
+                }
         with self.lock:
             self.load_model(model_id)
             with monitor_execution(model_id, "analyze_token_loss") as metrics:
@@ -330,6 +351,20 @@ class ModelEngine:
 
     def generate(self, model_key, prompt):
         with self.lock:
+            if "gemini" in model_key:
+                print(f"[CLOUD] Calling {model_key}...")
+                try:
+                    time.sleep(10) # limits for free tier
+                    with monitor_execution(model_key, "generate_cloud") as metrics:
+                        model_name = MODELS_CONFIG.get(model_key, "gemini-2.5-flash")
+                        
+                        model = genai.GenerativeModel(model_name)
+                        response = model.generate_content(prompt)
+                        return response.text
+                
+                except Exception as e:
+                    return f"Errore Gemini: {str(e)}"
+                
             self.load_model(model_key)
             with monitor_execution(model_key, "generate") as metrics:
                 messages = [{"role": "user", "content": prompt}]

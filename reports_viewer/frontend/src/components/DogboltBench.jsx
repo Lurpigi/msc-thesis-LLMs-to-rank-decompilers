@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Tab, Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react'
 import clsx from 'clsx'
 import * as Diff from 'diff'
+import DogboltLossHeatmap from './DogboltLossHeatmap'
 
 const CodeBlock = ({ title, content, diff, type }) => {
     return (
@@ -29,9 +30,9 @@ const CodeBlock = ({ title, content, diff, type }) => {
     );
 };
 
-const getOpt = (binary) => binary?.match(/-O[0-3sz]\./)?.[0]?.replace(/[-\.]/g, '') || '';
+const getOpt = (binary) => binary?.match(/-O[0-3sz]/)?.[0]?.replace(/-/, '') || '';
 
-const ComparisonRow = ({ item, showCode, showSource }) => {
+const ComparisonRow = ({ item, showCode, showSource, taskLossData }) => {
     const contentA = showCode ? item.code_A : item.ast_A;
     const contentB = showCode ? item.code_B : item.ast_B;
     const sourceContent = showCode ? item.source_code : item.ast_Source;
@@ -97,12 +98,12 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                         <svg className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Qualitative Comparison (Zero-Shot)</span>
+                        <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Qualitative Comparison (Blind)</span>
                     </div>
                     <div className="space-y-6">
                         <div>
                             <div className="flex items-center space-x-3 mb-2">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-tight">Code Winner:</span>
+                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-tight">Code Winner:</span>
                                 <span className={clsx(
                                     "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
                                     item.winner === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
@@ -116,7 +117,7 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                         </div>
                         <div>
                             <div className="flex items-center space-x-3 mb-2">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-tight">AST Winner:</span>
+                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-tight">AST Winner:</span>
                                 <span className={clsx(
                                     "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
                                     item.winner_ast === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
@@ -135,9 +136,9 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                 <div className="bg-white rounded-lg border border-indigo-100 shadow-sm p-4 overflow-hidden">
                     <div className="flex items-center space-x-2 mb-3 border-b border-indigo-50 pb-2">
                         <svg className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-xs font-bold text-indigo-800 uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Fidelity & Ground Truth Comparison</span>
+                        <span className="text-xs font-bold text-indigo-800 uppercase tracking-wider">Qualitative Comparison (Ground Truth)</span>
                     </div>
                     <div className="space-y-6">
                         <div>
@@ -171,29 +172,41 @@ const ComparisonRow = ({ item, showCode, showSource }) => {
                     </div>
                 </div>
             </div>
+
+            {/* Token Loss Heatmap */}
+            {taskLossData && (
+                <DogboltLossHeatmap
+                    taskLossData={taskLossData}
+                    decompilerA={item.decompiler_A}
+                    decompilerB={item.decompiler_B}
+                />
+            )}
         </div>
     )
 }
 
 export default function DogboltBench() {
     const [data, setData] = useState(null)
+    const [lossData, setLossData] = useState(null)
     const [selectedModel, setSelectedModel] = useState(null)
     const [selectedBinary, setSelectedBinary] = useState(null)
     const [showSource, setShowSource] = useState(false)
     const [showCode, setShowCode] = useState(false) // false = AST, true = Code
 
     useEffect(() => {
-        fetch('/data/dogbolt/dogbolt_report.json')
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    console.error(data.error);
+        // Fetch both report and loss data in parallel
+        Promise.all([
+            fetch('/data/dogbolt/dogbolt_report.json').then(res => res.json()),
+            fetch('/data/dogbolt/dogbolt_report_loss.json').then(res => res.json()),
+        ]).then(([reportData, lossJson]) => {
+                if (reportData.error) {
+                    console.error(reportData.error);
                     return;
                 }
                 
                 // Group data by model_id and binary (moved from backend)
                 const structuredData = {};
-                Object.entries(data).forEach(([model_id, items]) => {
+                Object.entries(reportData).forEach(([model_id, items]) => {
                     structuredData[model_id] = {};
                     items.forEach(item => {
                         const binary = item.binary;
@@ -205,6 +218,7 @@ export default function DogboltBench() {
                 });
 
                 setData(structuredData)
+                if (lossJson) setLossData(lossJson)
                 const models = Object.keys(structuredData);
                 if (models.length > 0) {
                     setSelectedModel(models[0]);
@@ -280,7 +294,7 @@ export default function DogboltBench() {
                                                     <span className={clsx(selected ? 'font-semibold' : 'font-normal', 'truncate')}>
                                                         {b}
                                                     </span>
-                                                    <span className={clsx(active ? 'text-indigo-200' : 'text-blue-600 font-black', 'ml-3 py-0.5 px-1.5 bg-blue-50 rounded border border-blue-100 text-xs')}>
+                                                   <span className={clsx(active ? 'text-indigo-200' : 'text-gray-400', 'ml-2 text-xs')}>
                                                         {getOpt(b) || '?'}
                                                     </span>
                                                 </div>
@@ -341,6 +355,28 @@ export default function DogboltBench() {
                 </div>
             )}
 
+            {/* Heatmap Section */}
+            {(() => {
+                if (currentItems.length === 0) return null;
+                const firstItem = currentItems[0];
+                const taskKey = `${firstItem.binary}::${firstItem.function}`;
+                const taskLoss = lossData?.[selectedModel]?.[taskKey];
+                
+                // Collect all unique decompilers involved in these comparisons
+                const decompilerSet = new Set();
+                currentItems.forEach(item => {
+                    if (item.decompiler_A) decompilerSet.add(item.decompiler_A);
+                    if (item.decompiler_B) decompilerSet.add(item.decompiler_B);
+                });
+                const decompilers = Array.from(decompilerSet).sort();
+
+                return (
+                    <div className="mb-8 px-1">
+                        <DogboltLossHeatmap taskLossData={taskLoss} decompilers={decompilers} />
+                    </div>
+                );
+            })()}
+
             {/* Comparisons Section */}
             <div className="bg-white shadow sm:rounded-lg overflow-hidden border border-gray-100">
                 <div className="px-4 py-5 sm:p-6 space-y-12">
@@ -348,9 +384,16 @@ export default function DogboltBench() {
                         Decompiler Comparisons for <span className="font-mono text-indigo-600">{selectedBinary}</span>
                     </h2>
 
-                    {currentItems.map((item, idx) => (
-                        <ComparisonRow key={idx} item={item} showCode={showCode} showSource={showSource} />
-                    ))}
+                    {currentItems.map((item, idx) => {
+                        return (
+                            <ComparisonRow
+                                key={idx}
+                                item={item}
+                                showCode={showCode}
+                                showSource={showSource}
+                            />
+                        );
+                    })}
                 </div>
             </div>
         </div>

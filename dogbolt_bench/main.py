@@ -240,7 +240,7 @@ def main():
             print(f"Error for {binary_name}: {e}")
             continue
 
-    SAMPLE_SIZE = 25
+    SAMPLE_SIZE = 20
 
     if len(items_binary) > SAMPLE_SIZE:
         print(
@@ -373,6 +373,10 @@ def main():
                         f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner AST: {entry['winner_ast']}")
                     print(
                         f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner Code: {entry['winner']}")
+                    print(
+                        f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner AST with source: {entry['winner_ast_s']}")
+                    print(
+                        f"[{item.get_binary_name()}] {d1} vs {d2} -> Winner Code with source: {entry['winner_s']}")
 
                 except Exception as e:
                     print(

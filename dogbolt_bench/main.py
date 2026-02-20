@@ -40,7 +40,8 @@ class binary_item:
         while True:
             start_idx = code.find(search_str, search_pos)
             if start_idx == -1:
-                raise ValueError(f"Function definition for '{self.name}' not found")
+                raise ValueError(
+                    f"Function definition for '{self.name}' not found")
 
             if start_idx > 0 and (code[start_idx - 1].isalnum() or code[start_idx - 1] == '_'):
                 search_pos = start_idx + 1
@@ -63,20 +64,20 @@ class binary_item:
 
             if not args_closed:
                 raise ValueError("Unmatched parentheses in function arguments")
-            
+
             while curr_idx < len(code) and code[curr_idx].isspace():
                 curr_idx += 1
 
             if curr_idx < len(code) and code[curr_idx] == '{':
                 brace_idx = curr_idx
-                
+
                 def_start = start_idx
                 while def_start > 0:
                     prev_char = code[def_start - 1]
                     if prev_char in {';', '}', '{'}:
                         break
                     def_start -= 1
-                    
+
                 break
             else:
                 search_pos = curr_idx
@@ -93,6 +94,9 @@ class binary_item:
         if brace_count != 0:
             raise ValueError("Unmatched braces in function code")
 
+        # print(
+        #     f"Extracted function '{self.name}' for decompiler '{decompiler_name}' from binary '{self.binary_name}'")
+        # print(f"Function code snippet: {code[def_start:end_idx].strip()}")
         self.funcs[decompiler_name] = code[def_start:end_idx].strip()
 
     def get_ast(self, decompiler_name):
@@ -276,6 +280,11 @@ def main():
                 try:
                     ast_1 = item.get_ast(d1)
                     ast_2 = item.get_ast(d2)
+
+                    # print(
+                    #     f"Extracted ASTs for {item.get_func_name()} - {d1} and {d2}")
+                    # print(f"AST {d1} snippet: {ast_1}")
+                    # print(f"AST {d2} snippet: {ast_2}")
 
                     if not ast_1 or not ast_2:
                         raise ValueError("One of the ASTs is empty")

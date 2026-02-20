@@ -25,6 +25,7 @@ services:
             - "8900:8900"
         environment:
             - HF_TOKEN=${TOKEN_HUGGINFACE_READ}
+            - GEMINI_KEY=${GEMINI_KEY}
         volumes:
             # Map HuggingFace cache
             - ~/.cache/huggingface:/root/.cache/huggingface

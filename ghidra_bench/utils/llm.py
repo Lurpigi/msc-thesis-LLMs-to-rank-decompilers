@@ -37,20 +37,32 @@ def get_loss_tokens(code_snippet, model_id):
 
 
 def get_diff_text(text_a, text_b):
-
     a_lines = text_a.splitlines()
     b_lines = text_b.splitlines()
-
+    
     diff = difflib.unified_diff(
-        a_lines,
-        b_lines,
-        fromfile='Candidate A',
-        tofile='Candidate B',
+        a_lines, 
+        b_lines, 
         n=max(len(a_lines), len(b_lines)),
         lineterm=''
     )
+    
+    diff_lines = list(diff)
+    if not diff_lines:
+        return ""
 
-    return "\n".join(list(diff)[2:])
+    clean_diff = []
+    for line in diff_lines[2:]:
+        if line.startswith('@@'):
+            continue 
+        elif line.startswith('+'):
+            clean_diff.append("&" + line[1:])
+        elif line.startswith('-'):
+            clean_diff.append("%" + line[1:])
+        else:
+            clean_diff.append(line)
+            
+    return "\n".join(clean_diff)
 
 
 def get_llm_analysis(base_code, pr_code, model_id, source=None, is_ast=False):

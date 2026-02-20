@@ -2,416 +2,15 @@ import difflib
 import unittest
 import tree_sitter_c
 from tree_sitter import Language, Parser
+from ghidra_bench.utils.com import get_ast
 
-
-def get_abstract_pseudocode(code, indent_step=2):
-    C_LANGUAGE = Language(tree_sitter_c.language())
-    parser = Parser(C_LANGUAGE)
-
-    tree = parser.parse(code.encode('utf8'))
-    structure = []
-    depth = 0
-
-    def append_indent():
-        if indent_step > 0:
-            structure.append("\n" + " " * (depth * indent_step))
-        else:
-            structure.append(" ")
-
-    def clean_ast_output(ast_str):
-        lines = ast_str.splitlines()
-        
-        cleaned_lines = []
-        for line in lines:
-            stripped_right = line.rstrip()
-            if line.strip():
-                cleaned_lines.append(stripped_right)
-        return "\n".join(cleaned_lines)
-
-    def traverse(node):
-        nonlocal depth
-
-        if node is None:
-            return
-
-        if node.type == 'labeled_statement' and b'::' in node.text:
-            for child in node.children:
-                if child.type != ':':
-                    traverse(child)
-            return
-
-        if node.type == 'function_definition':
-            traverse(node.child_by_field_name('type'))
-            structure.append(" ")
-            traverse(node.child_by_field_name('declarator'))
-            traverse(node.child_by_field_name('body'))
-            return
-        
-        if node.type == 'function_declarator':
-            traverse(node.child_by_field_name('declarator'))
-            structure.append("(")
-            params = node.child_by_field_name('parameters')
-            if params:
-                first = True
-                for child in params.children:
-                    if child.type not in ['(', ')', ',']:
-                        if not first: structure.append(", ")
-                        traverse(child)
-                        first = False
-            structure.append(")")
-            return
-        
-        if node.type == 'compound_statement':
-            structure.append("{")
-            if indent_step > 0: depth += 1
-            
-            for child in node.children:
-                if child.type in ['{', '}']: continue
-                append_indent()
-                traverse(child)
-
-            if indent_step > 0: depth -= 1; append_indent()
-            else: structure.append(" ")
-            structure.append("}")
-            return
-
-        if node.type == 'expression_statement':
-            for child in node.children:
-                traverse(child)
-            structure.append(";") 
-            return
-
-        if node.type == 'return_statement':
-            structure.append("return")
-            has_value = False
-            for child in node.children:
-                if child.type != 'return' and child.type != ';':
-                    has_value = True
-                    break
-            
-            if has_value:
-                structure.append(" ")
-                for child in node.children:
-                    if child.type != 'return' and child.type != ';':
-                        traverse(child)
-            
-            structure.append(";")
-            return
-
-        if node.type == 'if_statement':
-            structure.append("if")
-            traverse(node.child_by_field_name('condition'))
-            #structure.append(")")
-            traverse(node.child_by_field_name('consequence'))
-            else_node = node.child_by_field_name('alternative')
-            if else_node:
-                if else_node.type == 'if_statement':
-                    structure.append("else ")
-                    traverse(else_node)
-                else:
-                    structure.append("else")
-                    traverse(else_node)
-            return
-        
-        #loops 
-
-        if node.type == 'while_statement':
-            structure.append("while")
-            traverse(node.child_by_field_name('condition'))
-            #structure.append(")")
-            traverse(node.child_by_field_name('body'))
-            return
-
-        if node.type == 'do_statement':
-            structure.append("do")
-            traverse(node.child_by_field_name('body'))
-            structure.append("while")
-            traverse(node.child_by_field_name('condition'))
-            structure.append(";")
-            return
-
-        if node.type == 'for_statement':
-            structure.append("for(")
-            init = node.child_by_field_name('initializer')
-            if init:
-                traverse(init) 
-                if init.type != 'declaration': 
-                    structure.append("; ")
-            else:
-                structure.append(";")
-            structure.append(" ")
-
-            cond = node.child_by_field_name('condition')
-            if cond:
-                traverse(cond)
-            structure.append("; ")
-            upd = node.child_by_field_name('update')
-            if upd:
-                traverse(upd)
-            
-            structure.append(")")
-            traverse(node.child_by_field_name('body'))
-            return
-
-        if node.type == 'switch_statement':
-            structure.append("switch")
-            traverse(node.child_by_field_name('condition'))
-            structure.append("{")
-            if indent_step > 0: depth += 1
-            
-            body = node.child_by_field_name('body')
-            if body:
-                for child in body.children:
-                    if child.type in ['{', '}']: continue
-                    append_indent()
-                    traverse(child)
-            
-            if indent_step > 0: depth -= 1; append_indent()
-            structure.append("}")
-            return
-
-        if node.type == 'case_statement':
-            structure.append("case ")
-            val = node.child_by_field_name('value')
-            if val: traverse(val)
-            else: structure.append("def")
-            structure.append(":")
-            if indent_step > 0: depth += 1
-            for child in node.children:
-                if child.type not in ['case', 'default', ':', 'number_literal'] and child != val:
-                    append_indent()
-                    traverse(child)
-            if indent_step > 0: depth -= 1
-            return
-
-        if node.type == 'break_statement':
-            structure.append("break;")
-            return
-            
-        if node.type == 'continue_statement':
-            structure.append("continue;")
-            return
-
-        if node.type == 'goto_statement':
-            structure.append("goto lbl;")
-            return
-            
-        if node.type == 'labeled_statement':
-            if b'::' in node.children[0].text:
-                 for child in node.children:
-                    if child.type != ':': traverse(child)
-                 return
-
-            structure.append("lbl:")
-            append_indent()
-            
-            label_node = node.children[0] 
-            
-            for child in node.children:
-                if child.id == label_node.id:
-                    continue
-                if child.type == ':':
-                    continue
-                
-                traverse(child)
-            return
-
-        if node.type == 'unary_expression' or node.type == 'pointer_expression':
-            if node.child_count > 0:
-                op_node = node.children[0]
-                op = op_node.text.decode('utf8')
-                if op in ['*', '&', '!', '-', '~']:
-                    structure.append(op)
-                else:
-                    structure.append("op")
-            traverse(node.child_by_field_name('argument'))
-            return
-
-        if node.type == 'pointer_declarator':
-            structure.append("*")
-            traverse(node.child_by_field_name('declarator'))
-            return
-            
-        if node.type == 'abstract_pointer_declarator':
-            structure.append("*")
-            for child in node.children:
-                if child.type != '*': traverse(child)
-            return
-        
-        if node.type == 'field_expression':
-            traverse(node.child_by_field_name('argument'))
-            operator = "."
-            for child in node.children:
-                if child.type == '->':
-                    operator = "->"
-                    break
-                elif child.type == '.':
-                    operator = "."
-                    break
-            
-            structure.append(operator)
-            traverse(node.child_by_field_name('field'))
-            return
-
-        # expressions
-
-        if node.type == 'binary_expression':
-            traverse(node.child_by_field_name('left'))
-            op = node.children[1].text.decode('utf8')
-            structure.append(f" {op} ")
-            traverse(node.child_by_field_name('right'))
-            return
-        
-        if node.type == 'update_expression':
-            # for child in node.children:
-            #     print(f"Update expression child: {child.type} - {child.text}")
-            op = node.children[0].type
-            #print(f"Update expression operator: {op}")
-            if op in ['++', '--']:
-                structure.append(node.children[0].text.decode('utf8'))
-                traverse(node.children[1])
-            else:
-                traverse(node.children[0])
-                structure.append(node.children[1].text.decode('utf8'))
-            return
-
-        if node.type == 'assignment_expression':
-            traverse(node.child_by_field_name('left'))
-            structure.append(" = ")
-            traverse(node.child_by_field_name('right'))
-            return
-
-        if node.type == 'cast_expression':
-            structure.append("(type)")
-            traverse(node.child_by_field_name('value'))
-            return
-
-        if node.type == 'call_expression':
-            structure.append("call(")
-            args = node.child_by_field_name('arguments')
-            if args:
-                first = True
-                for child in args.children:
-                    if child.type not in ['(', ')', ',']:
-                        if not first: structure.append(", ")
-                        traverse(child)
-                        first = False
-            structure.append(")")
-            return
-
-        if node.type == 'conditional_expression':
-            structure.append("(")
-            traverse(node.child_by_field_name('condition'))
-            structure.append(" ? ")
-            traverse(node.child_by_field_name('consequence'))
-            structure.append(" : ")
-            traverse(node.child_by_field_name('alternative'))
-            structure.append(")")
-            return
-
-        if node.type == 'parenthesized_expression':
-            structure.append("(")
-            for child in node.children:
-                 if child.type not in ['(', ')']: traverse(child)
-            structure.append(")")
-            return
-
-        if node.type == 'declaration':
-            structure.append("type ")
-            first = True
-            for child in node.children:
-                if child.type in [
-                    'primitive_type', 'type_identifier', 'struct_specifier', 
-                    'enum_specifier', 'union_specifier', 'storage_class_specifier', 
-                    'type_qualifier', 'sizeless_type', 'sized_type_specifier',
-                    'class_specifier', 'attribute_specifier', 'ms_declspec_modifier',
-                    ';', ','
-                ]: 
-                    continue
-                if not first: 
-                    structure.append(", ")
-                
-                traverse(child) 
-                first = False
-            
-            structure.append(";")
-            return
-        
-        if node.type == 'parameter_declaration':
-            traverse(node.child_by_field_name('type'))
-            
-            decl = node.child_by_field_name('declarator')
-            if decl:
-                structure.append(" ")
-                traverse(decl)
-            return
-
-        if node.type == 'init_declarator':
-             traverse(node.child_by_field_name('declarator'))
-             structure.append(" = ")
-             traverse(node.child_by_field_name('value'))
-             return
-        
-        if node.type == 'number_literal':
-            n = node.text.decode('utf8')
-            #print(f"Number literal: {n}")
-            structure.append(n)
-            return
-            
-        if node.type in ['string_literal', 'char_literal', 'concatenated_string']:
-            structure.append("str")
-            return
-            
-        if node.type in ['true', 'false', 'null']:
-            structure.append("bool" if node.type != 'null' else "null")
-            return
-            
-        if node.type in ['primitive_type', 'type_identifier']:
-            structure.append("type")
-            return
-        
-        if node.type == 'pointer_declarator':
-            structure.append("*")
-            traverse(node.child_by_field_name('declarator'))
-            return
-        
-        if node.type == 'subscript_expression':
-            traverse(node.child_by_field_name('argument'))
-            structure.append("[")
-            traverse(node.child_by_field_name('index'))
-            structure.append("]")
-            return
-        
-        if node.type == 'array_declarator':
-            traverse(node.child_by_field_name('declarator'))
-            structure.append("[")
-            size = node.child_by_field_name('size')
-            if size:
-                traverse(size)
-            structure.append("]")
-            return
-        
-        # Leaf nodes
-        if node.child_count == 0:
-            if node.type in ['identifier', 'field_identifier']:
-                structure.append("id")
-                return
-            if len(node.type) == 1 and node.type in ";,(){}[]":
-                 return 
-
-        for child in node.children:
-            traverse(child)
-
-    traverse(tree.root_node)
-    
-    return clean_ast_output("".join(structure))
 
 class TestGetAbstractPseudocode(unittest.TestCase):
 
     def test_empty_function(self):
         code = "void main() {}"
         expected = "type id(){\n}"
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_function_call(self):
         code = "void main() { foo(); }"
@@ -420,7 +19,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  call();\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_nested_calls(self):
         code = "void main() { foo(bar()); }"
@@ -430,7 +29,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  call(call());\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_if_statement(self):
         code = """
@@ -447,7 +46,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  }\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_if_else_statement(self):
         code = """
@@ -468,7 +67,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  }\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_if_no_braces(self):
         """Test if without braces (single statement)"""
@@ -478,7 +77,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  if(id)call();\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_loops(self):
         code = """
@@ -501,7 +100,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  }while(num);\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_switch_case(self):
         code = """
@@ -529,7 +128,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  }\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_goto_and_label(self):
         code = """
@@ -546,7 +145,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  return;\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_ternary_operator(self):
         code = "void t() { int a = x ? y : z; }"
@@ -555,7 +154,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  type id = (id ? id : id);\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
     def test_complex_nesting_and_pointers(self):
         code = """
@@ -589,7 +188,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "}"
         )
         
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
         
     def test_field_access_arrow(self):
         code = "void f() { x->y = 1; z.w = 2; }"
@@ -599,7 +198,7 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  id.id = num;\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
     
     def test_operators(self):
         code = "void op() { a = b + c; d = e && f; g = h == i; }"
@@ -610,23 +209,35 @@ class TestGetAbstractPseudocode(unittest.TestCase):
             "  id = id == id;\n"
             "}"
         )
-        self.assertEqual(get_abstract_pseudocode(code, indent_step=2), expected)
+        self.assertEqual(get_ast(code, indent_step=2), expected)
 
 def get_diff_text(text_a, text_b):
-
     a_lines = text_a.splitlines()
     b_lines = text_b.splitlines()
     
     diff = difflib.unified_diff(
         a_lines, 
         b_lines, 
-        fromfile='Candidate A', 
-        tofile='Candidate B', 
         n=max(len(a_lines), len(b_lines)),
         lineterm=''
     )
-        
-    return "\n".join(list(diff)[2:])
+    
+    diff_lines = list(diff)
+    if not diff_lines:
+        return ""
+
+    clean_diff = []
+    for line in diff_lines[2:]:
+        if line.startswith('@@'):
+            continue 
+        elif line.startswith('+'):
+            clean_diff.append("&" + line[1:])
+        elif line.startswith('-'):
+            clean_diff.append("%" + line[1:])
+        else:
+            clean_diff.append(line)
+            
+    return "\n".join(clean_diff)
 
 
 
@@ -650,9 +261,9 @@ if __name__ == '__main__':
         }
         h[0] = 42;
         end:    
-        char c = b[0];
+        char c = b[id];
         f->g(h[i]);
-        (*(int *)(p + 4)) = 5;
+        (*(int *)(p + -4)) = 5;
     }   
     """
 
@@ -685,5 +296,5 @@ if __name__ == '__main__':
     #     }
     # """
 
-    #print(get_abstract_pseudocode(code, indent_step=2)) #
-    print(get_diff_text(get_abstract_pseudocode(code, indent_step=2), get_abstract_pseudocode(code2, indent_step=2)))
+    print(get_ast(code, indent_step=2)) #
+    print(get_diff_text(get_ast(code, indent_step=2), get_ast(code2, indent_step=2)))

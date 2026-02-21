@@ -4,7 +4,68 @@
 
 \section{LLM performance}
 
-\dots
+An empirical evaluation of the \emph{qwen-3} and \emph{deepseek-r1} models was conducted across two distinct tasks: evaluating the ``Humanity'' of decompiled code via generation (\ac{LLM} Judge) and calculating code perplexity (Score). The performance was measured in terms of execution time and peak \ac{VRAM} usage.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/llm_time.png}
+    \caption{Execution time for each evaluated model.}\label{fig:llm_time}
+\end{figure}
+
+As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times between the two operations. The \texttt{score} operation is inherently fast, with both models completing most passes in under 50 seconds. However, the \texttt{generate} operation exhibits significantly higher and more erratic execution times, particularly for \emph{qwen-3}, which frequently exceeds 200 seconds and reaches up to nearly 400 seconds. 
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/llm_vram.png}
+    \caption{Peak VRAM for each evaluated model.}\label{fig:llm_vram}
+\end{figure}
+
+\Cref{fig:llm_vram} presents a counter-intuitive finding: calculating perplexity (\texttt{score}) requires a higher median and maximum Peak VRAM than generating text (\emph{generate}). While generation heavily utilizes the KV cache over time, perplexity calculations typically require processing the entire sequence in a single forward pass to compute logits, leading to massive activation memory spikes~\cite{atmer2025prefillvsdecodebottlenecks}.
+
+\subsection{Generation}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/llm_gen.png}
+    \caption{Generated tokens vs execution time and peak VRAM for each evaluated model.}\label{fig:llm_gen}
+\end{figure}
+
+A closer inspection of \Cref{fig:llm_gen} reveals the root cause of the discrepancy between the two models. The scatter plot for ``Generated Tokens vs Execution Time'' shows a near-perfect linear correlation, confirming that generation time is bottlenecked entirely by the length of the model's output rather than the input context. 
+Critically, \emph{qwen-3} routinely generates between 2,000 and 4,000+ tokens during the evaluation task and often reaches our limit of 4096 new tokens. 
+
+Given that the task is an \ac{LLM} Judge producing an evaluation of code ``humanity,'' a rationale exceeding 4,000 tokens is highly suspicious. This suggests that \emph{qwen-3} may be suffering from severe verbosity, repeating the input code, or failing to trigger stop tokens appropriately. 
+In contrast, \emph{deepseek-r1} is significantly more concise, rarely exceeding 2,500 tokens, which translates directly to more predictable and efficient execution times.
+
+\begin{wrapfigure}{r}{0.55\textwidth}
+    \centering
+    \includegraphics[width=0.45\textwidth]{img/qwen_stuck.png}
+    \caption{Example of repetitions in \emph{qwen-3} output}\label{fig:stuck}
+\end{wrapfigure}
+
+In \Cref{fig:stuck} we can see an example of the output of \emph{qwen-3} for a specific function, we can see that the model is repeating the same pattern of thoughts, which is a common symptom of verbosity and lack of proper stop token triggering. 
+This behavior not only leads to unnecessarily long outputs but also significantly increases execution time and VRAM usage, as the model continues to generate tokens without producing meaningful content.
+This verbosity issue is a critical flaw for the \ac{LLM} Judge task, as it undermines the model's ability to provide concise and relevant evaluations of code ``humanity,'' and it also creates significant computational inefficiencies that could be prohibitive in larger-scale evaluations or with longer input contexts, 
+maybe could be mitigated by implementing stricter stop conditions or by fine-tuning the model to better understand the task requirements and avoid unnecessary verbosity but it will need further investigation.
+
+\subsection{Score}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/llm_score.png}
+    \caption{Score vs execution time and peak VRAM for each evaluated model.}\label{fig:llm_score}
+\end{figure}
+
+The linear scaling of VRAM during the \emph{score} operation (\Cref{fig:llm_score}, right panel) is a major scalability risk. At roughly 3,800 input tokens, both models push past 12 GB of \ac{VRAM}. 
+If the dataset contains an enormous larger input (e.g., 8k to 32k tokens), the current perplexity scoring methodology will inevitably result in \ac{OOM} failures on standard consumer GPUs.
+
+Fortunately, the \emph{generate} operation does not exhibit this issue, as it processes tokens sequentially and can leverage the KV cache to manage memory more efficiently.
+
+The duration is mostly flat (near 0--10 seconds), but spikes occur at highly specific input token lengths for both models. This implies either batch-processing artifacts or that the evaluation dataset contains many decompiled functions of the exact same token length that trigger specific internal computational bottlenecks.
+A possible explanation is that runtime is influenced not only by input length, but also by the distribution of per-token loss values. This hypothesis requires additional targeted experiments, and further studies will be necessary to confirm it.
+
+
+While both models are capable of performing the required tasks, \emph{deepseek-r1} is objectively better suited for the \ac{LLM} Judge (\emph{generate}) role due to its restraint and conciseness, avoiding the computationally expensive verbosity traps that plague \emph{qwen-3}. 
+However, for the perplexity (\emph{score}) task, the architecture of the operation itself poses a severe hardware bottleneck that scales poorly with larger decompiler outputs.
 
 \section{Perplexity as a Metric for ``Humanness''}\label{sec:perplexityres}
 
@@ -18,6 +79,7 @@ In \Cref{fig:ppl_distribution} we can see the distribution of perplexity values 
 We can observe that the original source code has generally higher perplexity values compared to the decompiled versions,
 which is unexpected since the original source code should be more ``natural'' and predictable than the decompiled output.
 This suggests that the decompilation process may introduce certain patterns or structures that are more familiar to the language model, leading to lower perplexity scores, while the original source code may contain more variability and less predictable constructs that result in higher perplexity.
+We can observe that the perplexity distribution calculated with \emph{deepseek-r1} is generally higher than the one calculated with \emph{qwen-3}, this is consistent with the previous observation that \emph{qwen-3}.
 
 Another observation is that the abstracted representations of the code (right side of the figure) tend to have higher perplexity values compared to their original counterparts (left side of the figure).
 This is likely because the abstraction process removes specific identifiers and literals, which can make the code less predictable and more ``surprising'' to the language model, 
@@ -106,7 +168,55 @@ We can observe a clear trend across both models:
 This result reinforces our conclusion: in our case (Ghidra vs Source) Human-Likeness is not defined by raw predictability (where the machine wins), but by the \textbf{variance of unpredictability}. A ``natural'' code signature is one that surprises the model in inconsistent, context-dependent bursts, rather than being uniformly predictable.
 Meanwhile for the anonymized code, the gap in variance is smaller but it still exists, suggesting that even at the structural level, human code retains a degree of unpredictability that machine-generated code lacks.
 
-\dots
+\subsection{Other decompilers}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/ppl_distribution_dogbolt.png}
+    \caption{Perplexity values for the original source code and the decompiled versions from other decompilers.}\label{fig:ppl_distribution_dogbolt}
+\end{figure}
+
+The dogbolt analysis allows us to compare the perplexity values of the decompiled versions from other decompilers (Hex-Rays and Binary Ninja) with the original source code and the Ghidra decompilation, with a subset of the original database (we cannot compare in an absolute way the plot in \Cref{fig:ppl_distribution} with these but only the relative ordering of the distributions).
+We can see in \Cref{fig:ppl_distribution_dogbolt} that the perplexity values for the decompiled versions resulted by the dogbolt analysis, are generally in line with the Ghidra ones.
+we can see that the original source code still has higher perplexity values compared to the decompiled versions, and the abstracted representations of the code still tend to have higher perplexity values compared to their original counterparts.
+Another key observation is that the binary ninja has a perplexity distribution that is more similar to the original source code compared to the Ghidra decompilation, meanwhile Hex-Rays has a distribution in the middle between the other two decompilers, then we can observe that every distribution with \emph{deepseek-r1} has a higher mean perplexity than the same distribution with \emph{qwen-3} like we seen previously.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/dogbolt_loss.png}
+    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Code and Abstract}\label{fig:dogbolt_loss}
+\end{figure}
+
+The density plots in \Cref{fig:dogbolt_loss} confirm the phenomena observed in the previous sections across both LLM judges. Focusing on the raw \emph{Code Tokens} (top row), we can observe a distinct hierarchy in predictability:
+
+\begin{itemize}
+    \item \textbf{Ghidra} exhibits the sharpest peak near zero and the lowest mean loss ($\sim 1.09$ for DeepSeek-R1 and $\sim 0.90$ for Qwen-3). This reaffirms its tendency to generate highly rigid and predictable code.
+    \item \textbf{Hex-Rays} follows closely, showing a similar sharp peak but with a slightly higher mean loss and a much larger token count (over 7,000 tokens in this sample), in particular with the \emph{deepseek-r1} while with \emph{qwen-3} we can see that the mean is the same as Ghidra but with a density at peak higher than the others (as the Max loss is much higher than Ghidra). The massive token inflation in Hex-Rays suggests extremely verbose syntactic and lexical choices that artificially dilute the cross-entropy loss.
+    \item \textbf{Binary Ninja} stands out as the decompiler that most closely approximates the original source code. Its loss distribution is flatter, and its mean loss ($\sim 1.33$ for DeepSeek-R1) is significantly closer to the original source ($\sim 1.60$) than the other tools. It also exhibits less token inflation compared to Ghidra and Hex-Rays with a Max loss closer to the original source.
+\end{itemize}
+
+Meanwhile in the \emph{AST} plots, where identifiers and literals are abstracted, we observe the expected flattening of all distributions. By stripping away lexical entropy, the gap between human-written code and machine-generated code narrows. Notably, the massive token inflation seen in Hex-Rays raw code drops significantly during AST abstraction (from 7,034 down to 3,869 tokens), 
+indicating that a vast majority of its predictability stems from highly repetitive lexical tokens, types, and literal declarations rather than purely structural blocks. Even in the abstracted form, Binary Ninja maintains the distribution shape most similar to the original source code and with Hex-Rays having less tokens, the density at peak now is less than the Ghidra one for \emph{qwen-3}. 
+Finally, comparing the two models across all subplots, we note that while \emph{qwen-3} consistently produces lower absolute loss values (higher confidence/predictability) than \emph{deepseek-r1}, both models almost perfectly agree (except for the code tokens for \emph{qwen-3} where Hex-Rays have a higher peak density than Ghidra) on the relative ordering of the distributions. Original source code always retains the highest mean loss and widest variance, followed by Binary Ninja, Hex-Rays, and finally Ghidra. 
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/hex-ray_loss.png}
+        \caption{Heatmap of loss values for Hex-Rays decompilation with model \emph{qwen-3}}\label{fig:hex-ray_loss}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{img/hex-ray_loss2.png}
+        \caption{Heatmap of loss values for Hex-Rays decompilation with model \emph{deepseek-r1}}\label{fig:hex-ray_loss2}
+    \end{minipage}
+\end{figure}
+
+A token-level analysis of the Hex-Rays decompilation (e.g., \Cref{fig:hex-ray_loss}) for the model \emph{qwen-3}, reveals that Hex-Rays generates comments and other repetitive tokens that are highly predictable. The most predictable tokens are often those associated with those artefacts of the decompilation process. 
+These tokens create a dense cluster of low-loss values that significantly lower the overall perplexity score, despite the presence of more complex and less predictable tokens elsewhere in the code.
+
+When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{fig:hex-ray_loss2}), we can see that the loss values are generally higher, but the distribution of low-loss tokens is still present, confirming that the anonimization process is a key factor in the analysis of the perplexity, as it standardizes the code through the removal of personalized identifiers, making the predictability of the code more dependent on its structural patterns rather than on specific lexical choices.
 
 \section{LLM-as-a-Judge Evaluation}
 
@@ -132,7 +242,7 @@ Unfortunatly for highlight changes through versions and save on the context wind
 
 \subsection{PR \#8161}
 
-%\subsection{PR \#7253}
+\subsection{PR \#7253}
 
 \subsection{PR \#6722}
 

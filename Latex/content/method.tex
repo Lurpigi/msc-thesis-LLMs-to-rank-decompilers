@@ -344,7 +344,7 @@ By analyzing the correlation between these two scores, we can gain insights into
 As shown in~\Cref{fig:ast_ppl_vs}, we observed a positive correlation (Pearson's $r > 0.7$, $p < 0.001$) between the perplexity of the fully abstracted \ac{AST} and that of the original source code across all evaluated models.
 In other words, samples that were rated as more ``surprising'' or ``incoherent'' in their original form also tended to have higher perplexity in their abstracted \ac{AST} representation, and vice versa. 
 
-\subsection{Prompting}
+\subsection{Prompting}\label{sec:prompts}
 
 One key element of our evaluation framework is the design of the prompts used to query the \ac{LLM} for scoring the decompilation outputs.
 We divide our analisys in two main types of prompts:
@@ -362,7 +362,94 @@ For avoid ``update version'' bias, we used a template that does not explicitly m
 To help the model from possible hallucinations it is important to make it generate the motivation for the choice \emph{before} revealing the correct answer, so we ask the model to first provide an explanation of which version it thinks is better and why, since it will use the token generated to fill his context window.
 
 For avoid ``position bias'' we perform a consistency check by swapping the inputs (the one referred to as Version A and the one as Version B) and re-querying the model to see if it still prefers the same version, which can help us to identify and mitigate cases where the model's preference is influenced by the position of the input rather than its content. If the model's choice changes after swapping, it suggests that the original preference may have been due to position bias rather than a genuine assessment of the decompilation quality, so is flagged as \emph{TIE}.
-To optimize the context window for the input, we designed the prompt to put version A and version B in a Diff format, where we include all the code of the first version but only the lines that differ in the second version (in the same position using the diff standard with ++ and --), this way we can reduce the amount of tokens in the input and make it easier for the model to focus on the relevant differences between the two versions.
+To optimize the context window for the input, we designed the prompt to put version A and version B in a Diff format, where we include all the code of the first version but only the lines that differ in the second version, this way we can reduce the amount of tokens in the input and make it easier for the model to focus on the relevant differences between the two versions.
+
+For avoiding the bias of the model where it always selects the version with \texttt{++} since it is a common pattern where the \ac{PR} version or the "update"" version is better than the one with \texttt{--},
+we decided to use different symbols for the versions, instead of using \texttt{++} and \texttt{--} we used \texttt{\%} and \texttt{\&}, this way we can avoid the bias of the model and make it focus on the content of the decompilation rather than being influenced by the symbols used to represent the versions (obviusly telling the legend for the new symbols inside the prompt).
+
+Here we can see an example of the Diff design for the prompt, where version A and version B are represented with \texttt{\%} and \texttt{\&} respectively, and the prompt includes only the lines that differ between the two versions, while the rest of the code is included in full for both versions (The function does random stuff dont try to understand it):
+
+\begin{longtable}{|p{0.33\linewidth}|p{0.33\linewidth}|p{0.33\linewidth}|}
+    \hline
+    \textbf{ver. A} & \textbf{ver. B} & \textbf{ver. prompt}\\ 
+    \hline
+    \endhead
+    \begin{minipage}[t]{\linewidth}
+       
+        \begin{lstlisting}[style=CStyle]
+void complex(int a, char *b) {
+  long *f;
+  int h[10];
+  if (a > 0) {
+    while (a < 10) {
+      printf("Value: %d\n", a);
+      a++;
+    }  
+  } else {
+    goto end;
+  }
+    h[0] = 42;
+    end:    
+    char c = b[id];
+    f->g(h[i]);
+    (*(int *)(p + -4)) = 5;
+}   
+    \end{lstlisting}
+        
+    \end{minipage} 
+    & 
+    \begin{minipage}[t]{\linewidth}
+
+        \begin{lstlisting}[style=CStyle]
+void complex(int a, char *b) {
+  long *f;
+  int h[10];
+  if (a > 0) {
+    while (a < 10) {
+      printf("Value: %d\n", a);
+      a++;
+    }  
+  } else {
+    goto end;
+  }
+  h[0] = "*";
+  end:    
+  char c = b->id;
+  f->g(h[i]);
+  (*(int *)(p - 4)) = 5;
+}  
+        \end{lstlisting}
+    \end{minipage} 
+    & 
+    \begin{minipage}[t]{\linewidth}
+
+        \begin{lstlisting}[style=CStyle]
+void complex(int a, char *b) {
+  long *f;
+  int h[10];
+  if (a > 0) {
+    while (a < 10) {
+      printf("Value: %d\n", a);
+      a++;
+    }  
+  } else {
+    goto end;
+  }
+% h[0] = 42;
+& h[0] = "*";
+  end:    
+% char c = b[id];
+& char c = b->id;
+  f->g(h[i]);
+% (*(int *)(p + -4)) = 5;
+& (*(int *)(p - 4)) = 5;
+}
+        \end{lstlisting}
+    \end{minipage} 
+
+    \\ \hline
+\end{longtable}
+
 
 \section{Pull requests}
 
@@ -403,5 +490,5 @@ Dogbolt is community-maintained and open source but intentionally does not provi
 \end{figure}
 
 Other differences with our main evaluation framework are the fact that the outputs of decompilers are not directly comparable using Diff since they generate different code, names, and formatting, so we rely, in this case, on giving all the code to the \ac{LLM}.
-For the evaluation we use the same prompting strategy described in~\Cref{sec:configLLM}, but we used a pipeline when for every function we create three different prompts, one for each pair of decompilers (Binary Ninja vs Ghidra, Ghidra vs Hex-Rays, Binary Ninja vs Hex-Rays), and then we aggregate the results to have a more general overview of the trends and patterns in the decompilation output across different decompilers.
-We also had to parse the results for extracting the functions from the dogbolt results since this is external to the Dataset maker framework in \Cref{sec:datmak}
+For the evaluation we use the same prompting strategy described in~\Cref{sec:prompts}, but we used a pipeline when for every function we create three different prompts, one for each pair of decompilers (Binary Ninja vs Ghidra, Ghidra vs Hex-Rays, Binary Ninja vs Hex-Rays), and then we aggregate the results to have a more general overview of the trends and patterns in the decompilation output across different decompilers.
+We also had to parse the results for extracting the functions from the dogbolt results since this is external to the Dataset maker framework in \Cref{sec:datmak}.

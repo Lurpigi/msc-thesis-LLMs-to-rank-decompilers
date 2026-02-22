@@ -557,7 +557,7 @@ def fetch_decompiler_prs():
             pr_numbers = [str(item['number']) for item in items]
             print(f"[GITHUB] Found {len(pr_numbers)} PRs: {pr_numbers}")
             # pr_numbers  # 5554, '8834']  # pr_numbers
-            return ['8628', '8587', '8161', '6722']#,'7253']
+            return ['8628', '8587', '8161', '6722', '7253']
             # return ['3299', '8597']
         elif response.status_code == 403:
             print("[WARN] GitHub API rate limit exceeded or access denied.")

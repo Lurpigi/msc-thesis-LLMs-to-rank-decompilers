@@ -2,6 +2,7 @@ scripts/__pycache__/
 utils/__pycache__/
 outputs/decomp/*
 outputs/cache/*
+outputs/cache_old/*
 old_res/
 old_bin/
 Dataset/

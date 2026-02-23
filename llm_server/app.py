@@ -1,3 +1,4 @@
+from google import genai
 import logging
 import time
 from flask import Flask, request, jsonify
@@ -15,7 +16,6 @@ from transformers import logging as transformers_logging
 transformers_logging.set_verbosity_error()
 transformers_logging.disable_progress_bar()
 
-import google.generativeai as genai
 
 # File logging
 metrics_logger = logging.getLogger('metrics')
@@ -51,8 +51,9 @@ app = Flask(__name__)
 MODELS_CONFIG = {
     "qwen-3": "Qwen/Qwen3-14B",
     "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-    #"gemini-2.5-pro": "gemini-2.5-pro",
-    #"gemini-3-flash": "gemini-3-flash-preview"
+    "phi4": "microsoft/phi-4"
+    # "gemini-2.5-pro": "gemini-2.5-pro",
+    # "gemini-3-flash": "gemini-3-flash-preview"
     # "qwen-2.5": "Qwen/Qwen2.5-Coder-14B-Instruct",
     # "deepseek-lite": "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
     # "starcoder2": "bigcode/starcoder2-15b-instruct-v0.1"
@@ -113,9 +114,7 @@ class ModelEngine:
 
         # RAM Cache: stores {model_id: {'model': obj, 'tokenizer': obj}}
         self.ram_cache = {}
-
-        self.gemini_api_key = os.getenv("GEMINI_API_KEY", "")
-        genai.configure(api_key=self.gemini_api_key)
+        self.gemini_client = genai.Client()
 
     def _clean_gpu_memory(self):
         """Helper to force VRAM cleanup"""
@@ -195,7 +194,7 @@ class ModelEngine:
 
         if "gemini" in model_key:
             return
-        
+
         if self.current_model_id == model_key:
             return
 
@@ -258,17 +257,17 @@ class ModelEngine:
             "do_sample": True,
             "temperature": 0.4,
             "top_p": 0.9,
-            #"repetition_penalty": 1.01,
+            # "repetition_penalty": 1.01,
             "pad_token_id": self.tokenizer.eos_token_id
         }
         return config
 
     def compute_perplexity(self, text, model_id):
         if "gemini" in model_id:
-                return {
-                    "perplexity": float('nan'),
-                    "mean_logbits": float('nan')
-                }
+            return {
+                "perplexity": float('nan'),
+                "mean_logbits": float('nan')
+            }
         with self.lock:
             self.load_model(model_id)
             with monitor_execution(model_id, "score") as metrics:
@@ -309,10 +308,10 @@ class ModelEngine:
 
     def analyze_token_loss(self, text, model_id):
         if "gemini" in model_id:
-                return {
-                    "tokens": [],
-                    "losses": []
-                }
+            return {
+                "tokens": [],
+                "losses": []
+            }
         with self.lock:
             self.load_model(model_id)
             with monitor_execution(model_id, "analyze_token_loss") as metrics:
@@ -339,13 +338,14 @@ class ModelEngine:
                     shift_logits, dim=-1)
                 target_log_probs = log_probs.gather(
                     dim=-1, index=shift_labels.unsqueeze(-1)).squeeze(-1)
-        
+
                 nll_per_token = -target_log_probs
-                
+
                 tokens = self.tokenizer.convert_ids_to_tokens(input_ids[0])
-                
+
                 return {
-                    "tokens": tokens[1:],  # Skip the first token which has no loss
+                    # Skip the first token which has no loss
+                    "tokens": tokens[1:],
                     "losses": nll_per_token[0].tolist()
                 }
 
@@ -354,17 +354,20 @@ class ModelEngine:
             if "gemini" in model_key:
                 print(f"[CLOUD] Calling {model_key}...")
                 try:
-                    time.sleep(10) # limits for free tier
+                    time.sleep(10)  # limits for free tier
                     with monitor_execution(model_key, "generate_cloud") as metrics:
-                        model_name = MODELS_CONFIG.get(model_key, "gemini-2.5-flash")
-                        
-                        model = genai.GenerativeModel(model_name)
-                        response = model.generate_content(prompt)
+                        model_name = MODELS_CONFIG.get(
+                            model_key, "gemini-2.5-flash")
+
+                        response = self.gemini_client.models.generate_content(
+                            model=model_name,
+                            contents=prompt
+                        )
                         return response.text
-                
+
                 except Exception as e:
                     return f"Errore Gemini: {str(e)}"
-                
+
             self.load_model(model_key)
             with monitor_execution(model_key, "generate") as metrics:
                 messages = [{"role": "user", "content": prompt}]
@@ -421,6 +424,9 @@ def download_and_preload_all_models():
 
     for name, repo_id in MODELS_CONFIG.items():
         print(f"[DOWNLOAD] Verifying files for {name} ({repo_id})...")
+        if "gemini" in name:
+            print(f"[SKIP] {name} is a cloud model. Skipping download.")
+            continue
         snapshot_download(repo_id)
 
     print("\n" + "-"*60)
@@ -493,7 +499,8 @@ def generate():
     except Exception as e:
         print(f"Error processing request: {e}")
         return jsonify({"error": str(e)}), 500
-    
+
+
 @app.route('/loss', methods=['POST'])
 def analyze_token_loss():
     data = request.json

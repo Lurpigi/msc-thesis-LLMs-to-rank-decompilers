@@ -39,14 +39,14 @@ def get_loss_tokens(code_snippet, model_id):
 def get_diff_text(text_a, text_b):
     a_lines = text_a.splitlines()
     b_lines = text_b.splitlines()
-    
+
     diff = difflib.unified_diff(
-        a_lines, 
-        b_lines, 
+        a_lines,
+        b_lines,
         n=max(len(a_lines), len(b_lines)),
         lineterm=''
     )
-    
+
     diff_lines = list(diff)
     if not diff_lines:
         return ""
@@ -54,14 +54,14 @@ def get_diff_text(text_a, text_b):
     clean_diff = []
     for line in diff_lines[2:]:
         if line.startswith('@@'):
-            continue 
+            continue
         elif line.startswith('+'):
             clean_diff.append("&" + line[1:])
         elif line.startswith('-'):
             clean_diff.append("%" + line[1:])
         else:
             clean_diff.append(line)
-            
+
     return "\n".join(clean_diff)
 
 
@@ -88,22 +88,22 @@ def get_llm_analysis(base_code, pr_code, model_id, source=None, is_ast=False):
 
             generated_text = result.get("response", "")
 
-            match = re.search(
-                r'\{\s*"(?:winner|motivation)"\s*:.*\}', generated_text, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            else:
-                winner_match = re.search(
-                    r'"winner"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
-                motivation_match = re.search(
-                    r'"motivation"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
-                if winner_match and motivation_match:
-                    return {
-                        "winner": winner_match.group(1),
-                        "motivation": motivation_match.group(1),
-                        "raw_response": generated_text
-                    }
-                return {"winner": "Error", "motivation": generated_text, "raw_response": generated_text}
+            # match = re.search(
+            #     r'\{\s*"(?:winner|motivation)"\s*:.*\}', generated_text, re.DOTALL)
+            # if match:
+            #     return json.loads(match.group(0))
+            # else:
+            winner_match = re.search(
+                r'"winner"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+            motivation_match = re.search(
+                r'"motivation"\s*:\s*"([^"]+)"', generated_text, re.IGNORECASE | re.DOTALL)
+            if winner_match and motivation_match:
+                return {
+                    "winner": winner_match.group(1),
+                    "motivation": motivation_match.group(1),
+                    "raw_response": generated_text
+                }
+            return {"winner": "Error", "motivation": generated_text, "raw_response": generated_text}
         else:
             return {"error": f"API Error: {resp.status_code}"}
     except Exception as e:

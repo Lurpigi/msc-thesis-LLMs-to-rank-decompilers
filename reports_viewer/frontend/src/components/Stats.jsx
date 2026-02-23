@@ -11,12 +11,13 @@ export default function Stats({ func, prData }) {
   // 2. Fix Model Iteration to find winners
   // prData.results = { "qwen-coder": [ {function: "name", ...}, ... ], "other-model": [...] }
   const functionName = func.function;
+  const binaryName = func.binary;
   const models = Object.keys(prData.results || {});
 
   const modelResults = models
     .map((modelKey) => {
       const funcs = prData.results[modelKey];
-      const f = funcs.find((item) => item.function === functionName);
+      const f = funcs.find((item) => item.function === functionName && item.binary === binaryName);
       return {
         model: modelKey,
         data: f,
@@ -35,7 +36,7 @@ export default function Stats({ func, prData }) {
       <div className="space-y-8">
         {models.map((modelKey) => {
           const f = prData.results[modelKey].find(
-            (item) => item.function === functionName,
+            (item) => item.function === functionName && item.binary === binaryName,
           );
           if (!f) return null;
           const m = f.metrics || {};
@@ -199,11 +200,11 @@ export default function Stats({ func, prData }) {
                         key: "llm_qualitative",
                         label: "Code: Humanity & Readability",
                       },
+                      { key: "llm_ast", label: "AST: Humanity & Readability" },
                       {
                         key: "llm_qualitative_source",
                         label: "Code: Fidelity & Cleanliness (GT)",
                       },
-                      { key: "llm_ast", label: "AST: Humanity & Readability" },
                       {
                         key: "llm_ast_source",
                         label: "AST: Fidelity & Cleanliness (GT)",
@@ -251,22 +252,37 @@ export default function Stats({ func, prData }) {
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 max-w-xl break-words whitespace-pre-wrap">
                               {res.data[analysis.key]?.motivation ||
-                                "No motivation provided.\n"}
-                              {"\n"}
-                              {res.data[analysis.key]?.raw_response
-                                ? "Response: " +
-                                  res.data[analysis.key]?.raw_response
-                                : ""}
-                              {res.data[analysis.key]?.raw_response1
-                                ? "Response 1: " +
-                                  res.data[analysis.key]?.raw_response1 +
-                                  "\n"
-                                : ""}
-                              {res.data[analysis.key]?.raw_response2
-                                ? "Response 2: " +
-                                  res.data[analysis.key]?.raw_response2 +
-                                  "\n"
-                                : ""}
+                                "No motivation provided."}
+                              {res.data[analysis.key]?.raw_response && (
+                                <details className="mt-2">
+                                  <summary className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 transition-colors select-none">
+                                    Raw Response
+                                  </summary>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                    {res.data[analysis.key]?.raw_response}
+                                  </div>
+                                </details>
+                              )}
+                              {res.data[analysis.key]?.raw_response1 && (
+                                <details className="mt-2">
+                                  <summary className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 transition-colors select-none">
+                                    Response 1
+                                  </summary>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                    {res.data[analysis.key]?.raw_response1}
+                                  </div>
+                                </details>
+                              )}
+                              {res.data[analysis.key]?.raw_response2 && (
+                                <details className="mt-2">
+                                  <summary className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 transition-colors select-none">
+                                    Response 2
+                                  </summary>
+                                  <div className="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                    {res.data[analysis.key]?.raw_response2}
+                                  </div>
+                                </details>
+                              )}
                             </td>
                           </tr>
                         ))}

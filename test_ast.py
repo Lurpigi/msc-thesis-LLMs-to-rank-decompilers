@@ -280,11 +280,11 @@ if __name__ == '__main__':
         } else {
             goto end;//random comment
         }
-        h[0] = 42;
+        h[0] = "*";
         end:    
         char c = b->id;
         f->g(h[i]);
-        (*(int *)(p + -4)) = 5;
+        (*(int *)(p - 4)) = 5;
     }   
     """
 
@@ -298,3 +298,4 @@ if __name__ == '__main__':
 
     print(get_ast(code, indent_step=2)) #
     print(get_diff_text(get_ast(code, indent_step=2), get_ast(code2, indent_step=2)))
+    print(get_diff_text(code, code2))

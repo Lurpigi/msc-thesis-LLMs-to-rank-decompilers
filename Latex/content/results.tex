@@ -230,16 +230,13 @@ When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{
     \caption{Distribution of winners across all evaluated models.}\label{fig:winner_distribution}
 \end{figure}
 
-\md{Aggiornare valori}
-
 In \Cref{fig:winner_distribution} we can see the distribution of winners across all evaluated models, based on the qualitative judgments of the \ac{LLM} as a judge.
 The two models, Qwen3 and DeepSeek, have a significant number of Ties, but they also show a balanced distribution of wins between the base code and the pr code.
-We can see a bin for ``Error'' winners as well, this happens primarly when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generate tokens inside $</think>$ tags) sometimes the context becomes too large (often because they start to repeating thoughts) and they finish the limit without giving inside the response a clear winner (e.g., ``Winner'':``X'').
+We can see a bin for ``Error'' winners as well, this happens primarly when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generate tokens inside $<think>$ tags) sometimes the context becomes too large (often because they repeat thoughts entering in a loop) and they finish the limit without giving inside the response a clear winner (e.g., ``Winner'':``X'').
 
 We previously said that a ``Tie'' is when the model judges always the same result regardless the switch of the base and pr code.
-We have a significant number of Ties for all models, watching the result we can observe a ratio of $8.7$ ($618/71$) beetween the number of times that the \ac{LLM} prefers the \ac{PR} version regardless the content.
-This suggests a strong bias towards the ``newer'' code, even without telling in the prompt that the Diff code is the newer one, this bias could be due to the fact that Diff code is often more recent and may contain improvements or bug fixes that make it more appealing to the model, or it could be a bias in the model itself towards preferring changes.
-Unfortunatly for highlight changes through versions and save on the context window the Diff method is the most convenient, forcing us to Do not count tie-break results in our analysis, giving up almost half of the results.
+We have a significant number of Ties for all models, watching the result we can observe a ratio of $\sim 2$ ($\frac{204}{104}$) beetween the number of times that the \ac{LLM} prefers the \ac{PR} version over BASE regardless the content.
+This suggests a position bias, even using our Diff format explained in \Cref{sec:prompts}, this bias could be caused by the model's tendency to favor the second option presented in a comparison, or it could be due to some subtle cues in the prompt formatting that inadvertently signal a preference for the \ac{PR} version. 
 
 
 \subsection{PR \#8628}
@@ -336,8 +333,13 @@ In this case the model's judgment hallucinates, since the \ac{PR} version is obj
     \caption{Example of consistency in evaluation by deepseek-r1}\label{fig:8587_ex2}
 \end{figure}
 
-Conversely, \Cref{fig:8587_ex2} shows that the majority of cases correctly identify the modifications of the \ac{PR}. \emph{Deepseek-r1} correctly rewards the \ac{PR} in both contexts. It identifies that the \ac{PR}'s output avoids raw pointer arithmetic in the raw code, and when evaluating the \ac{AST}, it continues to recognize the underlying structural pattern of ``direct array access'' as the superior, more human-like engineering choice, regardless of whether the specific variable names are visible or not.
+Conversely, \Cref{fig:8587_ex2} shows that the majority of cases correctly identify the modifications of the \ac{PR}. In this case \emph{Deepseek-r1} identifies that the \ac{PR}'s output avoids raw pointer arithmetic in the raw code, and when evaluating the \ac{AST}, it continues to recognize the underlying structural pattern of ``direct array access'' as the superior, more human-like engineering choice, regardless of whether the specific variable names are visible or not.
 \subsection{PR \#8161}
+
+This \ac{PR} addresses a possible issue with the handling of the \texttt{final\_transform} method of the \texttt{while} BasicBlocks, which could lead to not recover a \texttt{for} loop where it could be possible instead.
+
+Unfortunately, the difference between the BASE and \ac{PR} versions in our dataset is not inherent to the \ac{PR} itself, but rather a consequence of the fact that the BASE branch was generated with an newer version of Ghidra (post-PR) while the \ac{PR} branch was generated with a older version of Ghidra.
+We can see that in the fork repo of the \ac{PR} branch, where it contains the message ``This branch is 2 commits ahead of and 1948 commits behind NationalSecurityAgency:master'', and consequently the evaluation is not really about the \ac{PR} but about the differences between two versions of Ghidra, which makes it difficult to draw conclusions about the specific impact of the \ac{PR}'s changes.
 
 \begin{figure}[H]
     \centering
@@ -345,16 +347,96 @@ Conversely, \Cref{fig:8587_ex2} shows that the majority of cases correctly ident
     \caption{Distribution of winners across the four prompts for PR \#8161}\label{fig:8161_winner_distribution}
 \end{figure}
 
+Looking at the aggregate data in \Cref{fig:8161_winner_distribution}, the impact of the \ac{AST} abstraction on this specific dataset is profound. In the ``Code Blind'' evaluation, the models are largely undecided (high ``TIE'' rate) or slightly favor the older \ac{PR} branch due to localized quirks like the one seen in \Cref{fig:8161_ex3}. However, in the anonimized evaluation, there is a massive shift in preference toward the BASE branch. This suggests that the structural improvements accumulated in the 1948 commits of the BASE branch become much more apparent to the models once distracting lexical artifacts are removed.
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/8161/consistency.png}
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8161}\label{fig:8161_consistency}
 \end{figure}
 
+Consequently, as shown in \Cref{fig:8161_consistency}, the inconsistency rate for this dataset is notable with more than 25\% for \emph{deepseek-r1} and over 30\% for \emph{qwen-3}. 
+
+Nevertheless, we can still observe a few interesting examples:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8161/ex1.png}
+    \caption{The BASE version is better at for loop recovery}\label{fig:8161_ex1}
+\end{figure}
+
+In \Cref{fig:8161_ex1}, we can clearly see a paradox: although this \ac{PR} was explicitly designed to improve \texttt{for}-loop recovery, the evaluated BASE output still appears more idiomatic. In our dataset, this is explained by the branch mismatch discussed above: the \texttt{BASE} branch was generated from a much newer Ghidra state, while the \ac{PR} branch is based on an older snapshot. 
+As a result, the older \ac{PR} output falls back to a more convoluted \texttt{do-while} structure with manual counter management. Encouragingly, \emph{deepseek-r1} consistently identifies the \texttt{BASE} version as more human-readable in both raw-code and \ac{AST} evaluations, explicitly favoring the recovered \texttt{for} loop as the more natural control-flow pattern.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8161/ex2.png}
+    \caption{Inconsistency in file task-libxls\_xls\_parseWorkBook-O3}\label{fig:8161_ex2}
+\end{figure}
+
+
+However, the differences in Ghidra versions across thousands of commits introduce other artifacts that cause evaluation inconsistencies. In \Cref{fig:8161_ex2}, we observe an inconsistency from \emph{deepseek-r1} regarding explicit type casting. When evaluating the raw code, the model praises the \ac{PR} branch for including an explicit cast, interpreting it as a ``human-like trait, showing attention to detail.'' Yet, when the lexical details are abstracted away in the \ac{AST} evaluation, the model's judgment flips completely. 
+It penalizes the exact same cast, now viewing it as ``redundancy'' that makes the code appear ``more like a machine translation''.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8161/ex3.png}
+    \caption{Older is better in file task-file\_file\_zmagic-O3}\label{fig:8161_ex3}
+\end{figure}
+
+Interestingly, despite the BASE branch generally representing a much newer and more capable decompiler state, there are isolated instances where the older \ac{PR} branch generated cleaner localized logic. 
+\Cref{fig:8161_ex3} illustrates a scenario where both models \emph{consistently} prefer the \ac{PR} branch across both raw code and \ac{AST} evaluations. 
 
 \subsection{PR \#7253}
 
+This \ac{PR} sorts \texttt{switch} case entries by their target address
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/7253/preference.png}
+    \caption{Distribution of winners across the four prompts for PR \#7253}\label{fig:7253_winner_distribution}
+\end{figure}
+
+As shown in \Cref{fig:7253_winner_distribution}, we can observe that in the ``AST Blind'' evaluation, the BASE branch is heavily preferred, with \emph{deepseek-r1} strongly favoring the BASE version (nearly 70\% win rate) and \emph{qwen-3} predominantly defaulting to TIE or BASE., while we can see in the other plots a prominent indecision with a lot of TIEs and a slight preference for the BASE branch.
+This behavior can be explained by two main factors: 
+\begin{inparaenum}[\it (i)]
+    \item As the \ac{PR} \#8161 was generated with an older version of Ghidra, the BASE branch already contains improvements
+    \item We will see that in this case of reordering switch cases, the models struggle to recognize the transformation as an improvement, and they may even hallucinate reasons to justify their bias
+\end{inparaenum}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/7253/consistency.png}
+    \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#7253}\label{fig:7253_consistency}
+\end{figure}
+
+This is clearly reflected in \Cref{fig:7253_consistency}, where \emph{deepseek-r1} exhibits a substantial inconsistency rate of roughly 35\%, and \emph{qwen-3} proves wildly unstable, disagreeing with its own raw-code evaluations in over 60\% of the cases when presented with the \ac{AST}.
+
+In the next two figures, the only modification is the order of the cases in the switch statement (No other changes are introduced).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/7253/ex1.png}
+    \caption{Not recognized the modification in task-file\_file\_signextend-O0}\label{fig:7253_ex1}
+\end{figure}
+
+In \Cref{fig:7253_ex1}, we observe a severe instance of model hallucination by \emph{qwen-3}. Unable to find a structural or logical improvement in the simple reordering, the model fabricates reasons to justify its preference for the \ac{PR}. 
+During the raw code evaluation, it falsely claims that the \ac{PR} ``introduces explicit 'break;' statements'' to prevent fall-through. During the \ac{AST} evaluation, it similarly hallucinates that the \ac{PR} ``reduces redundant case entries''. 
+This exposes a significant blind spot in using \ac{LLM}s as judges: when forced to compare logically identical blocks that differ only in arrangement, the model may invent non-existent structural diffs rather than correctly identifying the transformation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/7253/ex2.png}
+    \caption{Inconsistency in evaluation in task-file\_file\_signextend-O2}\label{fig:7253_ex2}
+\end{figure}
+
+\Cref{fig:7253_ex2} demonstrates a different vulnerability: contradictory reasoning driven by lexical abstraction. In this instance, \emph{deepseek-r1} evaluates the raw code and selects the BASE version, arguing that it ``groups similar cases together'', avoiding machine-like redundancy. 
+However, when the specific \texttt{case} values and internal variables are abstracted into an \ac{AST}, the model flips its decision to the \ac{PR} version, ironically using the exact same claiming. 
+
 \subsection{PR \#6722}
+
+This \ac{PR} focuses on improving pointer-expression recovery, allowing clean output such as \texttt{PTR 0041a1b8->ar[local\_18]} instead of raw pointer casts and offset arithmetic.
 
 \begin{figure}[H]
     \centering
@@ -362,11 +444,51 @@ Conversely, \Cref{fig:8587_ex2} shows that the majority of cases correctly ident
     \caption{Distribution of winners across the four prompts for PR \#6722}\label{fig:6722_winner_distribution}
 \end{figure}
 
+This \ac{PR} suffers from the same branch mismatch issue as \ac{PR} \#8161, where the BASE branch is generated with a much newer Ghidra version than the \ac{PR} branch.
+Because of this significant version mismatch, the overall results in \Cref{fig:6722_winner_distribution} are heavily skewed toward the \texttt{BASE} branch. While the \ac{PR} itself improves pointer-expression recovery, the thousands of newer commits in the \texttt{BASE} branch include numerous other control-flow and structural enhancements. Consequently, the \ac{LLM} judges, particularly in the ``AST Blind'' evaluation where structural integrity takes precedence over lexical details, strongly favor the \texttt{BASE} version. \emph{Deepseek-r1} chooses \texttt{BASE} in over 60\% of the AST cases, recognizing the overall maturity of the newer decompiler output over the isolated pointer fixes in the older \ac{PR} branch.
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/6722/consistency.png}
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#6722}\label{fig:6722_consistency}
 \end{figure}
+
+Despite this imbalance, the consistency rates for PR \#6722 (\Cref{fig:6722_consistency}) are relatively high compared to other PRs, with \emph{deepseek-r1} achieving over 85\% consistency and \emph{qwen-3} nearing 80\%. However, the inconsistencies that do occur highlight recurring vulnerabilities in the models' evaluation logic, particularly regarding type casting and complex control flow.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/6722/ex1.png}
+    \caption{Inconsistency in evaluation in sav\_parse\_long\_variable\_names\_record-O0}\label{fig:6722_ex1}
+\end{figure}
+
+\Cref{fig:6722_ex1} illustrates a classic contradiction in how \ac{LLM}s perceive type casting, mirroring issues seen in previous PRs. In the raw code evaluation, \emph{deepseek-r1} prefers the \ac{PR} branch, praising the explicit cast of the \texttt{bsearch} result to \texttt{(char *)} as a ``human-like trait'' that enhances clarity and maintainability. Yet, when evaluating the abstracted \ac{AST} where specific types are hidden, the model completely reverses its logic. It awards the win to the \texttt{BASE} branch, penalizing the explicit cast as an ``unnecessary'' and ``redundant'' feature, suddenly arguing that trusting implicit conversions is the true idiomatic human practice.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/6722/ex2.png}
+    \caption{Inconsistency in evaluation in task-xz\_lzma\_validate\_chain-O3}\label{fig:6722_ex2}
+\end{figure}
+
+More alarmingly, \Cref{fig:6722_ex2} exposes a severe case of double hallucination and confusion caused by the \ac{AST} abstraction process. In this complex function, both the \texttt{BASE} and \ac{PR} versions utilize \texttt{goto} statements to handle edge-case returns. 
+\begin{itemize}
+    \item During the raw code evaluation, \emph{qwen-3} favors the \ac{PR}, falsely claiming that it ``avoids using a \texttt{goto} statement'' to justify its preference for the \ac{PR}'s \texttt{do-while} loop structure. 
+    \item When presented with the \ac{AST}, the model flips its preference to \texttt{BASE} and hallucinates again, this time falsely claiming that \texttt{BASE} is the one that ``avoids complex nested conditions and goto statements.'' 
+\end{itemize}
+
+%Furthermore, in the \ac{AST} evaluation, \emph{qwen-3} explicitly penalizes the \ac{PR} branch for containing ``potential typos (e.g., `idid')''. This ``typo'' is not a decompiler error, but rather an artifact of our \ac{AST} anonymization process, where adjacent abstracted identifiers or specific token concatenations end up rendered as \texttt{idid}. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/6722/ex3.png}
+    \caption{Example of majority consistency in evaluation across models}\label{fig:6722_ex3}
+\end{figure}
+
+Despite the before mentioned edge cases and hallucinations, the vast majority of evaluations for this dataset follow a highly consistent path that strongly favors the \texttt{BASE} branch. \Cref{fig:6722_ex3} serves as the quintessential example of this dominant trend, perfectly illustrating why the newer Ghidra version consistently wins both the raw code and \ac{AST} evaluations.
+
+In this snippet, the older \ac{PR} version introduces a convoluted and non-idiomatic pattern for array access.
+Both \emph{deepseek-r1} and \emph{qwen-3} correctly and consistently penalize the \ac{PR} branch for this regression. During the raw code evaluation, they easily identify the \ac{PR}'s approach as verbose, mechanical, and overly complex. 
+
+Because the redundancy is purely structural and does not rely on specific variable names to appear unnatural, the models easily maintain their judgment without falling into the trap of lexical bias. This demonstrates that when a decompiler generates an objectively inferior syntactic construct, such as redundant address-taking or dereferencing operations, the \ac{LLM} judges can reliably and consistently detect the ``machine-like'' quality regardless of whether the code is raw or anonymized.
 
 \section{Dogbolt Evaluation}
 
@@ -428,9 +550,63 @@ When forced to prioritize fidelity, the models occasionally reward verbosity if 
 
 \subsection{Ghidra}
 
+To determine whether the quantitative predictability of the decompiled code (measured via Perplexity) aligns with the qualitative ``human-likeness'' evaluations provided by our LLM judges, we conducted a Point-Biserial correlation analysis. In this setup, the qualitative winner is treated as a binary variable (\texttt{PR} $= 1$, \texttt{BASE} $= 0$), and it is correlated against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{PR}} - \mathrm{PPL}_{\mathrm{BASE}}$). 
+
+Consequently, a \textit{negative} correlation coefficient ($r < 0$) would indicate the expected behavior: when the LLM judge prefers the \texttt{PR} branch (1), the $\Delta$ PPL is negative (meaning the \texttt{PR} code had a lower, ``better'' perplexity). 
+
+\begin{table}[H]
+\centering
+\caption{Point-Biserial Correlation between LLM Judge Preference and $\Delta$Perplexity}\label{tab:ppl_correlation}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Model} & \textbf{Code $r$} & \textbf{Code $p$-value} & \textbf{N} & \textbf{AST $r$} & \textbf{AST $p$-value} & \textbf{N} \\
+\midrule
+qwen-3 & -0.0833 & 0.5232 & 61 & -0.1825 & 0.1147 & 76 \\
+deepseek-r1 & -0.0625 & 0.5970 & 74 & -0.1329 & 0.2399 & 80 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Looking at the raw code correlations (\emph{Code $r$}) in \Cref{tab:ppl_correlation}, we observe values extremely close to zero for both models ($-0.0833$ and $-0.0625$). Furthermore, the associated $p$-values ($> 0.5$) clearly indicate that these results are not statistically significant. This demonstrates a complete lack of correlation between raw code perplexity and qualitative \ac{LLM} judgment. 
+
+This disconnect highlights a crucial insight: the features that make code ``predictable'' to an LLM's next-token-prediction engine (lower perplexity) are fundamentally different from the features that an LLM judge evaluates when prompted to look for ``human-like'' readability. As discussed in previous sections, a decompiler might generate highly repetitive, boilerplate-heavy code that drives perplexity down through token inflation, but an LLM judge will correctly penalize this exact same code for being verbose and mechanical.
+
+When evaluating the abstracted \ac{AST} representations (\emph{AST $r$}), the negative correlation slightly strengthens for both \emph{qwen-3} ($-0.1825$) and \emph{deepseek-r1} ($-0.1329$). Additionally, the sample size (N) increases.
+
+While the $p$-values ($0.1147$ and $0.2399$) still fall short of the standard $\alpha = 0.05$ threshold for statistical significance, the shift is notable. By removing the ``lexical noise'' and standardize the decompiler output artificially inflates or deflates perplexity, the structural predictability of the \ac{AST} aligns slightly better with the structural judgment of the \ac{LLM}. However, the correlation remains weak overall.
+
+Ultimately, this data confirms that \textbf{Perplexity is not a reliable proxy for human-likeness in decompiled code}. While perplexity effectively measures how well the code aligns with the statistical distribution of the model's training data, qualitative human-likeness is defined by higher-level engineering concepts, such as idiomatic control flow, logical grouping, and abstraction, which often introduce necessary structural ``surprises'' that inherently increase perplexity.
+
 \subsection{Dogbolt}
 
-\section{Vs Human Evaluation}
+We extended our correlation analysis to the Dogbolt dataset, where the \ac{LLM} judges compared outputs from different decompilers (e.g., Binary Ninja vs. Hex-Rays vs. Ghidra) in an A/B testing format. We binarized the qualitative winner (Candidate A $= 1$, Candidate B $= 0$) and correlated it against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{A}} - \mathrm{PPL}_{\mathrm{B}}$). 
 
-\section{Discussion}
+As established previously, if the LLM judge preferred the code that is ``most predictable'' to a language model, we would expect a \textit{negative} correlation (i.e., when A wins, A's perplexity is lower, making $\Delta$ PPL negative). 
+
+\begin{table}[H]
+\centering
+\caption{Point-Biserial Correlation between LLM Judge Preference and $\Delta$Perplexity}\label{tab:dogbolt_ppl_correlation}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Model} & \textbf{Code $r$} & \textbf{Code $p$-value} & \textbf{N} & \textbf{AST $r$} & \textbf{AST $p$-value} & \textbf{N} \\
+\midrule
+qwen-3 & 0.1953 & 0.2040 & 44 & 0.2292 & 0.1255 & 46 \\
+deepseek-r1 & 0.0352 & 0.8250 & 42 & 0.2283 & 0.1511 & 41 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The data in \Cref{tab:dogbolt_ppl_correlation} reveals a striking phenomenon: the correlation coefficients (\textbf{Code $r$}) are \textit{positive}. A positive $r$ value ($0.1953$ for \emph{qwen-3} and $0.0352$ for \emph{deepseek-r1}) dictates that when the \ac{LLM} judge selects a candidate as the ``human-like'' winner, that candidate actually tends to have a \textit{higher} perplexity score than the loser. 
+
+While the high $p$-values ($0.2040$ and $0.8250$) confirm that this is not a statistically significant linear rule, the inversion of the sign perfectly corroborates our findings in \Cref{sec:perplexityres}. Decompilers that score high in qualitative human-likeness (such as Binary Ninja) achieve this by utilizing diverse, domain-specific, and sometimes complex idioms that carry higher entropy. 
+Conversely, decompilers with artificially low perplexity (like Ghidra) are penalized by the judges for being overly verbose and machine-like. 
+
+When evaluating the \ac{AST} versions (AST $r$), the positive correlation strengthens noticeably to $\sim 0.229$ for both models, and the $p$-values improve ($0.1255$ and $0.1511$), though they still remain above the strict $0.05$ threshold for significance. 
+
+This parallel strengthening across both \emph{qwen-3} and \emph{deepseek-r1} indicates that the preference for ``higher perplexity'' structures is not merely a lexical artifact. Even when the code is anonymized, the \ac{LLM} judges prefer abstracted syntactic structures that contain more variance and unpredictability over the repetitive, low-loss boilerplate generated by the most predictable decompilers.
+
+The Dogbolt correlation data acts as a definitive counter-proof to the assumption that language models inherently prefer code that perfectly matches their own predictive distributions. In the context of reverse engineering and decompilation, code that is ``predictable'' (low perplexity) is often synonymous with code that is mechanically generated. Conversely, ``human-like'' code is characterized by a dynamic range of complexity and stylistic bursts, inherently driving perplexity up. 
+Therefore, perplexity should not be used as a standalone metric to measure the readability or human-likeness of a decompiler's output.
+
+\section{Judge vs Human Evaluation}
 

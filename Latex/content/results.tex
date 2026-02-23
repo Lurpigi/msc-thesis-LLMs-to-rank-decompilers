@@ -34,7 +34,8 @@ A closer inspection of \Cref{fig:llm_gen} reveals the root cause of the discrepa
 Critically, \emph{qwen-3} routinely generates between 2,000 and 4,000+ tokens during the evaluation task and often reaches our limit of 4096 new tokens. 
 
 Given that the task is an \ac{LLM} Judge producing an evaluation of code ``humanity,'' a rationale exceeding 4,000 tokens is highly suspicious. This suggests that \emph{qwen-3} may be suffering from severe verbosity, repeating the input code, or failing to trigger stop tokens appropriately. 
-In contrast, \emph{deepseek-r1} is significantly more concise, rarely exceeding 2,500 tokens, which translates directly to more predictable and efficient execution times.
+In contrast, \emph{deepseek-r1} is significantly more concise, rarely exceeding 2,500 tokens; it can still reach the 4096-token limit, but much less frequently, which translates directly to more predictable and efficient execution times.
+
 
 \begin{wrapfigure}{r}{0.55\textwidth}
     \centering
@@ -46,6 +47,9 @@ In \Cref{fig:stuck} we can see an example of the output of \emph{qwen-3} for a s
 This behavior not only leads to unnecessarily long outputs but also significantly increases execution time and VRAM usage, as the model continues to generate tokens without producing meaningful content.
 This verbosity issue is a critical flaw for the \ac{LLM} Judge task, as it undermines the model's ability to provide concise and relevant evaluations of code ``humanity,'' and it also creates significant computational inefficiencies that could be prohibitive in larger-scale evaluations or with longer input contexts, 
 maybe could be mitigated by implementing stricter stop conditions or by fine-tuning the model to better understand the task requirements and avoid unnecessary verbosity but it will need further investigation.
+
+Furthermore, analyzing the memory consumption in the bottom row of \Cref{fig:llm_gen} reveals a distinct behavior regarding how \ac{VRAM} scales during the generation process. 
+The ``Input Tokens vs Peak VRAM'' subplot demonstrates a strange phenomenon: Under 2500 tokens we can observe a cloud of data points but exceeding that number of token we observe an uninterrupted linear relationship, this line is also the minimum boundary of the data. In the line, \emph{deepseek-r1} exhibits a slightly higher memory scaling compared to \emph{qwen-3}, consuming marginally more \ac{VRAM} for the same input length. 
 
 \subsection{Score}
 
@@ -60,7 +64,7 @@ If the dataset contains an enormous larger input (e.g., 8k to 32k tokens), the c
 
 Fortunately, the \emph{generate} operation does not exhibit this issue, as it processes tokens sequentially and can leverage the KV cache to manage memory more efficiently.
 
-The duration is mostly flat (near 0--10 seconds), but spikes occur at highly specific input token lengths for both models. This implies either batch-processing artifacts or that the evaluation dataset contains many decompiled functions of the exact same token length that trigger specific internal computational bottlenecks.
+The duration is mostly flat (0--20 seconds), but spikes occurfor both models. This implies either batch-processing artifacts or that the evaluation dataset contains many decompiled functions of the exact same token length that trigger specific internal computational bottlenecks.
 A possible explanation is that runtime is influenced not only by input length, but also by the distribution of per-token loss values. This hypothesis requires additional targeted experiments, and further studies will be necessary to confirm it.
 
 
@@ -226,6 +230,8 @@ When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{
     \caption{Distribution of winners across all evaluated models.}\label{fig:winner_distribution}
 \end{figure}
 
+\md{Aggiornare valori}
+
 In \Cref{fig:winner_distribution} we can see the distribution of winners across all evaluated models, based on the qualitative judgments of the \ac{LLM} as a judge.
 The two models, Qwen3 and DeepSeek, have a significant number of Ties, but they also show a balanced distribution of wins between the base code and the pr code.
 We can see a bin for ``Error'' winners as well, this happens primarly when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generate tokens inside $</think>$ tags) sometimes the context becomes too large (often because they start to repeating thoughts) and they finish the limit without giving inside the response a clear winner (e.g., ``Winner'':``X'').
@@ -237,19 +243,194 @@ Unfortunatly for highlight changes through versions and save on the context wind
 
 
 \subsection{PR \#8628}
+This \ac{PR} improves handling of constant subtractions that are rewritten during decompilation as additions with negative immediates (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8628/preference.png}
+    \caption{Distribution of winners across the four prompts for PR \#8628}\label{fig:8628_winner_distribution}
+\end{figure}
+
+As shown in \Cref{fig:8628_winner_distribution}, the qualitative evaluation strongly favors the \ac{PR} branch. In the ``Code Blind (Human-Likeness)'' and ``AST Blind (Structural Humanity)'' assessments, the \ac{PR} version overwhelmingly wins against the \texttt{BASE} branch across both \emph{deepseek-r1} and \emph{qwen-3} models, often exceeding a 60\% win rate. This indicates that rewriting expressions to use explicit subtraction rather than adding a negative immediate is universally recognized by the models as a more natural, human-readable idiom.
+
+However, when evaluating fidelity to the original source code (``Code Fidelity'' and ``AST Fidelity''), the margin of victory for the \ac{PR} branch shrinks, and the number of ``TIE'' outcomes increases significantly. This suggests that while the \ac{PR}'s output is structurally cleaner, the original source code may contain diverse expressions that do not perfectly align with either the \texttt{BASE} or the \ac{PR} decompilation, causing the models to frequently declare a tie.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8628/consistency.png}
+    \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8628}\label{fig:8628_consistency}
+\end{figure}
+
+To further investigate the robustness of these judgments, we analyzed the consistency of the models' decisions between evaluating raw code and evaluating its abstracted \ac{AST} representation (\Cref{fig:8628_consistency}). \emph{Deepseek-r1} shows 100\% consistency, meaning it never changed its preference between the raw code and the \ac{AST}. In contrast, \emph{qwen-3} exhibits an inconsistency rate of approximately 14\% (two times).
+These two inconsistencies occur in the files \texttt{task-readstat\_sav\_parse\_date} and \texttt{task-readstat\_readstat\_parse\_por}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8628/ex1.png}
+    \caption{Inconsistency in file task-readstat\_sav\_parse\_date-O3}\label{fig:8628_ex1}
+\end{figure}
+
+In the first inconsistent case (\Cref{fig:8628_ex1}), the \emph{qwen-3} model shifts its preference based on the presence of parentheses. When evaluating the raw code, it praises the \ac{PR} for using parentheses to group arithmetic operations (``\texttt{((type)id * 2 - 2)}''), arguing it makes the intent clearer and aligns with human engineering practices, It does not talk about the sum of negative number but rely his judgment on parenthesis. However, when evaluating the \ac{AST}, the model flips its vote to the \texttt{BASE} version. It suddenly argues that the extra parentheses introduced in the \ac{PR} feel ``mechanically generated'' and that the \texttt{BASE} version is more idiomatic because it trusts operator precedence, againg ignoring the sum of negative number. 
+We can see that in this case, the model put in priority the parentheses over the sum of negative number. But the fact that the model is not consistent in its judgment when the parentheses are removed in the \ac{AST} evaluation, suggests that it may be overfitting to superficial cues rather than truly understanding the underlying code structure and semantics.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8628/ex2.png}
+    \caption{Inconsistency in file task-readstat\_readstat\_parse\_por-O0}\label{fig:8628_ex2}
+\end{figure}
+
+The second inconsistency (\Cref{fig:8628_ex2}) highlights a conflict regarding type casting and literal suffixes. In the raw code evaluation, \emph{qwen-3} prefers the \texttt{BASE} version because it uses a direct comparison with \texttt{-1}, calling the \ac{PR}'s use of an unsigned cast (\texttt{-1U}) an unnecessary complication that obscures intent. 
+Yet, when evaluating the \ac{AST}, the model flips to favor the \ac{PR}. In this abstracted view, it argues that the explicit unsigned suffix (\texttt{U}) improves clarity and correctness, avoiding signed/unsigned ambiguity. 
+This flip suggests that the model's judgment is heavily influenced by surface-level syntax rather than a deeper understanding of the code's semantics. The presence of the unsigned suffix in the \ac{PR} version may have triggered a bias in the model when evaluating the raw code, leading it to view the \texttt{BASE} version as more straightforward. However, when the syntax is abstracted away in the \ac{AST}, the model's preference shifts, indicating that it may be overfitting to specific tokens or patterns rather than consistently evaluating the underlying code quality and readability.
+
+Despite these edge cases of inconsistency, the models generally demonstrate a strong ability to recognize the \ac{PR}'s structural improvements regardless of the lexical context. \Cref{fig:8628_ex3} provides a clear example of this robust evaluation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8628/ex3.png}
+    \caption{Consistency in evaluating arithmetic expressions}\label{fig:8628_ex3}
+\end{figure}
+
+In this instance, \emph{qwen-3} correctly identifies the core structural improvement in both the raw code and the \ac{AST} representation. When evaluating the raw code, it notes that subtracting a positive integer (e.g., \texttt{iVar3 - 1}) is a standard decrement pattern and significantly more idiomatic than adding a negative value. When transitioning to the \ac{AST} evaluation, the model maintains this exact reasoning, explicitly favoring the abstracted \texttt{id - 1} over \texttt{id + -1}. 
+
+This demonstrates that when a structural transformation is sufficiently distinct and maps clearly to standard human programming conventions (like direct mathematical notation), the model's judgment remains stable. The removal of specific variable names and literal values during the \ac{AST} anonymization does not disrupt its ability to identify the more human-like syntactic pattern.
+
 
 \subsection{PR \#8587}
 
+This \ac{PR} focuses on automatically detecting and correcting one-based indexing patterns for spacebase constants (e.g., \texttt{*(undefined *)((long)i * 0x30 + 0xaddr + (long)j * 4)} $\rightarrow$ \texttt{globalArray[(long)i + -1].field[j]}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8587/preference.png}
+    \caption{Distribution of winners across the four prompts for PR \#8587}\label{fig:8587_winner_distribution}
+\end{figure}
+
+As seen in \Cref{fig:8587_winner_distribution}, the results for the raw code blind evaluation are exceptionally decisive: both \emph{deepseek-r1} and \emph{qwen-3} unanimously prefer the \ac{PR} output 100\% of the time. Transforming obscure, hardcoded pointer arithmetic into clean array indexing is universally recognized by the models as a massive improvement in human readability. 
+
+However, a notable shift occurs when examining the \ac{AST} Fidelity evaluations (bottom right). When forced to compare the abstracted code against the abstracted original source, the ``TIE'' outcome becomes the dominant result for both models. This suggests that while the \ac{PR} produces much cleaner C code, the original source code's structure might still differ slightly from Ghidra's output, or the abstraction process obscures the specific array-indexing improvements, leading the models to find both versions equally distant from the original blueprint.
+
+This \ac{PR} in particular only modifies 7 functions from the base branch.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8587/consistency.png}
+    \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8587}\label{fig:8587_consistency}
+\end{figure}
+
+Because of this small sample size, \Cref{fig:8587_consistency} shows binary extremes. \emph{Deepseek-r1} is 100\% consistent in its evaluations across the 7 functions. \emph{Qwen-3}, however, shows an inconsistency rate of roughly 25\% (one function).
+We encounter this inconsistency specifically in the \texttt{task-readstat\_sav\_parse\_date-O2} file.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8587/ex1.png}
+    \caption{Inconsistency in file task-readstat\_sav\_parse\_date-O2}\label{fig:8587_ex1}
+\end{figure}
+
+In \Cref{fig:8587_ex1}, we can observe exactly why \emph{qwen-3} changes its verdict. During the raw code evaluation, it correctly praises the \ac{PR} for using a direct array lookup rather than the \texttt{BASE} branch's obscure pointer arithmetic with a hardcoded address (\texttt{0x102311}). It notes that this leverages named data structures, which is highly idiomatic.
+However, when the code is stripped into an \ac{AST}, the array name is replaced by generic identifiers. In the anonimized version, \emph{qwen-3} suddenly perceives the \ac{PR}'s dynamic array indexing (e.g., \texttt{id + id + 1}) as ``unnecessary arithmetic complexity'' and reverts to favoring the \texttt{BASE} branch, arguing that a fixed offset (\texttt{0x102311 + id}) is simpler and more intentional. 
+In this case the model's judgment hallucinates, since the \ac{PR} version is objectively more human-like in its use of array indexing, and the \texttt{BASE} version's pointer arithmetic is more convoluted.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8587/ex2.png}
+    \caption{Example of consistency in evaluation by deepseek-r1}\label{fig:8587_ex2}
+\end{figure}
+
+Conversely, \Cref{fig:8587_ex2} shows that the majority of cases correctly identify the modifications of the \ac{PR}. \emph{Deepseek-r1} correctly rewards the \ac{PR} in both contexts. It identifies that the \ac{PR}'s output avoids raw pointer arithmetic in the raw code, and when evaluating the \ac{AST}, it continues to recognize the underlying structural pattern of ``direct array access'' as the superior, more human-like engineering choice, regardless of whether the specific variable names are visible or not.
 \subsection{PR \#8161}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8161/preference.png}
+    \caption{Distribution of winners across the four prompts for PR \#8161}\label{fig:8161_winner_distribution}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8161/consistency.png}
+    \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8161}\label{fig:8161_consistency}
+\end{figure}
+
 
 \subsection{PR \#7253}
 
 \subsection{PR \#6722}
 
-\section{Correlation Perplexity \& LLM}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/6722/preference.png}
+    \caption{Distribution of winners across the four prompts for PR \#6722}\label{fig:6722_winner_distribution}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/6722/consistency.png}
+    \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#6722}\label{fig:6722_consistency}
+\end{figure}
+
+\section{Dogbolt Evaluation}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{img/dogbolt_winners.png}
+    \caption{Distribution of winners across the four prompts for the dogbolt evaluation}\label{fig:dogbolt_winner_distribution}
+\end{figure}
+
+
+Based on the data presented in \Cref{fig:dogbolt_winner_distribution} and detailed in \Cref{tab:dogbolt_winners_by_prompt}, several critical insights emerge regarding how the LLM judges perceive the outputs of the different decompilers.
+There is a stark contrast between the ``Blind'' evaluations (where the LLM judges purely on abstract readability and perceived ``humanity'') and the ``+ Source'' evaluations (where the LLM judges fidelity to the original code) for \emph{binary-ninja}.
+In the blind tests (\emph{Code Blind} and \emph{AST Blind}), \emph{binary-ninja} frequently emerges as winner, particularly according to \emph{deepseek-r1}, securing 16 and 21 wins respectively. The models evidently perceive its output as highly readable and natural. However, the moment the original source code is introduced as a baseline (\emph{Code + Source} and \emph{AST + Source}), its win rate collapses drastically. This heavily implies that while \emph{binary-ninja} applies aggressive transformations to make the code look clean and human-readable, these transformations structurally distance the output from the original human-written logic. 
+
+Another key indicator of the massive differences between the versions is the exceptionally high number of ``Ties''. When the source code is provided, the tie rate spikes, peaking at 30 ties out of the dataset for \emph{deepseek-r1} in the \emph{Code + Source} test. 
+This high rate of indecision suggests that none of the decompilers successfully reconstruct the original source in a recognizable way. When the LLM attempts to match the decompiler outputs to the human ground truth, it finds that all candidates have hallucinated distinct structural artifacts, applied different control-flow recovery heuristics, or inflated the code with boilerplate to such a degree that choosing a ``closest match'' becomes arbitrary. 
+It could be position Bias, (since the ratio of wins after switch is 99/47 for Version B) but it could also be that the LLM judges are overwhelmed by the sheer unpredictability of two different decompiled code, leading to a default tie decision when no clear winner emerges.
+
+\emph{Hex-Rays} manages to maintain the most stable performance across both blind and source-provided prompts, winning almost consistently across all prompts, suggesting a more balanced approach that preserves some of the original code's structure while still applying transformations for readability.
+
+\emph{Ghidra}, on the other hand, consistently underperforms for \emph{deepseek-r1}, rarely winning and often being overshadowed by the other two decompilers, but it also perform slightly better when the raw code is provided. Furthermore the inconsistencies in the Ghidra results across the two models suggest that its output may be more sensitive to the specific evaluation criteria emphasized by each LLM, which further complicates the notion of a single ``best'' decompiler.
+
+\begin{table}
+\centering
+\caption{Dogbolt evaluation winners by judge and prompt type.}\label{tab:dogbolt_winners_by_prompt}
+\begin{tabular}{llrrrr}
+\toprule
+\textbf{Judge} & \textbf{Test Type} & \textbf{Tie} & \textbf{binary-ninja} & \textbf{ghidra} & \textbf{hex-rays} \\
+\midrule
+deepseek-r1 & AST + Source  & 25 & 11 &  6 & 14 \\
+ & AST Blind     & 19 & 21 &  6 & 14 \\
+ & Code + Source & 30 &  3 &  6 & 18 \\
+ & Code Blind    & 18 & 16 &  9 & 17 \\
+\midrule
+qwen-3 & AST + Source  & 17 & 11 & 11 & 16 \\
+ & AST Blind     & 14 & 18 & 11 & 17 \\
+ & Code + Source & 23 &  5 & 13 & 15 \\
+ & Code Blind    & 16 & 12 & 17 & 15 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Length Bias}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{img/dogbolt_length_bias.png}
+    \caption{Distribution of winners across the four prompts for the dogbolt evaluation, showing length bias}\label{fig:dogbolt_length_bias}
+\end{figure}
+
+\Cref{fig:dogbolt_length_bias} further quantifies the drastic variations among the decompilers. The boxplots illustrate the delta length between the winning snippet and the losing alternatives. The presence of massive outliers—some exceeding a difference of $\pm 1000$ tokens—proves that the tools generate code of vastly different lengths for the exact same binary function. 
+
+While the medians hover near zero, we can observe a slight negative bias in the blind tests (\emph{winner} and \emph{winner\_ast}), meaning the LLM judges generally exhibit a slight preference for more concise code when evaluating purely for readability. However, in the source-provided tests (\emph{winner\_s} and \emph{winner\_ast\_s}), this distribution flattens or shifts slightly positive. 
+When forced to prioritize fidelity, the models occasionally reward verbosity if the longer decompiler output happens to capture explicit logic or variable declarations that were present in the original source but optimized away by the more concise decompilers. 
+
+
+\section{Correlation Perplexity \& LLM judge}
+
+\subsection{Ghidra}
+
+\subsection{Dogbolt}
 
 \section{Vs Human Evaluation}
-
 
 \section{Discussion}
 

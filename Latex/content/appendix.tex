@@ -1,0 +1,191 @@
+\chapter{Appendix}
+
+\section{Quiz questions}
+
+These are the quiz questions that were used in the human evaluation of the decompiled code snippets.
+
+\subsection{Participant instructions}
+
+In this short quiz (about 5--10 minutes), you will be presented with pairs of C code snippets (Snippet A and Snippet B).  
+Each pair implements the same logical operation, but with different writing styles.
+
+Your task is to choose which snippet appears more \emph{humanly written}, idiomatic, and maintainable.  
+There is no right or wrong answer; we are interested in your developer intuition.  
+If you cannot decide, leave the answer blank.
+
+All responses are collected anonymously and used only for academic research.
+
+\subsection{Quiz questions}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/1.png}
+\caption{PR \#8161 --- \texttt{task-readstat\_readstat\_convert-O2} (Reason for inclusion: consistency)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/2.png}
+\caption{PR \#8161 --- \texttt{task-readstat\_sav\_parse\_very\_long\_string\_record-O3} (Reason for inclusion: consistency between DeepSeek; Qwen inconsistency)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/3.png}
+\caption{PR \#8161 --- \texttt{task-file\_file\_zmagic-O0} (Reason for inclusion: older PR but better output, possibly due to conciseness)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/4.png}
+\caption{PR \#8628 --- \texttt{task-readstat\_sav\_parse\_date-O3} (Reason for inclusion: inconsistency between \texttt{()} and \texttt{+-})}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/5.png}
+\caption{PR \#8628 --- \texttt{task-readstat\_sav\_parse\_very\_long\_string\_record-O0} (Reason for inclusion: consistency; PR wins)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/6.png}
+\caption{PR \#8628 --- \texttt{task-readstat\_sav\_parse\_time-O2} (Reason for inclusion: consistency; PR wins)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/7.png}
+\caption{PR \#6722 --- \texttt{task-readstat\_sas\_rle\_decompress-O3} (Reason for inclusion: PR consistency and tie outcome)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/8.png}
+\caption{PR \#6722 --- \texttt{task-file\_file\_zmagic-O3} (Reason for inclusion: unusual \texttt{if} structure; PR wins)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/9.png}
+\caption{PR \#6722 --- \texttt{task-file\_file\_signextend-O0} (Reason for inclusion: inconsistency)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/10.png}
+\caption{PR \#7253 --- \texttt{task-readstat\_readstat\_parse\_por-O3} (Reason for inclusion: difficult to assess)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/11.png}
+\caption{PR \#8587 --- \texttt{task-readstat\_dta\_parse\_timestamp-O2} (Reason for inclusion: PR consistency)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/12.png}
+\caption{PR \#8587 --- \texttt{task-readstat\_sav\_parse\_date-O2} (Reason for inclusion: the only inconsistency in the PR)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/13.png}
+\caption{PR \#7252 --- \texttt{task-xz\_lzma\_validate\_chain-O2} (Reason for inclusion: DeepSeek inconsistency and Qwen error)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/14.png}
+\caption{PR \#8587 --- \texttt{task-file\_file\_replace-O0} (Reason for inclusion: non-standard modification; PR wins)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/15.png}
+\caption{PR \#7252 --- \texttt{task-libxls\_xls\_parseWorkBook-O0} (Reason for inclusion: single-cast modification, but with inconsistency)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/16.png}
+\caption{Dogbolt --- \texttt{task-file\_file\_magicfind-O2} (Reason for inclusion: Ghidra vs Hex-Rays comparison)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/17.png}
+\caption{Dogbolt --- \texttt{task-file\_file\_is\_simh-O0} (Reason for inclusion: Binary Ninja vs Hex-Rays comparison)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/18.png}
+\caption{Dogbolt --- \texttt{task-file\_file\_is\_simh-O3} (Reason for inclusion: Binary Ninja vs Ghidra comparison)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/19.png}
+\caption{Code --- \texttt{task-file\_file\_default-O2} (Reason for inclusion: Ghidra vs Hex-Rays comparison)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/20.png}
+\caption{Code --- \texttt{task-file\_magic\_buffer-O0} (Reason for inclusion: Binary Ninja vs Hex-Rays comparison)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/quiz/21.png}
+\caption{Code --- \texttt{task-file\_fmtcheck-O0} (Reason for inclusion: Binary Ninja vs Ghidra comparison)}
+\end{figure}
+
+\section{Future Ghidra work}
+
+A possible future direction, based on the ``groups'' mechanism described in the \Cref{sec:dgroups}, is to define a standard way to enable alternative action pipelines in the decompiler.
+In practice, existing actions could include guarded branches (e.g., \texttt{if}-based checks) to activate different transformation flows and generate multiple candidate C outputs for the same function.
+
+\begin{lstlisting}
+
+void BlockWhileDo::finalTransform(Funcdata &data){
+  // Simplification style
+  const string &currentAction = data.getArch()->allacts.getCurrentName();
+  BlockGraph::finalTransform(data);
+  if (!data.getArch()->analyze_for_loops) return;
+  if (hasOverflowSyntax()) 
+    if (currentAction == "different"){// LukeSerne example of PR-specific transformation
+      // Apply a different set of transformations to generate an alternative decompilation variant
+    [...]
+ }else
+      return; // Still too complex
+  FlowBlock *copyBl = getFrontLeaf();
+    [...] // Original transformation flow for the standard decompilation variant
+}
+\end{lstlisting}
+
+
+On top of this, a dedicated Ghidra extension could orchestrate the process by:
+\begin{itemize}
+    \item collecting all generated decompilation variants,
+    \item sending them to an LLM through an API call for ranking/selection,
+    \item and showing to the analyst only the variant selected as the most readable or human-like.
+\end{itemize}
+
+We have prototyped this architecture in a separate project, and the following \Cref{ext_code,ext_ui} show a possible code structure for the extension and a mockup of the user interface.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/ext_code.png}
+\caption{A possible code architecture for a Ghidra extension that manages multiple decompilation variants and uses an LLM to select the best one.}\label{fig:ext_code}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{img/ext_ui.png}
+\caption{A possible user interface for the Ghidra extension, showing the selected decompilation variant.}\label{fig:ext_ui}
+\end{figure}
+
+This would provide a modular framework for experimenting with decompilation strategies while keeping the final user interface simple.

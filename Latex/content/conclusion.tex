@@ -1,7 +1,23 @@
-\chapter{Conclusion}
-\label{ch:conclusion}
+\chapter{Conclusion}\label{ch:conclusion}
 
-You are finally done! Here you will summarize for the reader what you have taught them through the document, and the main takeaways of your work you would like them to remember.
+Evaluating the readability and ``human-likeness'' of decompiled code has long been a subjective and labor-intensive challenge in reverse engineering. This thesis explored the viability of using \acp{LLM} to automate this evaluation, investigating both statistical metrics (Perplexity) and qualitative prompting strategies (LLM-as-a-Judge).
 
-It is also a good idea to discuss the limitations of your work and your views about what can be
-possible future work.
+Our quantitative analysis definitively demonstrated that perplexity is not a reliable proxy for human-likeness in decompiled code. Contrary to initial assumptions, human-written source code consistently exhibits higher perplexity than decompiled output. This is because human code contains domain-specific idioms, creative structural choices, and stylistic variance (high entropy), whereas decompilers generate rigid, repetitive, and verbose boilerplate that artificially drives perplexity down. Thus, the correlation between $\delta$perplexity and human preference was weak and often inversely related, confirming that perplexity alone cannot capture the nuanced qualities that make code more readable or natural to human developers.
+
+In exploring the LLM-as-a-Judge paradigm, our results highlighted distinct capabilities and vulnerabilities between the evaluated models. \emph{Deepseek-r1} emerged as a highly capable evaluator, achieving an alignment of approximately 74\% with human developers. It consistently recognized and rewarded high-level structural improvements, such as the removal of \texttt{goto} statements or the recovery of natural loops. Conversely, \emph{qwen-3} struggled with severe lexical biases and verbosity, often fixating on variable names or minor type casts. We demonstrated that abstracting the decompiled code into an Abstract Syntax Tree (AST) successfully mitigated these lexical distractions, forcing the models to evaluate purely structural logic and improving their alignment with human reasoning.
+
+Despite these successes, we identified significant limitations. LLMs remain susceptible to analytical hallucinations, occasionally inventing non-existent technical justifications when evaluating logically equivalent snippets or minor stylistic permutations (such as reordering \texttt{switch} cases). Furthermore, the computational cost of processing long contexts for perplexity calculations poses a scalability bottleneck for current hardware.
+
+\section{Limitations}
+
+This study has several limitations that should be acknowledged:
+\begin{itemize}
+    \item \textbf{Model Size and Architecture:} The LLMs evaluated in this study are relatively small compared to state-of-the-art models. Larger models with more parameters may have different capabilities and biases, which could affect the generalizability of our findings.
+    \item \textbf{Dataset Scope:} The evaluation was conducted on a specific set of Ghidra PRs and the Dogbolt dataset. While these datasets were carefully selected to cover a range of scenarios, they may not fully represent the diversity of decompiled code or the variety of transformations applied by different decompilers.
+    \item \textbf{Human Subject Experiment:} The human evaluation was conducted with a limited number of participants (11) and a small set of questions (21). A larger and more diverse sample size would provide more robust validation of the LLM judges alignment with human intuition.
+    \item \textbf{Subjectivity in Readability:} Code readability is inherently subjective, and different developers may have varying preferences for certain coding styles or patterns. This subjectivity can lead to variability in both human and LLM judgments, making it challenging to establish a definitive ground truth for readability.
+    \item \textbf{Perplexity as a Metric:} While we demonstrated that perplexity is not a reliable proxy for human-likeness, it remains a widely used metric in language modeling. Future research should explore alternative metrics that better capture the qualitative aspects of code readability.
+\end{itemize}
+
+In conclusion, while LLMs are not yet flawless, objective arbiters of code quality, they represent a powerful and promising tool for the reverse engineering community. The findings of this thesis establish a solid baseline for automated decompiler evaluation. Future work should focus on utilizing larger foundation models, developing specialized fine-tuning datasets composed of human-ranked assembly-to-C translations, and refining AST abstraction pipelines to further isolate structural quality from lexical noise.
+

@@ -1,7 +1,7 @@
 \chapter{Introduction}\label{ch:introduction}
 
 Reverse engineering is a critical process in software security, enabling analysts to understand, debug, and modify software without access to its source code~\cite{Paper:chikofsky1990reverse}.
-Decompilation tools like \texttt{Ghidra} and \texttt{Hex-Rays} have long been the backbone of this process, translating binary executables back into high-level code~\cite{Paper:eagle2011idapro, site:ghidra2019}.
+Decompilation tools like \emph{Ghidra} and \emph{Hex-Rays} have long been the backbone of this process, translating binary executables back into high-level code~\cite{Paper:eagle2011idapro, site:ghidra2019}.
 However, the output from these tools often suffers from issues such as poor readability, non-idiomatic constructs, and a lack of meaningful variable names, 
 which can significantly hinder the analyst's ability to comprehend and work with the decompiled code.
  
@@ -10,12 +10,14 @@ the quality of decompiled output. Recent research has explored using \ac{LLM} to
 to evaluate code quality. However, much of this work has focused on either generative refinement or broad benchmarking of decompilers, 
 often relying on proprietary models and tools~\cite{Paper:Tan_2024, Paper:Hu2024DeGPTOD}.
 In this thesis, we take a different approach by leveraging \ac{LLM} to evaluate the ``humanness'' of decompiled code using intrinsic model 
-metrics like \texttt{perplexity}~\cite{Paper:hindle2012naturalness}. We investigate how well local \ac{LLM} can distinguish between different versions of the same codebase, 
-such as \texttt{pull requests}, without modifying the code itself. This fine-grained analysis is crucial for assessing incremental changes in code 
+metrics like \emph{perplexity}~\cite{Paper:hindle2012naturalness}. We investigate how well local \ac{LLM} can distinguish between different versions of the same codebase, 
+such as \emph{pull requests}, without modifying the code itself. This fine-grained analysis is crucial for assessing incremental changes in code 
 quality and readability, which is often more relevant in real-world reverse engineering tasks than wholesale comparisons of different decompilers.
 Our work also addresses the practical constraints of reverse engineering, such as privacy and cost, by exploring the feasibility of running these 
-evaluations on local hardware, rather than relying on cloud-based \texttt{\ac{API}s}. This makes our approach more accessible and applicable in security-sensitive contexts 
+evaluations on local hardware, rather than relying on cloud-based \ac{API}s. This makes our approach more accessible and applicable in security-sensitive contexts 
 where data privacy is paramount~\cite{Paper:staab2024beyond, Paper:carlini2021extracting}.
 
-%%TODO: results summary
-\dots
+This thesis explores the application of \ac{LLM} to automate the evaluation and ranking of decompiled code variants. Specifically, we investigate whether \acp{LLM} can effectively proxy human judgment in determining which decompiled variant is more readable, idiomatic, and structurally sound. 
+For limitations of time and resources, we focus on two open-weight models, \emph{qwen-3} and \emph{deepseek-r1}, which are representative of the current state-of-the-art in local \ac{LLM} capabilities in the range of 14B of parameters.
+We explore two distinct methodologies: using the statistical predictability of the code (Perplexity) as a quantitative metric, and prompting the models to act as qualitative evaluators (LLM-as-a-Judge). 
+By testing on real-world datasets across different decompilers and specific pull requests within the Ghidra ecosystem, we aim to uncover the biases, strengths, and limitations of this approach, creating a framework with anonimizations and bias limitations.

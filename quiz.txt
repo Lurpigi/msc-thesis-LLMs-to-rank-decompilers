@@ -1,0 +1,52 @@
+15 domande-> 3 per ogni PR
+
+
+8161
+- task-readstat_readstat_convert-O2 (coerenza base)
+- task-readstat_sav_parse_very_long_string_record-O3 (deep dice base, qwen incoerente)
+- task-file_file_zmagic-O0 (PR più vecchia ma meglio perche più concisa forse?)
+
+8628
+- task-readstat_sav_parse_date-O3 (incoerenza tra () e +-)
+- task-readstat_sav_parse_very_long_string_record-O0 (coerenza vittoria PR)
+- task-readstat_sav_parse_time-O2 (coerenza vittoria PR)
+
+
+6722
+- task-readstat_sas_rle_decompress-O3 (coerenza PR e TIE)
+- task-file_file_zmagic-O3 (strano if , vince PR)
+- task-file_file_signextend-O0 (incoerenza)
+
+7253
+- task-readstat_readstat_parse_por-O3 (vince un BASE e TIE)
+difficle valutare questa PR
+
+8587
+- task-readstat_dta_parse_timestamp-O2 (coerenza PR)
+- task-readstat_sav_parse_date-O2 (unica incoerenza)
+
+7252
+- task-xz_lzma_validate_chain-O2 (incoerenza deepseek e qwen error)
+
+8587
+- task-file_file_replace-O0 (non la solita modifica ma vince PR)
+
+7252
+- task-libxls_xls_parseWorkBook-O0 ( singolo cast come modifica ma incoerenza)
+
+(AST?)
+
+dogbolt
+
+6 domande
+
+- task-file_file_magicfind-O2 - Ghidra HexRays
+- task-file_file_is_simh-O0 - BinaryNinja HexRays
+- task-file_file_is_simh-O3 - BinaryNinja Ghidra 
+
+Code
+
+- task-file_file_default-O2 - Ghidra HexRays
+- task-file_magic_buffer-O0 - BinaryNinja HexRays
+- task-file_fmtcheck-O0 - BinaryNinja Ghidra 
+

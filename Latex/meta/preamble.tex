@@ -15,14 +15,14 @@
 
 % acronym (https://ctan.org/pkg/acronym) is a package to expand acronyms after their first usage
 \usepackage{acronym}
-
+\usepackage[nospace]{varioref}
 % the hyperref package provides links; with this configuration they are colored
 % according to the scheme described in https://tex.stackexchange.com/a/525297
 \usepackage{xcolor}
 \usepackage[colorlinks]{hyperref}
 \def\tmp#1#2#3{%
   \definecolor{Hy#1color}{#2}{#3}%
-  \hypersetup{#1color=Hy#1color}}
+  \hypersetup{#1color=Hy#1color, colorlinks=true}}
 \tmp{link}{HTML}{800006}
 \tmp{cite}{HTML}{2E7E2A}
 \tmp{file}{HTML}{131877}
@@ -31,7 +31,7 @@
 \tmp{run} {HTML}{137776}
 \def\tmp#1#2{%
   \colorlet{Hy#1bordercolor}{Hy#1color#2}%
-  \hypersetup{#1bordercolor=Hy#1bordercolor}}
+  \hypersetup{#1bordercolor=Hy#1bordercolor, colorlinks=true}}
 \tmp{link}{!60!white}
 \tmp{cite}{!60!white}
 \tmp{file}{!60!white}
@@ -43,6 +43,7 @@
 % (e.g., "section", "figure", "table") to the reference using the \cref command
 % The "capitalize" option makes both \cref and \Cref uppercase; if we remove it
 % only \Cref will be uppercase.
+
 \usepackage[capitalize]{cleveref}
 
 % the booktabs package is used to create better tables; check an example of usage in results.tex
@@ -54,7 +55,7 @@
 % macros
 \newcommand*{\latex}{\LaTeX \xspace}
 
-\usepackage{hyperref}
+
 \newcommand{\myhref}[2]{#2\footnote{\url{#1}}}
 
 % tracking changes using the todonotes package
@@ -64,7 +65,7 @@
 \newcommand{\md}[1]{\note{MD}{yellow}{#1}}
 
 % result is something like "Related Work (Chapter 2)"
-\newcommand{\fullref}[1]{\nameref{#1} (\Cref{#1})}
+% \newcommand{\fullref}[1]{\nameref{#1} (\Cref{#1})}
 
 % used for the inparaenum environment
 \usepackage{paralist}

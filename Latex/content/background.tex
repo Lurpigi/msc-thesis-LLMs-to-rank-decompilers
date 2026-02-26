@@ -2,8 +2,8 @@
 
 This chapter provides the necessary background knowledge to understand how Ghidra works, in particular the decompilation process,
 with his architecture, main components, and the decompilation pipeline. The Decompiler of Ghidra is enormous and complex software, (over 200k lines of C++)
-so it will focus only on the parts that are relevant to this thesis.
-then it will introduce the main concepts behind \ac{LLM}s, their architecture, sampling, and metrics for evaluation.
+so we focus only on the parts that are relevant to this thesis.
+Then we will introduce the main concepts behind \ac{LLM}s, their architecture, sampling, and metrics for evaluation.
 
 \section{Ghidra}\label{sec:ghidra}
 
@@ -29,8 +29,8 @@ describing the high-level code structure and syntax tokens.
 
 \section{SLEIGH and P-code}\label{sec:slap}
 
-As written in the documentation created by running \texttt{<make doc>}~\cite{DOC:shareGhidraDecompiler} The 
-decompiler provides its own \ac{RTL}, referred internally as p-code, you can see some examples at~\Cref{tab:pcode_ops}. The disassembly of processor
+As written in the documentation created by running \texttt{<make doc>}~\cite{DOC:shareGhidraDecompiler}, the 
+decompiler provides its own \ac{RTL}, referred internally as p-code; you can see some examples in~\Cref{tab:pcode_ops}. The disassembly of processor
 specific machine-code languages, and subsequent translation into p-code, forms a major sub-system 
 of the decompiler. There is a processor specification language, referred to as SLEIGH, which is 
 dedicated to this translation task, this piece of the code can be built as a standalone binary 
@@ -84,7 +84,7 @@ or aggressive compiler optimizations.
 The C++ decompiler engine processes a function at a time through a series of iterative passes. 
 The architecture organizes these passes into \emph{Actions} and \emph{Rules}, 
 managed by the \texttt{ActionDatabase}.
-inside the \texttt{ActionDatabase::universalAction} we have two main types of objects:
+Inside the \texttt{ActionDatabase::universalAction} we have two main types of objects:
 \begin{itemize}
     \item \texttt{ActionGroup}: Represents a list of Actions that are applied sequentially. The group's properties (eg., rule\_repeatapply) influence how the contained actions are executed.
     \item \texttt{ActionPool}: It is a pool of Rules that are applied simultaneously to every PcodeOp. Each Rule triggers on a specific localized data-flow configuration. The Rules are applied repeatedly until no Rule can make any additional transformations.
@@ -111,8 +111,8 @@ These groups represent standardized workflows for different analysis phases and 
 
 Each DefaultGroup is a list of names that refer to specific \texttt{ActionGroup}, \texttt{ActionPool} or individual \texttt{Action} to execute in that configuration. These lists define subsets of all the Actions.
 
-The decompiler can be customized by selecting different DefaultGroups in java with the method \texttt{setSimplificationStyle} of the decompiler interface but
-Only the group named \emph{decompile} return C code to ghidra, since in \texttt{ghidra\_process.cc} we have:
+The decompiler can be customized by selecting different DefaultGroups in Java with the method \texttt{setSimplificationStyle} of the decompiler interface but
+only the group named \emph{decompile} return C code to Ghidra, since in \texttt{ghidra\_process.cc} we have:
 
 \begin{lstlisting}[language=C++, caption={ghidra\_process.cc}]
     [...]
@@ -130,17 +130,17 @@ is arguably the most challenging phase of decompilation. It is effectively a pat
 problem on a directed graph, aimed at finding subgraphs that correspond to structured programming constructs.
 
 \subsection{Basic Block Formulation}
-The decompiler first aggregates P-code operations into \emph{BasicBlocks} sequences of instructions with a single entry point 
+The decompiler first aggregates P-code operations into \emph{BasicBlocks}, that is, sequences of instructions with a single entry point 
 and a single exit point (excluding internal calls). The \ac{CFG} is formed by the edges representing jumps and branches between these blocks. 
 Ghidra normalizes this graph to ensure a unique entry block, often inserting empty placeholder blocks to handle re-entrant loops or complex function entries.
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.4\textwidth]{img/cfg1.png}\label{img:cfg1}
-    \caption{Control Flow Graph of a function~\cite{Paper:11129273}}
+    \includegraphics[width=0.4\textwidth]{img/cfg1.png}
+    \caption{Control Flow Graph of a function~\cite{Paper:11129273}}\label{img:cfg1}
 \end{figure}
 
-In this example we have the C code of the function described in figure~\ref{img:cfg1} and its corresponding P-code representation\footnote{
+In \Cref{img:cfg1} we can see an example of a \ac{CFG}, we used it to create a C function and then we have extracted its corresponding P-code representation in the table below\footnote{
     P-codes varies during all phases of the decompilation process; due to optimization rules, dead code elimination, and other transformations, the P-code shown here are taken from the \texttt{collapseInternal} method using \texttt{printRaw} of the FlowBlock class.
     The BasicBlock order may not correspond directly to the original source code order
 }.
@@ -341,7 +341,7 @@ The routine partitions the P-code instruction stream at control-flow boundaries:
 Each such instruction ends the current block and/or starts a new one (targets of jumps also begin blocks).
 
 The \ac{CFG} with the BasicBlocks can also be seen in ghidra by entering the \texttt{Display Function Graph} 
-window and enabling the P-code field in the layout of Instruction/Data (These Pcode are the final high-level Pcode). See figure~\ref{img:cfg_ghidra}
+window and enabling the P-code field in the layout of Instruction/Data (These Pcode are the final high-level Pcode). See \Cref{img:cfg_ghidra}
 
 \begin{figure}[ht]
     \centering
@@ -466,7 +466,7 @@ bool CollapseStructure::ruleBlockWhileDo(FlowBlock *bl)
 }
 \end{lstlisting}
 
-Firstly is checked that the block has exactly two outgoing edges (a binary condition) and is not already part of a switch or a loop. 
+Firstly it checked that the block has exactly two outgoing edges (a binary condition) and is not already part of a switch or a loop. 
 Then, for each outgoing edge, it checks if the clauseblock (the potential loop body) has exactly one incoming edge 
 (from the condition block) and one outgoing edge (back to the condition block). 
 If these conditions are met, it confirms the presence of a while-do loop structure.
@@ -491,7 +491,7 @@ After identifying a structure in the next iteration of the main loop in \texttt{
 This new block encapsulates the original matched block, maintaining their internal P-code operations while providing a structured interface for further processing and eventual emission.
 
 \subsection{The \emph{for} special case}
-As can be seen in section number~\ref{sec:stralg}, the Ghidra decompiler does not have an explicit rule to recognize \texttt{for} loops. 
+As can be seen in \Cref{sec:stralg}, the Ghidra decompiler does not have an explicit rule to recognize \texttt{for} loops. 
 Indeed, \texttt{for} loops in Ghidra are treated as special cases of \texttt{while-do} loops\footnote{The transformation is triggered only if the architecture option \texttt{analyze\_for\_loops} is enabled.}:
 The check is performed in the method \texttt{BlockWhileDo::finalTransform}, this method proceeds only if the block is not marked with overflow syntax.
 \begin{enumerate}
@@ -562,7 +562,7 @@ that does not match any predefined schema. (This is common in binaries optimized
 techniques or those containing manual assembly optimizations).
 
 When \texttt{ActionBlockStructure} fails to find a matching pattern, the jump inside the FlowBlock remains and it 
-will be represented as a \emph{goto}\footnote{Or a \texttt{break}/\texttt{continue} if it jumps out of/into a loop structure}.
+will be represented as a \emph{goto}\footnote{Or a \texttt{break}/\texttt{continue} if it jumps out of/into a loop structure.}
 statement to preserve semantic correctness, this phenomenon significantly degrades the readability of the output.
 
 \section{Code Emission}\label{sec:c_emission}
@@ -595,7 +595,7 @@ and the handling of long-range dependencies. Whereas \ac{RNN}s processed tokens 
 accumulating error and dispersing the gradient over long sequences, the Transformer processes the entire sequence simultaneously, 
 relying entirely on the attention mechanism.
 
-\begin{figure}[H]
+\begin{figure}
     \centering
     \includegraphics[width=0.6\textwidth]{img/ModalNet-21.png}
     \caption{The Transformer model architecture}\label{img:transformer}
@@ -626,7 +626,7 @@ The choice of tokenization method significantly impacts the model's performance,
 
 We can see an example using \myhref{https://tiktokenizer.vercel.app/}{tiktokenizer}, a webtool for visualizing tokenization for differents models, to tokenize a sentence:
 
-\begin{figure}[H]
+\begin{figure}
     \centering
     \includegraphics[width=1\textwidth]{img/tiktokenizer.png}
     \caption{Tokenization example using tiktokenizer}\label{img:tokenization}
@@ -641,14 +641,14 @@ Different models use different tokenization values or schemes like \ac{BPE}.
 
 In the tokens we count also the special tokens like \texttt{$<|im\_start|>$} that indicates boundaries for roles messages like system, assistant, or user.
 in this case the token \texttt{$<|im\_start|>$} corresponds to ``input message start'' after that we have the role then the token ``input message separator'' the message and finally the token ``input message end''.
-different models use different special tokens or does not use them at all.
+Different models use different special tokens or does not use them at all.
 
 \subsection{Softmax}
 The \texttt{Softmax} function is used as an output function in the last layer of a neural networks to transform a vector of real values into a probability distribution. (see figure~\ref{img:transformer})
 This function for each component of the vector it computes the exponential normalized by the sum of the exponentials of all components, 
 producing in output a vector of the same dimension with values in the interval [0,1] whose sum is 1.~\cite{site:baeldungWhatTemperature}
 
-\[softmax(y_{i}) = \frac{e^{y_{i}}}{\sum_{j=1}^{n}e^{y_{j}}} \]
+\[ \mathrm{softmax}(y_{i}) = \frac{e^{y_{i}}}{\sum_{j=1}^{n}e^{y_{j}}} \]
 
 where $y = (y_{1}, y_{2}, .., y_{n})$ is an input vector and values $y_{i}, (i=\overline{1,n})$ are in range from $-\infty$ to $+\infty$.
 
@@ -665,7 +665,7 @@ Quantization can significantly reduce the computational requirements of \ac{LLM}
 \section{Decoding}
 When the model generates text, it produces a vector of raw scores, called \emph{logits}, for each
 token in the vocabulary at each timestep. These logits represent the unnormalized likeli-hood of each token being the next token in the sequence.
-By applying the \texttt{Softmax} function to these logits, the model obtains a probability distribution over the vocabulary;
+By applying the \texttt{Softmax} function to these logits, the model obtains a probability distribution over the vocabulary.
 Once the probability distribution is computed, the model must select the next token. 
 This process, called decoding, can be influenced by different strategies such as:\cite{site:ibmFoundationModel}
 
@@ -675,7 +675,7 @@ This process, called decoding, can be influenced by different strategies such as
     This can cause the model to produce repetitive or generic output.
     \item \textbf{Sampling decoding}: the model chooses a subset of tokens, and then one token is chosen randomly from this subset 
     to be added to the output text. Sampling adds variability and randomness to the decoding process, 
-    which can be desirable in creative use cases. This can cause the model to produce unexpected or incorrect output
+    which can be desirable in creative use cases. This can cause the model to produce unexpected or incorrect output.
 \end{itemize}
 
 \subsection{Temperature}
@@ -683,7 +683,7 @@ This process, called decoding, can be influenced by different strategies such as
 Temperature ($T$) is a hyperparameter that acts directly on the \texttt{Softmax} function. 
 The \texttt{softmax} function with temperature becomes:
 
-\[ softmax(y_{i}) = \frac{e^{ (\frac{y_{i}}{T}) }}{\sum_{j=1}^{n}e^{ (\frac{y_{j}}{T}) }} \]
+\[ \mathrm{softmax}(y_{i}) = \frac{e^{ (\frac{y_{i}}{T}) }}{\sum_{j=1}^{n}e^{ (\frac{y_{j}}{T}) }} \]
 
 where $T > 0$ is the temperature parameter. The temperature modifies the distribution of probabilities over the tokens:
 
@@ -728,10 +728,10 @@ industry standard for high-quality text generation.
 \section{Perplexity}\label{sec:perplexity}
 
 Evaluating the quality of an \ac{LLM} is intrinsically challenging because language judgments are often subjective. 
-Nonetheless, there are rigorous quantitative metrics. \texttt{Perplexity} is the standard measure used during \ac{LLM} pre-training; 
+Nonetheless, there are rigorous quantitative metrics. \emph{Perplexity} is the standard measure used during \ac{LLM} pre-training; 
 it stems from information theory and quantifies the model's uncertainty when predicting the next token.~\cite{site:wikipediaPerplexityWikipedia}
 
-Mathematically, \texttt{perplexity} is the exponential of the average negative log-likelihood (i.e., the exponentiated cross-entropy) 
+Mathematically, perplexity is the exponential of the average negative log-likelihood (i.e., the exponentiated cross-entropy) 
 of the predicted tokens. Exponentiating the cross-entropy restores the measure to probability-like units, yielding an intuitive 
 ``effective branching factor'' the average number of plausible next-token choices the model considers.~\cite{site:cometPerplexityEvaluation}
 
@@ -739,12 +739,12 @@ of the predicted tokens. Exponentiating the cross-entropy restores the measure t
 \mathrm{PPL}(X) = \exp\!\left( -\frac{1}{N} \sum_{i=1}^N \log P(x_i \mid x_{<i}) \right)
 \]
 
-A \texttt{perplexity} of K indicates that, on average, the model behaves as if it were choosing among K equally likely alternatives at each prediction step.~\cite{site:UnderstandingPerplexity}
+A perplexity of K indicates that, on average, the model behaves as if it were choosing among K equally likely alternatives at each prediction step.~\cite{site:UnderstandingPerplexity}
 \begin{itemize}
     \item Relation to entropy: \(\mathrm{PPL} = 2^{H(P)}\), where \(H(P)\) denotes the Shannon entropy of the distribution.
-    \item Interpretation: Lower \texttt{perplexity} means the model assigns higher probability mass to the true tokens from the test set.
+    \item Interpretation: Lower perplexity means the model assigns higher probability mass to the true tokens from the test set.
 \end{itemize}
-Note that a low \texttt{perplexity} reflects statistical predictability relative to the training corpus and does not guarantee factual accuracy or correctness.
+Note that a low perplexity reflects statistical predictability relative to the training corpus and does not guarantee factual accuracy or correctness.
 
 \section{Human-like}\label{sec:human-like}
 \ac{LLM} are designed to generate text that closely mimics human language, capturing nuances, context, and stylistic elements.
@@ -758,9 +758,9 @@ Here we have two main path to measure the human-likeness of a piece of code:
 \begin{itemize}
     \item Ask the \ac{LLM} directly via prompt to rate the human-likeness of the code. This approach can lead to subjective and inconsistent results, 
     as the model's responses may vary based on the prompt phrasing, the context, and hallucinations.
-    \item Use \texttt{perplexity} as a quantitative metric to evaluate the human-likeness of the code. This approach leverages the statistical 
+    \item Use perplexity as a quantitative metric to evaluate the human-likeness of the code. This approach leverages the statistical 
     properties of the language model to assess how well the generated code aligns with patterns learned from human-written code.
 \end{itemize}
-As shown in section number~\ref{sec:perplexity}, \texttt{perplexity} measures how well a language model predicts a sequence of tokens. A lower \texttt{perplexity} indicates that the model finds the sequence more predictable, 
-which often correlates with human-like text. By calculating the \texttt{perplexity} of code snippets generated by different decompilers, we can objectively compare their human-likeness.
-For this reason, \texttt{perplexity} is used only to evaluate the Human-like quality of the decompiled code, it \textbf{does not} evaluate its functional correctness.
+As shown in \Cref{sec:perplexity}, perplexity measures how well a language model predicts a sequence of tokens. A lower perplexity indicates that the model finds the sequence more predictable, 
+which often correlates with human-like text. By calculating the perplexity of code snippets generated by different decompilers, we can objectively compare their human-likeness.
+For this reason, perplexity is used only to evaluate the Human-like quality of the decompiled code, it \textbf{does not} evaluate its functional correctness.

@@ -76,7 +76,7 @@ However, for the perplexity (\emph{score}) task, the architecture of the operati
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/ppl_distribution.png}
-    \caption{On the left perplexity values across original source code, base code, and pr code. On the right perplexity values across abstracted representations of the same functions.}\label{fig:ppl_distribution}
+    \caption{On the top, the perplexity values across original source code, base code, and pr code. On the bottom, perplexity values across abstracted representations of the same functions.}\label{fig:ppl_distribution}
 \end{figure}
 
 In \Cref{fig:ppl_distribution} we can see the distribution of perplexity values for the original source code, the base code, and the pr code, as well as their abstracted representations.
@@ -172,7 +172,7 @@ We can observe a clear trend across both models:
 This result reinforces our conclusion: in our case (Ghidra vs Source) Human-Likeness is not defined by raw predictability (where the machine wins), but by the \textbf{variance of unpredictability}. A ``natural'' code signature is one that surprises the model in inconsistent, context-dependent bursts, rather than being uniformly predictable.
 Meanwhile for the anonymized code, the gap in variance is smaller but it still exists, suggesting that even at the structural level, human code retains a degree of unpredictability that machine-generated code lacks.
 
-\subsection{Other decompilers}
+\subsection{Other decompilers}\label{sec:perplexitydog}
 
 \begin{figure}[H]
     \centering
@@ -188,7 +188,13 @@ Another key observation is that the binary ninja has a perplexity distribution t
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/dogbolt_loss.png}
-    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Code and Abstract}\label{fig:dogbolt_loss}
+    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Code}\label{fig:dogbolt_loss}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/dogbolt_loss_ast.png}
+    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Abstract}\label{fig:dogbolt_loss_ast}
 \end{figure}
 
 The density plots in \Cref{fig:dogbolt_loss} confirm the phenomena observed in the previous sections across both LLM judges. Focusing on the raw \emph{Code Tokens} (top row), we can observe a distinct hierarchy in predictability:
@@ -199,22 +205,20 @@ The density plots in \Cref{fig:dogbolt_loss} confirm the phenomena observed in t
     \item \textbf{Binary Ninja} stands out as the decompiler that most closely approximates the original source code. Its loss distribution is flatter, and its mean loss ($\sim 1.33$ for DeepSeek-R1) is significantly closer to the original source ($\sim 1.60$) than the other tools. It also exhibits less token inflation compared to Ghidra and Hex-Rays with a Max loss closer to the original source.
 \end{itemize}
 
-Meanwhile in the \emph{AST} plots, where identifiers and literals are abstracted, we observe the expected flattening of all distributions. By stripping away lexical entropy, the gap between human-written code and machine-generated code narrows. Notably, the massive token inflation seen in Hex-Rays raw code drops significantly during AST abstraction (from 7,034 down to 3,869 tokens), 
+Meanwhile in the \emph{AST} plots in \Cref{fig:dogbolt_loss_ast}, where identifiers and literals are abstracted, we observe the expected flattening of all distributions. By stripping away lexical entropy, the gap between human-written code and machine-generated code narrows. Notably, the massive token inflation seen in Hex-Rays raw code drops significantly during AST abstraction (from 7,034 down to 3,869 tokens), 
 indicating that a vast majority of its predictability stems from highly repetitive lexical tokens, types, and literal declarations rather than purely structural blocks. Even in the abstracted form, Binary Ninja maintains the distribution shape most similar to the original source code and with Hex-Rays having less tokens, the density at peak now is less than the Ghidra one for \emph{qwen-3}. 
 Finally, comparing the two models across all subplots, we note that while \emph{qwen-3} consistently produces lower absolute loss values (higher confidence/predictability) than \emph{deepseek-r1}, both models almost perfectly agree (except for the code tokens for \emph{qwen-3} where Hex-Rays have a higher peak density than Ghidra) on the relative ordering of the distributions. Original source code always retains the highest mean loss and widest variance, followed by Binary Ninja, Hex-Rays, and finally Ghidra. 
 
-\begin{figure}[H]
+\begin{figure}
     \centering
-    \begin{minipage}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{img/hex-ray_loss.png}
+    \includegraphics[width=0.9\linewidth]{img/hex-ray_loss.png}
         \caption{Heatmap of loss values for Hex-Rays decompilation with model \emph{qwen-3}}\label{fig:hex-ray_loss}
-    \end{minipage}\hfill
-    \begin{minipage}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{img/hex-ray_loss2.png}
+\end{figure}
+
+\begin{figure}
+\centering
+    \includegraphics[width=0.9\linewidth]{img/hex-ray_loss2.png}
         \caption{Heatmap of loss values for Hex-Rays decompilation with model \emph{deepseek-r1}}\label{fig:hex-ray_loss2}
-    \end{minipage}
 \end{figure}
 
 A token-level analysis of the Hex-Rays decompilation (e.g., \Cref{fig:hex-ray_loss}) for the model \emph{qwen-3}, reveals that Hex-Rays generates comments and other repetitive tokens that are highly predictable. The most predictable tokens are often those associated with those artefacts of the decompilation process. 
@@ -235,7 +239,7 @@ The two models, Qwen3 and DeepSeek, have a significant number of Ties, but they 
 We can see a bin for ``Error'' winners as well, this happens primarly when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generate tokens inside $<think>$ tags) sometimes the context becomes too large (often because they repeat thoughts entering in a loop) and they finish the limit without giving inside the response a clear winner (e.g., ``Winner'':``X'').
 
 We previously said that a ``Tie'' is when the model judges always the same result regardless the switch of the base and pr code.
-We have a significant number of Ties for all models, watching the result we can observe a ratio of $\sim 2$ ($\frac{204}{104}$) beetween the number of times that the \ac{LLM} prefers the \ac{PR} version over BASE regardless the content.
+We have a significant number of Ties for all models, watching the result we can observe a ratio of $\sim \frac{2}{3}$ ($204 / 308$) of times where the model prefers the \ac{PR} version (204) over the \texttt{BASE} version (104).
 This suggests a position bias, even using our Diff format explained in \Cref{sec:prompts}, this bias could be caused by the model's tendency to favor the second option presented in a comparison, or it could be due to some subtle cues in the prompt formatting that inadvertently signal a preference for the \ac{PR} version. 
 
 
@@ -251,6 +255,8 @@ This \ac{PR} improves handling of constant subtractions that are rewritten durin
 As shown in \Cref{fig:8628_winner_distribution}, the qualitative evaluation strongly favors the \ac{PR} branch. In the ``Code Blind (Human-Likeness)'' and ``AST Blind (Structural Humanity)'' assessments, the \ac{PR} version overwhelmingly wins against the \texttt{BASE} branch across both \emph{deepseek-r1} and \emph{qwen-3} models, often exceeding a 60\% win rate. This indicates that rewriting expressions to use explicit subtraction rather than adding a negative immediate is universally recognized by the models as a more natural, human-readable idiom.
 
 However, when evaluating fidelity to the original source code (``Code Fidelity'' and ``AST Fidelity''), the margin of victory for the \ac{PR} branch shrinks, and the number of ``TIE'' outcomes increases significantly. This suggests that while the \ac{PR}'s output is structurally cleaner, the original source code may contain diverse expressions that do not perfectly align with either the \texttt{BASE} or the \ac{PR} decompilation, causing the models to frequently declare a tie.
+
+
 
 \begin{figure}[H]
     \centering
@@ -490,7 +496,7 @@ Both \emph{deepseek-r1} and \emph{qwen-3} correctly and consistently penalize th
 
 Because the redundancy is purely structural and does not rely on specific variable names to appear unnatural, the models easily maintain their judgment without falling into the trap of lexical bias. This demonstrates that when a decompiler generates an objectively inferior syntactic construct, such as redundant address-taking or dereferencing operations, the \ac{LLM} judges can reliably and consistently detect the ``machine-like'' quality regardless of whether the code is raw or anonymized.
 
-\section{Dogbolt Evaluation}
+\section{Dogbolt Evaluation}\label{sec:dogbolteva}
 
 \begin{figure}[H]
     \centering
@@ -545,12 +551,39 @@ qwen-3 & AST + Source  & 17 & 11 & 11 & 16 \\
 While the medians hover near zero, we can observe a slight negative bias in the blind tests (\emph{winner} and \emph{winner\_ast}), meaning the LLM judges generally exhibit a slight preference for more concise code when evaluating purely for readability. However, in the source-provided tests (\emph{winner\_s} and \emph{winner\_ast\_s}), this distribution flattens or shifts slightly positive. 
 When forced to prioritize fidelity, the models occasionally reward verbosity if the longer decompiler output happens to capture explicit logic or variable declarations that were present in the original source but optimized away by the more concise decompilers. 
 
+\subsection{Dogbolt Results}
+
+The evaluation of the Dogbolt dataset corroborates the core findings from the Ghidra \ac{PR} analysis, albeit on a much larger scale. While the Ghidra dataset compared minor, localized modifications between two commits of the same engine, the Dogbolt dataset tasks the \ac{LLM} judges with comparing entirely different decompilers (Binary Ninja, Hex-Rays, and Ghidra). Consequently, the judges have a significantly broader range of structural, lexical, and control-flow modifications to choose from. 
+
+Despite this increased variance, the fundamental behaviors, biases, and inconsistencies of both \emph{qwen-3} and \emph{deepseek-r1} remain perfectly in line with our previous observations.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/dogbolt_ex1.png}
+    \caption{Incoherent results from dogbolt with Qwen}\label{fig:dogbolt_ex1}
+\end{figure}
+
+In \Cref{fig:dogbolt_ex1} we can see a case of inconsistency driven by lexical abstraction, mirroring the vulnerabilities seen in the Ghidra evaluations. When \emph{qwen-3} evaluates the raw code (comparing Binary Ninja and Hex-Rays), it prefers Candidate A (Binary Ninja), praising its \texttt{do-while} loop as a ``semantic structure that aligns with high-level human thinking'' and criticizing Candidate B's \texttt{while(1)} with a \texttt{break} as less idiomatic. 
+However, when the exact same logic is abstracted into an \ac{AST}, the model flips its decision to Candidate B. It suddenly contradicts its previous motivation, now claiming that the \texttt{while(1)} loop is a ``natural infinite loop'' that aligns with idiomatic C patterns, while dismissing Candidate A's \texttt{do-while} as ``tautological'' and ``assembly-like''.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/dogbolt_ex2.png}
+    \caption{Coherent results from dogbolt with Qwen}\label{fig:dogbolt_ex2}
+\end{figure}
+
+Conversely, in \Cref{fig:dogbolt_ex2} the \ac{LLM} compares Ghidra against Hex-Rays. In this scenario, Hex-Rays generates a \texttt{while(1)} loop, whereas Ghidra produces a structure with a \texttt{do-while} loop nested inside multiple conditional checks and variable updates. 
+\emph{Qwen-3} consistently rewards Hex-Rays across all four evaluation prompts (Code Blind, AST Blind, Code Fidelity, and AST Fidelity). It recognizes that avoiding artificial nesting and deep \texttt{if-else} cascades is a universal hallmark of human engineering, a judgment it can confidently make even when variable names are stripped away in the \ac{AST}.
+
+Interestingly, the \ac{LLM} evaluates the same structural pattern as a negative in \Cref{fig:dogbolt_ex1} (where the \texttt{do-while} is penalized) but as a positive in \Cref{fig:dogbolt_ex2} (where the \texttt{do-while} is praised). This highlights the extreme sensitivity of the models to contextual cues.
 
 \section{Correlation Perplexity \& LLM judge}
 
 \subsection{Ghidra}
 
-To determine whether the quantitative predictability of the decompiled code (measured via Perplexity) aligns with the qualitative ``human-likeness'' evaluations provided by our LLM judges, we conducted a Point-Biserial correlation analysis. In this setup, the qualitative winner is treated as a binary variable (\texttt{PR} $= 1$, \texttt{BASE} $= 0$), and it is correlated against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{PR}} - \mathrm{PPL}_{\mathrm{BASE}}$). 
+To determine whether the quantitative predictability of the decompiled code (measured via Perplexity) aligns with the qualitative ``human-likeness'' evaluations provided by our LLM judges, we conducted a Point-Biserial correlation analysis 
+\footnote{The point-biserial correlation ($r_{pb}$) measures the strength and direction of the association between a continuous interval/ratio variable and a binary (dichotomous) variable, ranging from -1 to +1. As a special case of the Pearson correlation, it is commonly used to determine if a naturally occurring dichotomy (e.g., pass/fail, yes/no) relates to a continuous score~\cite{site:numiqoPointBiserialCorrelation}}. 
+In this setup, the qualitative winner is treated as a binary variable (\texttt{PR} $= 1$, \texttt{BASE} $= 0$), and it is correlated against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{PR}} - \mathrm{PPL}_{\mathrm{BASE}}$). 
 
 Consequently, a \textit{negative} correlation coefficient ($r < 0$) would indicate the expected behavior: when the LLM judge prefers the \texttt{PR} branch (1), the $\Delta$ PPL is negative (meaning the \texttt{PR} code had a lower, ``better'' perplexity). 
 
@@ -571,9 +604,9 @@ Looking at the raw code correlations (\emph{Code $r$}) in \Cref{tab:ppl_correlat
 
 This disconnect highlights a crucial insight: the features that make code ``predictable'' to an LLM's next-token-prediction engine (lower perplexity) are fundamentally different from the features that an LLM judge evaluates when prompted to look for ``human-like'' readability. As discussed in previous sections, a decompiler might generate highly repetitive, boilerplate-heavy code that drives perplexity down through token inflation, but an LLM judge will correctly penalize this exact same code for being verbose and mechanical.
 
-When evaluating the abstracted \ac{AST} representations (\emph{AST $r$}), the negative correlation slightly strengthens for both \emph{qwen-3} ($-0.1825$) and \emph{deepseek-r1} ($-0.1329$). Additionally, the sample size (N) increases.
+When evaluating the abstracted \ac{AST} representations (\emph{AST $r$}), the negative correlation slightly strengthens for both \emph{qwen-3} ($-0.1825$) and \emph{deepseek-r1} ($-0.1329$). Additionally, the sample size (N) increases (as the number of TIEs decreases).
 
-While the $p$-values ($0.1147$ and $0.2399$) still fall short of the standard $\alpha = 0.05$ threshold for statistical significance, the shift is notable. By removing the ``lexical noise'' and standardize the decompiler output artificially inflates or deflates perplexity, the structural predictability of the \ac{AST} aligns slightly better with the structural judgment of the \ac{LLM}. However, the correlation remains weak overall.
+While the $p$-values ($0.1147$ and $0.2399$) still fall short of the threshold for statistical significance ($p < 0.05$ to confirm if the relationship exists in the population), the shift is notable. By removing the ``lexical noise'' and standardize the decompiler output artificially, the structural predictability of the \ac{AST} aligns slightly better with the structural judgment of the \ac{LLM}. However, the correlation remains weak overall.
 
 Ultimately, this data confirms that \textbf{Perplexity is not a reliable proxy for human-likeness in decompiled code}. While perplexity effectively measures how well the code aligns with the statistical distribution of the model's training data, qualitative human-likeness is defined by higher-level engineering concepts, such as idiomatic control flow, logical grouping, and abstraction, which often introduce necessary structural ``surprises'' that inherently increase perplexity.
 
@@ -596,17 +629,88 @@ deepseek-r1 & 0.0352 & 0.8250 & 42 & 0.2283 & 0.1511 & 41 \\
 \end{tabular}
 \end{table}
 
-The data in \Cref{tab:dogbolt_ppl_correlation} reveals a striking phenomenon: the correlation coefficients (\textbf{Code $r$}) are \textit{positive}. A positive $r$ value ($0.1953$ for \emph{qwen-3} and $0.0352$ for \emph{deepseek-r1}) dictates that when the \ac{LLM} judge selects a candidate as the ``human-like'' winner, that candidate actually tends to have a \textit{higher} perplexity score than the loser. 
+The data in~\vref{tab:dogbolt_ppl_correlation} reveals a striking phenomenon: the correlation coefficients (\textbf{Code $r$}) are \textit{positive}. A positive $r$ value ($0.1953$ for \emph{qwen-3} and $0.0352$ for \emph{deepseek-r1}) dictates that when the \ac{LLM} judge selects a candidate as the ``human-like'' winner, that candidate actually tends to have a \textit{higher} perplexity score than the loser. 
 
-While the high $p$-values ($0.2040$ and $0.8250$) confirm that this is not a statistically significant linear rule, the inversion of the sign perfectly corroborates our findings in \Cref{sec:perplexityres}. Decompilers that score high in qualitative human-likeness (such as Binary Ninja) achieve this by utilizing diverse, domain-specific, and sometimes complex idioms that carry higher entropy. 
-Conversely, decompilers with artificially low perplexity (like Ghidra) are penalized by the judges for being overly verbose and machine-like. 
+While the high $p$-values ($0.2040$ and $0.8250$) confirm that this is not a statistically significant linear rule, the inversion of the sign perfectly corroborates our findings in \Cref{sec:perplexitydog,sec:dogbolteva}. Decompilers that score high in qualitative human-likeness achieve this by utilizing diverse, domain-specific, and sometimes complex idioms that carry higher entropy. 
+Conversely, decompilers with artificially low perplexity (by inflating the number of tokens) are penalized by the judges for being overly verbose and machine-like. 
 
 When evaluating the \ac{AST} versions (AST $r$), the positive correlation strengthens noticeably to $\sim 0.229$ for both models, and the $p$-values improve ($0.1255$ and $0.1511$), though they still remain above the strict $0.05$ threshold for significance. 
 
 This parallel strengthening across both \emph{qwen-3} and \emph{deepseek-r1} indicates that the preference for ``higher perplexity'' structures is not merely a lexical artifact. Even when the code is anonymized, the \ac{LLM} judges prefer abstracted syntactic structures that contain more variance and unpredictability over the repetitive, low-loss boilerplate generated by the most predictable decompilers.
 
-The Dogbolt correlation data acts as a definitive counter-proof to the assumption that language models inherently prefer code that perfectly matches their own predictive distributions. In the context of reverse engineering and decompilation, code that is ``predictable'' (low perplexity) is often synonymous with code that is mechanically generated. Conversely, ``human-like'' code is characterized by a dynamic range of complexity and stylistic bursts, inherently driving perplexity up. 
-Therefore, perplexity should not be used as a standalone metric to measure the readability or human-likeness of a decompiler's output.
+The Dogbolt correlation data acts as a definitive counter-proof to the assumption that language models inherently prefer code that perfectly matches their own predictive distributions.
+By analyzing the data, and the correlations, we saw that perplexity is not a sufficient measure of human-likeness;
+Therefore, it should not be used as a standalone metric to measure the readability or human-likeness of a decompiler's output.
 
-\section{Judge vs Human Evaluation}
+\section{Judge vs. Human Evaluation}
 
+To validate the results, the biases, and inconsistencies observed in the \ac{LLM} judges, we conducted a human-subject experiment. We designed a blind survey using Google Forms, presenting real software developers with pairs of decompiled C code (labeled simply as ``Snippet A'' and ``Snippet B'') and asking them to identify which version appeared more natural, idiomatic, and ``human-like''.
+
+The dataset for this quiz consisted of 21 carefully selected questions: 15 questions comparing Ghidra \emph{BASE} vs. \emph{PR} branches, and 6 questions comparing different decompilers from the Dogbolt dataset (Binary Ninja, Hex-Rays, and Ghidra). 
+The snippets were strategically chosen to include a mix of scenarios: cases where the \ac{LLM} judges showed strong consensus, cases of severe inconsistency (flipping decisions between Raw Code and \ac{AST}), and cases where the models hallucinated structural differences (e.g., PR \#7253).
+
+Responses were collected from 11 participants. We aggregated their votes to establish a human ``Ground Truth'' consensus for each question and compared it against the predictions made by \emph{qwen-3} and \emph{deepseek-r1}.
+
+It's interesting to note that the human consensus was not always unanimous. In some cases, the votes were split, reflecting genuine ambiguity in the code's readability. However, in the majority of cases, a clear preference emerged, giving a mean alignment score of 78\% between the human choices (min 55\%, max 100\%).
+
+\subsection{Quantitative Alignment}
+
+To measure how well the \ac{LLM} judges proxy human intuition, we calculated an alignment score. A score of 1.0 indicates a perfect match between the model's winner and the human consensus, 0.0 indicates a complete mismatch, and 0.5 is awarded for partial matches (e.g., the model declared a \texttt{TIE}). 
+
+\begin{table}[H]
+\centering
+\caption{Mean Alignment Score between LLM Judges and Human Consensus}\label{tab:human_alignment}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model} & \textbf{Raw Code Alignment} & \textbf{AST Alignment} \\
+\midrule
+qwen-3 & $\sim$64.28\% & $\sim$69.04\% \\
+deepseek-r1 & $\sim$73.80\% & $\sim$73.80\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results in \Cref{tab:human_alignment} provide two critical insights into the capabilities of \ac{LLM}s as code judges:
+
+\begin{enumerate}
+    \item \textbf{DeepSeek-R1 is superior for human judgment:} With a consistent $\sim$73.8\% alignment, \emph{deepseek-r1} demonstrates a much more robust understanding of human programming idioms than \emph{qwen-3}. It is important to note that the same results for raw code and \ac{AST} code are identical just in the final number as the intermedial results are different.
+    \item \textbf{AST Abstraction improves Qwen-3:} Strikingly, \emph{qwen-3}'s alignment with human developers increases from $\sim$64.28\% to $\sim$69.04\% when evaluating the anonymized \ac{AST}. This means that probably \emph{qwen-3} suffers from a light lexical bias.
+\end{enumerate}
+
+Unlike the \ac{LLM} pipeline, the human study was conducted exclusively on \emph{raw code} snippets and did not include an \ac{AST}-anonymized condition. This was a deliberate design choice: we assumed human reviewers would be less affected by the lexical anchoring effects observed in the models, and we wanted to preserve a realistic reading experience close to practical reverse-engineering workflows. In addition, several diffs were extremely subtle and already challenging in raw form. In some questions, the only effective change was minimal (e.g., the addition of a single explicit cast on a variable), making any further abstraction likely to remove the remaining discriminative signal and turn the comparison into near-random guessing.
+
+We intentionally included snippets from PR \#7253 (where only the vertical order of \texttt{switch} cases was altered). Previously, we noted that the \ac{LLM} judges, especially \emph{qwen-3}, often hallucinated non-existent structural improvements to justify picking a winner in these scenarios. 
+Human developers, conversely, quickly recognized the logical equivalence. Human votes were often split, or respondents correctly noted that the differences were purely stylistic, heavily contrasting with the models' tendency to confidently invent false technical justifications.
+
+The final 6 questions of the quiz pitted the outputs of Binary Ninja, Hex-Rays, and Ghidra against each other. The human consensus overwhelmingly favored Binary Ninja and Hex-Rays over Ghidra. 
+This definitively validates the \ac{LLM} evaluations from the Dogbolt dataset. It is important to note that the human votes were not unanimous, and in some cases, Ghidra's output was preferred by a 40+\% of respondents. This reflects the inherent subjectivity in code readability and the fact that different developers may have varying preferences for certain coding styles or patterns. However, the overall trend clearly supports the LLM judges' conclusions about the relative quality of the decompilers' outputs.
+
+\subsection{Perplexity correlation}
+
+We also calculated the Point-Biserial correlation between the human consensus winners and the $\Delta$ Perplexity for the raw code snippets used in the quiz, for both the raw code and the \ac{AST} conditions. This analysis aimed to determine whether the human preferences align with the same perplexity trends observed in the LLM judges.
+\begin{table}[H]
+\centering
+\caption{Point-Biserial correlation between Human Consensus and $\Delta$Perplexity (quiz subset).}\label{tab:human_ppl_correlation}
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Evaluator} & \textbf{Code $r$} & \textbf{Code $p$-value} & \textbf{N} & \textbf{AST $r$} & \textbf{AST $p$-value} & \textbf{N} \\
+\midrule
+Human Consensus & 0.3278 & 0.2330 & 15 & 0.4609 & 0.0838 & 15 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+As shown in Table~\ref{tab:human_ppl_correlation}, the correlation with human consensus is positive in both settings, and stronger for the \ac{AST} condition ($r=0.4609$) than for raw code ($r=0.3278$). 
+This direction is coherent with the previous analyses: snippets judged as more human-like are not associated with lower perplexity, but tend to show equal or higher perplexity. However, with $N=15$, neither result is statistically significant at $\alpha=0.05$ ($p=0.2330$ for code, $p=0.0838$ for \ac{AST}), so these values should be interpreted as an exploratory trend rather than conclusive evidence.
+
+\section{Discussion}
+
+The results presented in this study offer a critical perspective on the use of Large Language Models (LLMs) for evaluating the quality and readability of decompiled code.
+
+First, the quantitative analysis clearly shows that perplexity is not a reliable proxy for code human-likeness. Contrary to the initial intuition, the original source code tends to have systematically higher perplexity values than decompiled versions. This phenomenon is rooted in the nature of human-written code, which is characterized by varied stylistic choices, domain-specific naming conventions, and general high-entropy burstiness. In contrast, decompilers such as Ghidra tend to produce rigid syntactic structures, repetitive patterns, and verbose constructs. This structural and lexical token inflation dilutes the cross-entropy mean, artificially lowering overall perplexity and making mechanical code appear more predictable to the model than human code.
+
+Regarding the use of LLMs as qualitative judges, the two evaluated architectures showed distinct capabilities and limitations. \emph{Deepseek-r1} proved to be clearly superior in approximating human judgment, reaching an alignment rate of about 73.8\%. \emph{Qwen-3}, by contrast, showed significant weaknesses: a marked tendency toward verbosity that harms time and computational efficiency, and strong susceptibility to lexical bias, which improves only when code is abstracted into \ac{AST}. Moreover, both models showed the risk of analytical “hallucinations.” When faced with logically equivalent code variants, or variants differing only in irrelevant stylistic details (such as switch-case ordering), LLMs sometimes invented nonexistent technical justifications to support a preferred choice.
+
+The human-developer experiment played a crucial role in validating our metrics and isolating LLM limitations. Humans proved much more resilient to lexical noise and better at ignoring non-functional stylistic differences. However, human consensus broadly confirmed the models’ macro-level verdicts, validating, for example, the preference for the readability of Binary Ninja and Hex-Rays outputs over Ghidra’s output.
+
+Finally, it is important to emphasize that the models evaluated in this study are relatively small in terms of parameter count. This work provides a starting point and a baseline for developing future automated evaluation frameworks for reverse engineering. Although computational bottlenecks emerged and some architectural biases remain, the LLM-as-a-Judge approach is promising. Future developments based on larger foundation models, specialized fine-tuning, or more advanced abstraction pipelines may reduce hallucinations and make these tools essential standards for the continuous improvement of decompilers.

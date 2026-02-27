@@ -54,7 +54,7 @@ Initially we wanted to use modles in the range of 8B parameters, the canditates 
 for various reasons, such as the availability of the model, the performance on code-related tasks, and the memory requirements, but after a lot of testing and variation of prompts, we decided to going up to use models in range of 14B parameters since 
 the firsts were not able to provide consistent and meaningful scores for our evaluation, falling into the Position Bias problem, which is a common issue in \ac{LLM}-based evaluation where the model's scoring is heavily influenced by the position of the input text rather than its content, leading to unreliable assessments (even when we tried to mitigate it with different prompt engineering techniques, such as randomizing the order of the inputs, or using different templates for the prompts).
 
-\begin{figure}[H]
+\begin{figure}%[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/little_change.png}
     \caption{Example of a function with only one difference between the BASE and the PR.}\label{fig:little_change}
@@ -65,7 +65,7 @@ Even after checking the non TIE cases, we found that the motivation for the choi
 In this case whe have a function with only one difference between the BASE and the PR, that can be seen in~\Cref{fig:little_change}, and the corrisponding responses in~\Cref{fig:Biases} from the model, 
 Among the TIEs we have two cases where the model consistently selected a winner, in the case of PR the motivation was consistent with the content of the decompilation and the difference between the two inputs, while in the case of BASE the motivation was on some superficial aspect of the input ignoring the context.
 
-\begin{figure}[H]
+\begin{figure}%[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/biases.png}
     \caption{Example of the motivation for the choice of the model, where the motivation is not based on the content of the decompilation and the difference beetween the two inputs, but rather on some superficial aspect of the input.}\label{fig:Biases}
@@ -86,7 +86,7 @@ Unfortunately, due to the scarcity of models in this range, and the tendency of 
 
 Unfortunatly after some testing we found out that Phi 4 and Mistral Nemo were not able to provide consistent and meaningful scores for our evaluation, falling into the Position Bias problem as can be seen in~\Cref{fig:new_models_distribution}, we also tried to replace them with Qwen2.5 Coder and Starcoder2 (both 15B) but even with those models we were not able to get consistent results, so we decided to use only Qwen3 and DeepSeek-R1 Distill Qwen, since they were able to provide more reliable and consistent scores.
 
-\begin{figure}[H]
+\begin{figure}%[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/new_models_distribution.png}
     \caption{Distribution of winner bias for the new models, where we can see that Phi 4 and Mistral Nemo are still falling into the Position Bias problem, while Qwen3 and DeepSeek-R1 Distill Qwen are providing more reliable and consistent scores for our evaluation.}\label{fig:new_models_distribution}
@@ -332,7 +332,7 @@ This allows us to evaluate the ``humanness'' of the decompilation output based o
 rather than being influenced by specific naming choices or formatting styles that may vary widely across different decompilers and Ghidra versions.
 
 
-\begin{figure}[H]
+\begin{figure}%[H]
     \centering
     \includegraphics[width=1\textwidth]{img/ast_vs_ppl.png}
     \caption{Pearson correlation between the abstracted \ac{AST} perplexity and source code perplexity for the same decompilation output, across all evaluated samples.}\label{fig:ast_ppl_vs}
@@ -483,7 +483,7 @@ Our analysis is focused on evaluating the impact of specific \acp{PR} on decompi
 For this reason, we also created a framework of three different decompilers (Ghidra 12.0.1, Binary Ninja 5.2, and Hex-Rays 9.2) using \myhref{https://dogbolt.org/}{Dogbolt}, an interactive online \emph{Decompiler Explorer} that displays outputs from multiple decompilers for the same input binary, as can be seen in \Cref{fig:dogbolt}. 
 Dogbolt is community-maintained and open source but intentionally does not provide a public automation API, we used it in a restricted version of our Dataset (only the project ``file''), while all large-scale and reproducible measurements in this thesis were executed in our own local pipeline.
 
-\begin{figure}[H]
+\begin{figure}%[H]
     \centering
     \includegraphics[width=0.8\textwidth]{img/dogbolt.png}
     \caption{Example of the Dogbolt interface, where we can see the decompilation outputs from three different decompilers}\label{fig:dogbolt}

@@ -490,7 +490,7 @@ Instead of printing \texttt{while(<complex condition>)\{\}}, the decompiler emit
 After identifying a structure in the next iteration of the main loop in \texttt{collapseInternal}, a single FlowBlock representing the high-level construct (e.g., a \texttt{BlockWhileDo} for a while loop) is created. 
 This new block encapsulates the original matched block, maintaining their internal P-code operations while providing a structured interface for further processing and eventual emission.
 
-\subsection{The \emph{for} special case}
+\subsection{The \emph{for} Special Case}
 As can be seen in \Cref{sec:stralg}, the Ghidra decompiler does not have an explicit rule to recognize \texttt{for} loops. 
 Indeed, \texttt{for} loops in Ghidra are treated as special cases of \texttt{while-do} loops\footnote{The transformation is triggered only if the architecture option \texttt{analyze\_for\_loops} is enabled.}:
 The check is performed in the method \texttt{BlockWhileDo::finalTransform}, this method proceeds only if the block is not marked with overflow syntax.

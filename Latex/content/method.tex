@@ -95,7 +95,7 @@ Unfortunatly after some testing we found out that Phi 4 and Mistral Nemo were no
 \begin{itemize}
 
 \item \textbf{Qwen 3 (14B)}: is the latest generation in the Qwen family and comes as a suite of both dense and mixture-of-experts (MoE) models. A distinctive feature of the series is the ability to switch within the same model between a \emph{thinking} mode (aimed at complex reasoning, mathematics, and coding) and a \emph{non-thinking} mode (optimized for efficient, general-purpose dialogue), allowing the same backbone to adapt to different interaction styles and difficulty levels~\cite{site:huggingfaceQwenQwen314BHugging}
-\item \textbf{DeepSeek-R1 Distill Qwen (14B/15B\footnote{In the name and the description it shown that is 14B parameters but in the tag of huggingface site its tagged as 15B})}: Part of the DeepSeek-R1 family, which introduces a reasoning-focused post-training pipeline combining cold-start supervised data and large-scale reinforcement learning to improve reasoning quality and readability over purely RL-trained variants (e.g., DeepSeek-R1-Zero). The \emph{Distill} checkpoints transfer (distill) the reasoning patterns learned by the larger DeepSeek-R1 model into smaller dense backbones (including Qwen-based models), providing strong math/code/reasoning capability in a size that is practical to run locally on our hardware~\cite{site:deepseekai2025deepseekr1incentivizingreasoningcapability}.
+\item \textbf{DeepSeek-R1 Distill Qwen (14B/15B\footnote{In the name and the description it shown that is 14B parameters but in the tag of huggingface site its tagged as 15B})}: Part of the DeepSeek-R1 family, which introduces a reasoning-focused post-training pipeline combining cold-start supervised data and large-scale reinforcement learning to improve reasoning quality and readability over purely RL-trained variants (e.g., DeepSeek-R1-Zero). The \emph{Distill} checkpoints transfer (distill) the reasoning patterns learned by the larger DeepSeek-R1 model into smaller dense backbones (including Qwen-based models), providing strong math/code/reasoning capability in a size that is practical to run locally on our hardware~\cite{site:deepseekai2025deepseekr1incentivizingreasoningcapability,site:mediumWhatDeepSeekR1}.
 %\item \textbf{Qwen 2.5 Coder Instruct (14B/15B\footnote{same as above})}: An earlier version of the Qwen series, specifically fine-tuned for code-related tasks. It serves as a useful benchmark to compare against the newer Qwen 3 and the distilled version, allowing us to assess the impact of model size and training on evaluation performance~\cite{site:qwen2, site:hui2024qwen2}.
 
 \end{itemize}
@@ -124,7 +124,7 @@ The greatest bottleneck in our setup is the model loading time and context switc
 the server implements a simple caching mechanism: At the start, when checking if the weights are in Huggingface cache folder we load the model into the \ac{GPU} for quantization,
 after that we move the quantized weights and his tokenizer to CPU memory (RAM) and unload the model from \ac{VRAM}. When every model have been loaded the server opens up requests maintaining the quantized weights in RAM, so that every context switch can be fulfilled by quickly moving the quantized weights from RAM to \ac{VRAM}, which is much faster than loading from disk and quantizing on the fly.
 
-\subsection{Decoding strategy (temperature and top-p)}
+\subsection{Decoding Strategy (temperature and top-p)}
 For the \texttt{/generate} endpoint, we configured the decoding parameters through a dedicated function that returns a dictionary of \texttt{transformers} generation arguments. 
 In our experiments we rely on \emph{nucleus sampling} (\texttt{top\_p}) with a low \texttt{temperature}, to balance determinism (useful for fair comparisons across decompilers) 
 and the ability to escape repetitive or low-quality completions.
@@ -133,7 +133,7 @@ Concretely, the default configuration is:
 \begin{itemize}
     \item \texttt{temperature=0.4}: reduces randomness by sharpening the token distribution. Lower values make outputs more stable across runs, which is desirable for evaluation.
     \item \texttt{top\_p=0.9}: nucleus sampling, i.e., tokens are sampled only from the smallest set whose cumulative probability mass is $p$. This prevents the model from selecting very unlikely tokens while still allowing variation.
-    \item \texttt{max\_new\_tokens=4096}: upper bound on completion length, used as a safety and latency-control measure.
+    \item \texttt{max\_new\_tokens=4096}: upper bound on completion length, used as a safety and latency-control measure. The models are expect to generate a lot of output tokens due to their ``reasoning'' style, so this limit is set high to avoid truncation while still preventing wasting a lot of time because of repetition. 
 \end{itemize}
 
 \subsection{Routes}

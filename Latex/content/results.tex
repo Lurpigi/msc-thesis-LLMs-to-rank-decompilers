@@ -172,7 +172,7 @@ We can observe a clear trend across both models:
 This result reinforces our conclusion: in our case (Ghidra vs Source) Human-Likeness is not defined by raw predictability (where the machine wins), but by the \textbf{variance of unpredictability}. A ``natural'' code signature is one that surprises the model in inconsistent, context-dependent bursts, rather than being uniformly predictable.
 Meanwhile for the anonymized code, the gap in variance is smaller but it still exists, suggesting that even at the structural level, human code retains a degree of unpredictability that machine-generated code lacks.
 
-\subsection{Other decompilers}\label{sec:perplexitydog}
+\subsection{Other Decompilers}\label{sec:perplexitydog}
 
 \begin{figure}%[H]
     \centering
@@ -237,13 +237,18 @@ When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{
 In \Cref{fig:winner_distribution} we can see the distribution of winners across all evaluated models, based on the qualitative judgments of the \ac{LLM} as a judge.
 The two models, Qwen3 and DeepSeek, have a significant number of Ties, but they also show a balanced distribution of wins between the base code and the pr code.
 We can see a bin for ``Error'' winners as well, this happens primarly when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generate tokens inside $<think>$ tags) sometimes the context becomes too large (often because they repeat thoughts entering in a loop) and they finish the limit without giving inside the response a clear winner (e.g., ``Winner'':``X'').
+Sometimes the response does not give a clear winner with the pattern ``Winner: X'' but it is still able to give a clear preference in the rationale, in this case we consider it as an error since the model did not follow the instructions correctly, but we can still extract some information from the rationale.
 
 We previously said that a ``Tie'' is when the model judges always the same result regardless the switch of the base and pr code.
 We have a significant number of Ties for all models, watching the result we can observe a ratio of $\sim \frac{2}{3}$ ($204 / 308$) of times where the model prefers the \ac{PR} version (204) over the \texttt{BASE} version (104).
 This suggests a position bias, even using our Diff format explained in \Cref{sec:prompts}, this bias could be caused by the model's tendency to favor the second option presented in a comparison, or it could be due to some subtle cues in the prompt formatting that inadvertently signal a preference for the \ac{PR} version. 
 
+We used as BASE the version in commit \texttt{14c2495cb06ccd09324050c787ad0fc756d35dae}, which is at the moment of writing this thesis, the latest commit in the Ghidra repository, some of these \acp{PR} are derived from a BASE version that is older than the one we used, so the differences between the BASE and the PR version may be more significant than what we expect from only the description of the \ac{PR}, 
+we decided to include these results to evaluate the history of version changes\footnote{We ran a simulation also with the BASE version where each \ac{PR} is derived, unfortunately in our dataset of 600+ functions there were no differences between the two decompilations for the older \acp{PR} that suffered this problem (8161 and 6722)}.
 
-\subsection{PR \#8628}
+Using the BASE version as a reference point, we can analyze the impact of specific \acp{PR} on the model's judgments of code ``humanity'' and fidelity.
+
+\subsection{Handling Negative Constants -- PR \#8628}
 This \ac{PR} improves handling of constant subtractions that are rewritten during decompilation as additions with negative immediates (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}).
 
 \begin{figure}%[H]
@@ -298,7 +303,7 @@ In this instance, \emph{qwen-3} correctly identifies the core structural improve
 This demonstrates that when a structural transformation is sufficiently distinct and maps clearly to standard human programming conventions (like direct mathematical notation), the model's judgment remains stable. The removal of specific variable names and literal values during the \ac{AST} anonymization does not disrupt its ability to identify the more human-like syntactic pattern.
 
 
-\subsection{PR \#8587}
+\subsection{Indexing Pattern Recognition -- PR \#8587}
 
 This \ac{PR} focuses on automatically detecting and correcting one-based indexing patterns for spacebase constants (e.g., \texttt{*(undefined *)((long)i * 0x30 + 0xaddr + (long)j * 4)} $\rightarrow$ \texttt{globalArray[(long)i + -1].field[j]}).
 
@@ -340,7 +345,7 @@ In this case the model's judgment hallucinates, since the \ac{PR} version is obj
 \end{figure}
 
 Conversely, \Cref{fig:8587_ex2} shows that the majority of cases correctly identify the modifications of the \ac{PR}. In this case \emph{Deepseek-r1} identifies that the \ac{PR}'s output avoids raw pointer arithmetic in the raw code, and when evaluating the \ac{AST}, it continues to recognize the underlying structural pattern of ``direct array access'' as the superior, more human-like engineering choice, regardless of whether the specific variable names are visible or not.
-\subsection{PR \#8161}
+\subsection{Final Transform for While -- PR \#8161}
 
 This \ac{PR} addresses a possible issue with the handling of the \texttt{final\_transform} method of the \texttt{while} BasicBlocks, which could lead to not recover a \texttt{for} loop where it could be possible instead.
 
@@ -393,7 +398,7 @@ It penalizes the exact same cast, now viewing it as ``redundancy'' that makes th
 Interestingly, despite the BASE branch generally representing a much newer and more capable decompiler state, there are isolated instances where the older \ac{PR} branch generated cleaner localized logic. 
 \Cref{fig:8161_ex3} illustrates a scenario where both models \emph{consistently} prefer the \ac{PR} branch across both raw code and \ac{AST} evaluations. 
 
-\subsection{PR \#7253}
+\subsection{Sorting Switch Cases -- PR \#7253}
 
 This \ac{PR} sorts \texttt{switch} case entries by their target address
 
@@ -440,7 +445,7 @@ This exposes a significant blind spot in using \ac{LLM}s as judges: when forced 
 \Cref{fig:7253_ex2} demonstrates a different vulnerability: contradictory reasoning driven by lexical abstraction. In this instance, \emph{deepseek-r1} evaluates the raw code and selects the BASE version, arguing that it ``groups similar cases together'', avoiding machine-like redundancy. 
 However, when the specific \texttt{case} values and internal variables are abstracted into an \ac{AST}, the model flips its decision to the \ac{PR} version, ironically using the exact same claiming. 
 
-\subsection{PR \#6722}
+\subsection{Improving Pointer-Expression Recovery -- PR \#6722}
 
 This \ac{PR} focuses on improving pointer-expression recovery, allowing clean output such as \texttt{PTR 0041a1b8->ar[local\_18]} instead of raw pointer casts and offset arithmetic.
 
@@ -685,7 +690,7 @@ Human developers, conversely, quickly recognized the logical equivalence. Human 
 The final 6 questions of the quiz pitted the outputs of Binary Ninja, Hex-Rays, and Ghidra against each other. The human consensus overwhelmingly favored Binary Ninja and Hex-Rays over Ghidra. 
 This definitively validates the \ac{LLM} evaluations from the Dogbolt dataset. It is important to note that the human votes were not unanimous, and in some cases, Ghidra's output was preferred by a 40+\% of respondents. This reflects the inherent subjectivity in code readability and the fact that different developers may have varying preferences for certain coding styles or patterns. However, the overall trend clearly supports the LLM judges' conclusions about the relative quality of the decompilers' outputs.
 
-\subsection{Perplexity correlation}
+\subsection{Perplexity Correlation}
 
 We also calculated the Point-Biserial correlation between the human consensus winners and the $\Delta$ Perplexity for the raw code snippets used in the quiz, for both the raw code and the \ac{AST} conditions. This analysis aimed to determine whether the human preferences align with the same perplexity trends observed in the LLM judges.
 \begin{table}

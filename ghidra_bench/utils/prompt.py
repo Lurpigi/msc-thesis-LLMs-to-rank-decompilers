@@ -13,6 +13,12 @@ def get_quality_prompt_s(diff_text, source_code):
         "   - Source `switch` -> Winner must have `switch`.\n"
         "   - Source `for` -> Winner must have `for`.\n"
 
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
+
         "### INPUT DATA\n"
         "--- GROUND TRUTH (SOURCE CODE) ---\n"
         f"```c\n{source_code}\n```\n\n"
@@ -41,6 +47,12 @@ def get_ast_prompt_s(diff_text, source_ast):
         "### EVALUATION CRITERIA\n"
         "1. **Topology Match**: Which version (A or B) preserves the Source AST node types and structure?\n"
         "2. **Complexity**: Does the one version of code match better the nesting depth of the Source?\n\n"
+
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
 
         "### INPUT DATA\n"
         f"--- GROUND TRUTH (SOURCE AST) ---\n{source_ast}\n\n"
@@ -85,6 +97,11 @@ def get_quality_prompt(diff_text):
         "- **NO NEUTRALITY**: Pick a winner.\n"
         "- **Tie-Breaker**: If logic is identical, choose the representation with less artificial nesting/depth.\n\n"
 
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
 
         "### INPUT DATA (UNIFIED DIFF)\n"
         f"```diff\n{diff_text}\n```\n\n"
@@ -126,6 +143,12 @@ def get_ast_prompt(diff_text):
         "- **NO NEUTRALITY**: Pick a winner.\n"
         "- **Tie-Breaker**: If logic is identical, choose the representation with less artificial nesting/depth.\n\n"
 
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
+
         "### INPUT DATA (AST DIFF)\n"
         f"```diff\n{diff_text}\n```\n\n"
 
@@ -150,6 +173,12 @@ def Cget_quality_prompt_s(code_a, code_b, source_code):
         "   - Source `switch` -> Winner should have `switch`.\n"
         "   - Source `for` -> Winner should have `for`.\n"
         "2. **Logical Fidelity**: Which version correctly represents the logic of the source without introducing assembly-level artifacts (like unnecessary gotos)?\n\n"
+
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
 
         "### INPUT DATA\n"
         "--- GROUND TRUTH (SOURCE CODE) ---\n"
@@ -176,6 +205,12 @@ def Cget_ast_prompt_s(ast_a, ast_b, source_ast):
         "### EVALUATION CRITERIA\n"
         "1. **Topology Match**: Does one Candidate restore a node type (e.g. `SwitchStatement`) present in the Source but missing in the other?\n"
         "2. **Complexity**: Does the candidate match the nesting depth and statement hierarchy of the Source?\n\n"
+
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
 
         "### INPUT DATA\n"
         "--- GROUND TRUTH (SOURCE AST) ---\n"
@@ -208,6 +243,12 @@ def Cget_quality_prompt(code_a, code_b):
         "- **NO NEUTRALITY**: Pick a winner.\n"
         "- **Tie-Breaker**: If logic is identical, choose the version with less artificial nesting depth.\n\n"
 
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
+
         "### INPUT DATA\n"
         "--- CANDIDATE A ---\n"
         f"```c\n{code_a}\n```\n\n"
@@ -232,6 +273,12 @@ def Cget_ast_prompt(ast_a, ast_b):
         "We prioritize high-level human abstractions over raw assembly-derived graphs:\n"
         "- **Winner**: Natural loops (`for`/`while`), `switch` cases, and logical nesting.\n"
         "- **Loser**: Conditional jumps to labels (`goto`), excessive `if-else` cascades, and redundant wrapper blocks.\n\n"
+
+        "### CHAIN OF VERIFICATION\n"
+        "Before making your final decision, perform a step-by-step verification to check for potential errors:\n"
+        "1. **Isolate Modifications**: Explicitly identify what AST structural nodes were actually added or removed in the diff.\n"
+        "2. **Fact-Check**: Verify that your assessment is based *only* on these specific modifications and not on unverified assumptions.\n"
+        "3. **Error Check**: Double-check that your choice strictly follows the 'Human vs Machine' hierarchy without logical contradictions.\n\n"
 
         "### INPUT DATA\n"
         "--- CANDIDATE A AST ---\n"

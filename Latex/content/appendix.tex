@@ -1,10 +1,10 @@
-\chapter{Appendix}
+\appendix
 
-\section{Quiz questions}
+\chapter{Quiz}
 
 These are the quiz questions that were used in the human evaluation of the decompiled code snippets.
 
-\subsection{Participant instructions}
+\section{Participant instructions}
 
 In this short quiz (about 5--10 minutes), you will be presented with pairs of C code snippets (Snippet A and Snippet B).  
 Each pair implements the same logical operation, but with different writing styles.
@@ -15,7 +15,7 @@ If you cannot decide, leave the answer blank.
 
 All responses are collected anonymously and used only for academic research.
 
-\subsection{Quiz questions}
+\section{Quiz questions}
 
 \begin{figure}[H]
 \centering
@@ -143,7 +143,33 @@ All responses are collected anonymously and used only for academic research.
 \caption{Code --- \texttt{task-file\_fmtcheck-O0} (Reason for inclusion: Binary Ninja vs Ghidra comparison)}
 \end{figure}
 
-\section{Future Ghidra work}
+\section{Quiz results}
+
+\begin{table}[H]
+\centering
+\scriptsize
+\caption{Quiz responses (R = Right, L = Left, -- = blank).}
+\label{tab:quiz-results}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{c|ccccccccccccccccccccc}
+\textbf{Participant} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} & \textbf{6} & \textbf{7} & \textbf{8} & \textbf{9} & \textbf{10} & \textbf{11} & \textbf{12} & \textbf{13} & \textbf{14} & \textbf{15} & \textbf{16} & \textbf{17} & \textbf{18} & \textbf{19} & \textbf{20} & \textbf{21} \\
+\hline
+P1  & R & R & R & R & R & R & R & R & L & R & R & R & R & R & L & L & L & R & L & L & L \\
+P2  & L & R & R & R & R & R & R & L & L & R & R & R & R & R & L & L & R & R & L & R & L \\
+P3  & L & -- & R & R & R & R & R & R & L & R & R & R & L & R & L & L & R & R & L & -- & L \\
+P4  & R & L & R & R & R & R & L & R & L & L & R & R & L & R & R & R & R & R & R & L & L \\
+P5  & L & L & R & R & R & R & R & L & L & L & R & R & -- & R & L & L & R & -- & L & R & R \\
+P6  & R & L & R & R & R & R & L & R & R & R & R & R & R & R & R & R & R & R & R & R & R \\
+P7  & L & L & R & R & R & R & R & R & L & R & R & R & L & R & L & R & L & R & R & L & R \\
+P8  & R & L & R & R & R & R & R & R & L & R & L & R & R & R & R & R & R & R & L & L & R \\
+P9  & L & R & R & R & R & R & R & R & L & R & R & R & L & R & R & L & L & R & L & L & L \\
+P10 & L & -- & R & R & R & R & -- & R & L & R & R & R & L & R & -- & L & R & R & L & R & R \\
+P11 & L & R & R & L & R & R & R & R & L & R & R & R & R & R & R & R & R & R & L & R & R \\
+\end{tabular}%
+}
+\end{table}
+
+\chapter{Future Ghidra work}
 
 A possible future direction, based on the ``groups'' mechanism described in the \Cref{sec:dgroups}, is to define a standard way to enable alternative action pipelines in the decompiler.
 In practice, existing actions could include guarded branches (e.g., \texttt{if}-based checks) to activate different transformation flows and generate multiple candidate C outputs for the same function.

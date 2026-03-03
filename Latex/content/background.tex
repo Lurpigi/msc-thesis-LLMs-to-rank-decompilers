@@ -580,13 +580,13 @@ non-descriptive identifiers.
 
 The C++ backend generates a stream of \texttt{ClangToken} objects representing the code structure. This tokenized representation is 
 sent to the Java frontend via the XML protocol. This structured data allows the Ghidra 
-\ac{GUI} to provide interactive features—such as cross-referencing and dynamic renaming—since the UI 
+\ac{GUI} to provide interactive features, such as cross-referencing and dynamic renaming, since the UI 
 elements remain linked to the underlying \texttt{Varnode} and \texttt{HighVariable} objects.
 
 \section{Large Language Models}\label{sec:llm}
 The advent of \ac{LLM} marks a fundamental discontinuity in the history of artificial intelligence and \ac{NLP}. It is not merely an increase in computational capacity, 
 but an ontological redefinition of how machines process, represent, and generate semantic information. 
-At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani~\cite{Paper:vaswani2023attentionneed}, which enabled overcoming the sequential 
+At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani~\cite{Paper:NIPS2017_3f5ee243}, which enabled overcoming the sequential 
 limitations of previous \ac{RNN} and \ac{LSTM} architectures.
 
 \subsection{Transformer}
@@ -609,7 +609,7 @@ $z=(z_1,\dots,z_n)$. The \textbf{decoder} (right) conditions on $z$ and generate
 $y=(y_1,\dots,y_m)$ autoregressively, emitting one token per step. Both sides are built by stacking
 identical blocks composed of Multi-Head Attention and position-wise Feed-Forward layers, typically
 wrapped with residual connections and normalization. Inputs and targets are first embedded into a
-n-dimensional space, and a positional encoding is added to each embedding to encode token order~\cite{Paper:vaswani2023attentionneed}.
+n-dimensional space, and a positional encoding is added to each embedding to encode token order~\cite{Paper:NIPS2017_3f5ee243}.
 
 At the core there is Multi-Head Attention, which allows the model to jointly attend to information from different representation
 subspaces at different positions. Each attention head computes scaled dot-product attention, enabling the model to

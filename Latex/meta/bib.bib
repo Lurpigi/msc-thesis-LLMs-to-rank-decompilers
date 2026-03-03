@@ -153,34 +153,72 @@
    year={2024},
    pages={3473–3487} }
 
-@misc{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating,
-      title={DecompileBench: A Comprehensive Benchmark for Evaluating Decompilers in Real-World Scenarios}, 
-      author={Zeyu Gao and Yuxin Cui and Hao Wang and Siliang Qin and Yuanda Wang and Bolun Zhang and Chao Zhang},
-      year={2025},
-      eprint={2505.11340},
-      archivePrefix={arXiv},
-      primaryClass={cs.SE},
-      url={https://arxiv.org/abs/2505.11340}, 
+@inproceedings{Paper:gao-etal-2025-decompilebench,
+    title = "{D}ecompile{B}ench: A Comprehensive Benchmark for Evaluating Decompilers in Real-World Scenarios",
+    author = "Gao, Zeyu  and
+      Cui, Yuxin  and
+      Wang, Hao  and
+      Qin, Siliang  and
+      Wang, Yuanda  and
+      Bolun, Zhang  and
+      Zhang, Chao",
+    editor = "Che, Wanxiang  and
+      Nabende, Joyce  and
+      Shutova, Ekaterina  and
+      Pilehvar, Mohammad Taher",
+    booktitle = "Findings of the Association for Computational Linguistics: ACL 2025",
+    month = jul,
+    year = "2025",
+    address = "Vienna, Austria",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2025.findings-acl.1194/",
+    doi = "10.18653/v1/2025.findings-acl.1194",
+    pages = "23250--23267",
+    ISBN = "979-8-89176-256-5",
+    abstract = "Decompilers are fundamental tools for critical security tasks, from vulnerability discovery to malware analysis, yet their evaluation remains fragmented. Existing approaches primarily focus on syntactic correctness through synthetic micro-benchmarks or subjective human ratings, failing to address real-world requirements for semantic fidelity and analyst usability. We present **DecompileBench**, the first comprehensive framework that enables effective evaluation of decompilers in reverse engineering workflows through three key components: real-world function extraction (comprising 23,400 functions from 130 real-world programs), runtime-aware validation, and automated human-centric assessment using LLM-as-Judge to quantify the effectiveness of decompilers in reverse engineering workflows. Through a systematic comparison between six industrial-strength decompilers and six recent LLM-powered approaches, we demonstrate that LLM-based methods surpass commercial tools in code understandability despite 52.2{\%} lower functionality correctness. These findings highlight the potential of LLM-based approaches to transform human-centric reverse engineering. We open source **DecompileBench** to provide a framework to advance research on decompilers and assist security experts in making informed tool selections based on their specific requirements."
 }
 
-@misc{Paper:li2025generationjudgmentopportunitieschallenges,
-      title={From Generation to Judgment: Opportunities and Challenges of LLM-as-a-judge}, 
-      author={Dawei Li and Bohan Jiang and Liangjie Huang and Alimohammad Beigi and Chengshuai Zhao and Zhen Tan and Amrita Bhattacharjee and Yuxuan Jiang and Canyu Chen and Tianhao Wu and Kai Shu and Lu Cheng and Huan Liu},
-      year={2025},
-      eprint={2411.16594},
-      archivePrefix={arXiv},
-      primaryClass={cs.AI},
-      url={https://arxiv.org/abs/2411.16594}, 
+@inproceedings{Paper:li-etal-2025-generation,
+    title = "From Generation to Judgment: Opportunities and Challenges of {LLM}-as-a-judge",
+    author = "Li, Dawei  and
+      Jiang, Bohan  and
+      Huang, Liangjie  and
+      Beigi, Alimohammad  and
+      Zhao, Chengshuai  and
+      Tan, Zhen  and
+      Bhattacharjee, Amrita  and
+      Jiang, Yuxuan  and
+      Chen, Canyu  and
+      Wu, Tianhao  and
+      Shu, Kai  and
+      Cheng, Lu  and
+      Liu, Huan",
+    editor = "Christodoulopoulos, Christos  and
+      Chakraborty, Tanmoy  and
+      Rose, Carolyn  and
+      Peng, Violet",
+    booktitle = "Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing",
+    month = nov,
+    year = "2025",
+    address = "Suzhou, China",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2025.emnlp-main.138/",
+    doi = "10.18653/v1/2025.emnlp-main.138",
+    pages = "2757--2791",
+    ISBN = "979-8-89176-332-6",
+    abstract = "Assessment and evaluation have long been critical challenges in artificial intelligence (AI) and natural language processing (NLP). Traditional methods, usually matching-based or small model-based, often fall short in open-ended and dynamic scenarios. Recent advancements in Large Language Models (LLMs) inspire the ``LLM-as-a-judge'' paradigm, where LLMs are leveraged to perform scoring, ranking, or selection for various machine learning evaluation scenarios. This paper presents a comprehensive survey of LLM-based judgment and assessment, offering an in-depth overview to review this evolving field. We first provide the definition from both input and output perspectives. Then we introduce a systematic taxonomy to explore LLM-as-a-judge along three dimensions: \textit{what} to judge, \textit{how} to judge, and \textit{how} to benchmark. Finally, we also highlight key challenges and promising future directions for this emerging area."
 }
 
-@misc{Paper:vaswani2023attentionneed,
-      title={Attention Is All You Need}, 
-      author={Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and Lukasz Kaiser and Illia Polosukhin},
-      year={2023},
-      eprint={1706.03762},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/1706.03762}, 
+@inproceedings{Paper:NIPS2017_3f5ee243,
+ author = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N and Kaiser, \L ukasz and Polosukhin, Illia},
+ booktitle = {Advances in Neural Information Processing Systems},
+ editor = {I. Guyon and U. Von Luxburg and S. Bengio and H. Wallach and R. Fergus and S. Vishwanathan and R. Garnett},
+ pages = {},
+ publisher = {Curran Associates, Inc.},
+ title = {Attention is All you Need},
+ url = {https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf},
+ volume = {30},
+ year = {2017}
 }
 
 @article{Paper:Mullen2018, 
@@ -264,13 +302,6 @@
 	year = {}
 }
 
-@article{Paper:hui2024qwen2,
-      title={Qwen2. 5-Coder Technical Report},
-      author={Hui, Binyuan and Yang, Jian and Cui, Zeyu and Yang, Jiaxi and Liu, Dayiheng and Zhang, Lei and Liu, Tianyu and Zhang, Jiajun and Yu, Bowen and Dang, Kai and others},
-      journal={arXiv preprint arXiv:2409.12186},
-      year={2024}
-}
-
 @misc{site:huggingfaceMetallamaLlama318BInstructHugging,
 	author = {Meta},
 	title = {meta-llama/{L}lama-3.1-8{B}-{I}nstruct · {H}ugging {F}ace --- huggingface.co},
@@ -322,16 +353,6 @@
 	year = {}
 }
 
-@misc{site:deepseekai2025deepseekr1incentivizingreasoningcapability,
-      title={DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning}, 
-      author={DeepSeek-AI},
-      year={2025},
-      eprint={2501.12948},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2501.12948}, 
-}
-
 @article{site:hui2024qwen2,
       title={Qwen2. 5-Coder Technical Report},
       author={Hui, Binyuan and Yang, Jian and Cui, Zeyu and Yang, Jiaxi and Liu, Dayiheng and Zhang, Lei and Liu, Tianyu and Zhang, Jiajun and Yu, Bowen and Dang, Kai and others},
@@ -343,16 +364,6 @@
       author={An Yang and Baosong Yang and Binyuan Hui and Bo Zheng and Bowen Yu and Chang Zhou and Chengpeng Li and Chengyuan Li and Dayiheng Liu and Fei Huang and Guanting Dong and Haoran Wei and Huan Lin and Jialong Tang and Jialin Wang and Jian Yang and Jianhong Tu and Jianwei Zhang and Jianxin Ma and Jin Xu and Jingren Zhou and Jinze Bai and Jinzheng He and Junyang Lin and Kai Dang and Keming Lu and Keqin Chen and Kexin Yang and Mei Li and Mingfeng Xue and Na Ni and Pei Zhang and Peng Wang and Ru Peng and Rui Men and Ruize Gao and Runji Lin and Shijie Wang and Shuai Bai and Sinan Tan and Tianhang Zhu and Tianhao Li and Tianyu Liu and Wenbin Ge and Xiaodong Deng and Xiaohuan Zhou and Xingzhang Ren and Xinyu Zhang and Xipin Wei and Xuancheng Ren and Yang Fan and Yang Yao and Yichang Zhang and Yu Wan and Yunfei Chu and Yuqiong Liu and Zeyu Cui and Zhenru Zhang and Zhihao Fan},
       journal={arXiv preprint arXiv:2407.10671},
       year={2024}
-}
-
-@misc{atmer2025prefillvsdecodebottlenecks,
-      title={Prefill vs. Decode Bottlenecks: SRAM-Frequency Tradeoffs and the Memory-Bandwidth Ceiling}, 
-      author={Hannah Atmer and Yuan Yao and Thiemo Voigt and Stefanos Kaxiras},
-      year={2025},
-      eprint={2512.22066},
-      archivePrefix={arXiv},
-      primaryClass={cs.AR},
-      url={https://arxiv.org/abs/2512.22066}, 
 }
 
 @misc{site:numiqoPointBiserialCorrelation,

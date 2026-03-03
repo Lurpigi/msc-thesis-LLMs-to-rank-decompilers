@@ -7,7 +7,7 @@ reproducibility we used \emph{Docker Compose} to containerize both the server an
 The dataset creation is also a containerized process, and the result are mounted as volumes to the client container, allowing for easy access and manipulation of the data without the need for complex data transfer mechanisms.
 
 \section{Dataset Maker}\label{sec:datmak}
-As written on related works in~\Cref{sec:llmbench}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} for our evaluation,
+As written on related works in~\Cref{sec:llmbench}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao-etal-2025-decompilebench} for our evaluation,
 specifically the four Open Source projects: \texttt{file, libxls, readstat, xz}, which are written in C and have a rich history of commits and pull requests on GitHub.
 These choice was motivated by the need to have a manageable dataset size for local evaluation, while still covering a set of real world code and functions to evaluate our approach.
 for every project the dataset maker extracts all the functions and recompiles them  into standalone binaries; this process create different optimization levels of the binary, specifically \texttt{-O0} and \texttt{-O2}, and \texttt{-O3} 

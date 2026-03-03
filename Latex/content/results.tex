@@ -21,7 +21,7 @@ As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times b
     \caption{Peak VRAM for each evaluated model.}\label{fig:llm_vram}
 \end{figure}
 
-\Cref{fig:llm_vram} presents a counter-intuitive finding: calculating perplexity (\texttt{score}) requires a higher median and maximum Peak VRAM than generating text (\emph{generate}). While generation heavily utilizes the KV cache over time, perplexity calculations typically require processing the entire sequence in a single forward pass to compute logits, leading to massive activation memory spikes~\cite{atmer2025prefillvsdecodebottlenecks}.
+\Cref{fig:llm_vram} presents a counter-intuitive finding: calculating perplexity (\texttt{score}) requires a higher median and maximum Peak VRAM than generating text (\emph{generate}). While generation heavily utilizes the KV cache over time, perplexity calculations typically require processing the entire sequence in a single forward pass to compute logits, leading to massive activation memory spikes.
 
 \subsection{Generation}
 \begin{figure}%[H]

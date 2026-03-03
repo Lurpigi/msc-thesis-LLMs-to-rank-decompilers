@@ -38,7 +38,7 @@ cognitive burden on analysts by rewriting code to be more idiomatic.
 Closer to our specific problem domain is the emerging field of using \ac{LLM}s to evaluate code quality, 
 using \ac{LLM}s to scale and automatize human evaluation, this technique is often referred to as ``LLM-as-a-Judge''.
 
-DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating} is the state-of-the-art in this area,
+DecompileBench~\cite{Paper:gao-etal-2025-decompilebench} is the state-of-the-art in this area,
 It presents a comprehensive framework for evaluating decompilers, introducing the concept of using ``LLM-as-a-Judge'' to rate code 
 understandability across 12 specific dimensions (e.g., Variable Naming, Control Flow Clarity). 
 Their work validates that \ac{LLM}s can align well with human experts in ranking different decompilers 
@@ -70,11 +70,11 @@ These functions are compiled into standalone binaries (.so) with everything (bin
 \begin{figure}
     \centering
     \includegraphics[width=0.8\textwidth]{img/decompile_bench.png}
-    \caption{Creation of the dataset used in DecompileBench~\cite{Paper:gao2025decompilebenchcomprehensivebenchmarkevaluating}.}
+    \caption{Creation of the dataset used in DecompileBench~\cite{Paper:gao-etal-2025-decompilebench}.}
 \end{figure}
 
 \section{LLM-as-a-Judge}\label{sec:LLMJudge}
-The ``\ac{LLM}-as-a-Judge''~\cite{Paper:li2025generationjudgmentopportunitieschallenges} is a technique that leverages the reasoning capabilities of \ac{LLM}s to subsitute human evaluators in tasks that require subjective judgment.
+The ``\ac{LLM}-as-a-Judge''~\cite{Paper:li-etal-2025-generation} is a technique that leverages the reasoning capabilities of \ac{LLM}s to subsitute human evaluators in tasks that require subjective judgment.
 these aspects can be various (e.g., overall quality, logic, readability, etc.) and are often difficult to quantify with traditional metrics.
 In the context of reverse engineering, using an \ac{LLM} as a judge allows us to evaluate the ``humanness'' of decompiled code.
 Some problems with this approach are the potential for \emph{bias} in the model's judgments, such as position bias (prefer always the first option), or lenght bias (prefer the longer option). 

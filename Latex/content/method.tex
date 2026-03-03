@@ -1,13 +1,26 @@
 \chapter{Methodology}\label{ch:method}
 
-The framework of our work is based on a client-server architecture, where the server hosts the \ac{LLM} and provides an \ac{API} for interacting with it, 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.99\textwidth]{img/architecture.png}
+    \caption{Overview of the client-server architecture used for evaluating decompiled code with LLMs.}\label{fig:architecture}
+\end{figure}
+
+The framework of our work is based on a client-server architecture illustraed in \Cref{fig:architecture}, where the server hosts the \ac{LLM} and provides an \ac{API} for interacting with it, 
 while the client is responsible for building specific Ghidra version, preparing the code samples and prompts, invoking the server, and collecting results in \ac{JSON} format.
 Every service is designed to be modular, allowing for the integration of different \ac{LLM} models and evaluation metrics, for
 reproducibility we used \emph{Docker Compose} to containerize both the server and client components, ensuring consistent environments across different machines and operating systems.
 The dataset creation is also a containerized process, and the result are mounted as volumes to the client container, allowing for easy access and manipulation of the data without the need for complex data transfer mechanisms.
 
 \section{Dataset Maker}\label{sec:datmak}
-As written on related works in~\Cref{sec:llmbench}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao-etal-2025-decompilebench} for our evaluation,
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{img/dataset_maker.png}
+    \caption{The dataset maker process, which extracts functions from selected open source projects, compiles them with different optimization levels, and organizes the resulting binaries and metadata into a structured format for evaluation.}\label{fig.Dataset_maker}
+\end{figure}
+
+As written on related works in~\Cref{sec:llmbench} and shown in \Cref{fig.Dataset_maker}, we decided to use a subsect of the complete OSS Fuzz dataset used by DecompileBench~\cite{Paper:gao-etal-2025-decompilebench} for our evaluation,
 specifically the four Open Source projects: \texttt{file, libxls, readstat, xz}, which are written in C and have a rich history of commits and pull requests on GitHub.
 These choice was motivated by the need to have a manageable dataset size for local evaluation, while still covering a set of real world code and functions to evaluate our approach.
 for every project the dataset maker extracts all the functions and recompiles them  into standalone binaries; this process create different optimization levels of the binary, specifically \texttt{-O0} and \texttt{-O2}, and \texttt{-O3} 

@@ -85,7 +85,7 @@ which is unexpected since the original source code should be more ``natural'' an
 This suggests that the decompilation process may introduce certain patterns or structures that are more familiar to the language model, leading to lower perplexity scores, while the original source code may contain more variability and less predictable constructs that result in higher perplexity.
 We can observe that the perplexity distribution calculated with \emph{deepseek-r1} is generally higher than the one calculated with \emph{qwen-3}, this is consistent with the previous observation that \emph{qwen-3}.
 
-Another observation is that the abstracted representations of the code (right side of the figure) tend to have higher perplexity values compared to their original counterparts (left side of the figure).
+Another observation is that the abstracted representations of the code tend to have higher perplexity values compared to their original counterparts.
 This is likely because the abstraction process removes specific identifiers and literals, which can make the code less predictable and more ``surprising'' to the language model, 
 but even in this case, the original source code still has higher perplexity than the decompiled versions, reinforcing the idea that the decompilation process may be introducing more predictable patterns into the code.
 
@@ -315,7 +315,7 @@ This \ac{PR} focuses on automatically detecting and correcting one-based indexin
 
 As seen in \Cref{fig:8587_winner_distribution}, the results for the raw code blind evaluation are exceptionally decisive: both \emph{deepseek-r1} and \emph{qwen-3} unanimously prefer the \ac{PR} output 100\% of the time. Transforming obscure, hardcoded pointer arithmetic into clean array indexing is universally recognized by the models as a massive improvement in human readability. 
 
-However, a notable shift occurs when examining the \ac{AST} Fidelity evaluations (bottom right). When forced to compare the abstracted code against the abstracted original source, the ``TIE'' outcome becomes the dominant result for both models. This suggests that while the \ac{PR} produces much cleaner C code, the original source code's structure might still differ slightly from Ghidra's output, or the abstraction process obscures the specific array-indexing improvements, leading the models to find both versions equally distant from the original blueprint.
+We can observe in our study that the \emph{Deepseek-r1} model suffers from a light position bias in contrast to the \emph{qwen-3} model, which shows always preference to the \ac{PR} version.
 
 This \ac{PR} in particular only modifies 7 functions from the base branch.
 
@@ -325,18 +325,13 @@ This \ac{PR} in particular only modifies 7 functions from the base branch.
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8587}\label{fig:8587_consistency}
 \end{figure}
 
-Because of this small sample size, \Cref{fig:8587_consistency} shows binary extremes. \emph{Deepseek-r1} is 100\% consistent in its evaluations across the 7 functions. \emph{Qwen-3}, however, shows an inconsistency rate of roughly 25\% (one function).
-We encounter this inconsistency specifically in the \texttt{task-readstat\_sav\_parse\_date-O2} file.
+Because of this small sample size, \Cref{fig:8587_consistency} shows binary extremes. \emph{Deepseek-r1} and \emph{qwen-3} are 100\% consistent in their evaluations across the 7 functions.
 
 \begin{figure}%[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/8587/ex1.png}
-    \caption{Inconsistency in file task-readstat\_sav\_parse\_date-O2}\label{fig:8587_ex1}
+    \caption{Example of consistency in evaluation by qwen-3}\label{fig:8587_ex1}
 \end{figure}
-
-In \Cref{fig:8587_ex1}, we can observe exactly why \emph{qwen-3} changes its verdict. During the raw code evaluation, it correctly praises the \ac{PR} for using a direct array lookup rather than the \texttt{BASE} branch's obscure pointer arithmetic with a hardcoded address (\texttt{0x102311}). It notes that this leverages named data structures, which is highly idiomatic.
-However, when the code is stripped into an \ac{AST}, the array name is replaced by generic identifiers. In the anonimized version, \emph{qwen-3} suddenly perceives the \ac{PR}'s dynamic array indexing (e.g., \texttt{id + id + 1}) as ``unnecessary arithmetic complexity'' and reverts to favoring the \texttt{BASE} branch, arguing that a fixed offset (\texttt{0x102311 + id}) is simpler and more intentional. 
-In this case the model's judgment hallucinates, since the \ac{PR} version is objectively more human-like in its use of array indexing, and the \texttt{BASE} version's pointer arithmetic is more convoluted.
 
 \begin{figure}%[H]
     \centering
@@ -344,7 +339,7 @@ In this case the model's judgment hallucinates, since the \ac{PR} version is obj
     \caption{Example of consistency in evaluation by deepseek-r1}\label{fig:8587_ex2}
 \end{figure}
 
-Conversely, \Cref{fig:8587_ex2} shows that the majority of cases correctly identify the modifications of the \ac{PR}. In this case \emph{Deepseek-r1} identifies that the \ac{PR}'s output avoids raw pointer arithmetic in the raw code, and when evaluating the \ac{AST}, it continues to recognize the underlying structural pattern of ``direct array access'' as the superior, more human-like engineering choice, regardless of whether the specific variable names are visible or not.
+In \Cref{fig:8587_ex2,fig:8587_ex2} we can observe two examples where the majority of cases correctly identify the modifications of the \ac{PR}. In this case the two models identify that the \ac{PR}'s output avoids raw pointer arithmetic in the raw code, and when evaluating the \ac{AST}, it continues to recognize the underlying structural pattern of ``direct array access'' as the superior, more human-like engineering choice, regardless of whether the specific variable names are visible or not.
 \subsection{Final Transform for While -- PR \#8161}
 
 This \ac{PR} addresses a possible issue with the handling of the \texttt{final\_transform} method of the \texttt{while} BasicBlocks, which could lead to not recover a \texttt{for} loop where it could be possible instead.
@@ -669,8 +664,8 @@ To measure how well the \ac{LLM} judges proxy human intuition, we calculated an 
 \toprule
 \textbf{Model} & \textbf{Raw Code Alignment} & \textbf{AST Alignment} \\
 \midrule
-qwen-3 & $\sim$64.28\% & $\sim$69.04\% \\
-deepseek-r1 & $\sim$73.80\% & $\sim$73.80\% \\
+qwen-3 & $\sim$64\% & $\sim$69\% \\
+deepseek-r1 & $\sim$74\% & $\sim$74\% \\
 \bottomrule
 \end{tabular}
 \end{table}

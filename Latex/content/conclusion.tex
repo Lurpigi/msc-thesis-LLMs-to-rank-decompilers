@@ -4,7 +4,7 @@ Evaluating the readability and ``human-likeness'' of decompiled code has long be
 
 Our quantitative analysis definitively demonstrated that perplexity is not a reliable proxy for human-likeness in decompiled code. Contrary to initial assumptions, human-written source code consistently exhibits higher perplexity than decompiled output. This is because human code contains domain-specific idioms, creative structural choices, and stylistic variance (high entropy), whereas decompilers generate rigid, repetitive, and verbose boilerplate that artificially drives perplexity down. Thus, the correlation between $\Delta$perplexity and human preference was weak and often inversely related, confirming that perplexity alone cannot capture the nuanced qualities that make code more readable or natural to human developers.
 
-In exploring the LLM-as-a-Judge paradigm, our results highlighted distinct capabilities and vulnerabilities between the evaluated models. \emph{Deepseek-r1} emerged as a highly capable evaluator, achieving an alignment of approximately 74\% with human developers. It consistently recognized and rewarded high-level structural improvements, such as the removal of \texttt{goto} statements or the recovery of natural loops. Conversely, \emph{qwen-3} struggled with severe lexical biases and verbosity, often fixating on variable names or minor type casts. We demonstrated that abstracting the decompiled code into an Abstract Syntax Tree (AST) successfully mitigated these lexical distractions, forcing the models to evaluate purely structural logic and improving their alignment with human reasoning.
+In exploring the LLM-as-a-Judge paradigm, our results highlighted distinct capabilities and vulnerabilities between the evaluated models. \emph{Deepseek-r1} emerged as a highly capable evaluator, achieving an alignment of approximately 74\% with human developers. We demonstrated that abstracting the decompiled code into an Abstract Syntax Tree (AST) successfully mitigated some lexical distractions, forcing the models to evaluate purely structural logic and improving their alignment with human reasoning.
 
 Despite these successes, we identified significant limitations. LLMs remain susceptible to analytical hallucinations, occasionally inventing non-existent technical justifications when evaluating logically equivalent snippets or minor stylistic permutations (such as reordering \texttt{switch} cases). Furthermore, the computational cost of processing long contexts for perplexity calculations poses a scalability bottleneck for current hardware.
 
@@ -19,7 +19,15 @@ This study has several limitations that should be acknowledged:
     \item \textbf{Fixed Base:} In our evaluation, we compared PRs against a fixed base version. This approach does not isolate the specific changes made in some older \acp{PR} but rather evaluates different versions of the same codebase. Future work could focus on more controlled experiments that isolate specific transformations to better understand their impact on readability.
 \end{itemize}
 
-In conclusion, while LLMs are not yet flawless, objective arbiters of code quality, they represent a powerful and promising tool for the reverse engineering community. The findings of this thesis establish a solid baseline for automated decompiler evaluation. Future work should focus on utilizing larger foundation models, developing specialized fine-tuning datasets composed of human-ranked assembly-to-C translations, and refining AST abstraction pipelines to further isolate structural quality from lexical noise.
+In conclusion, while LLMs are not yet flawless, objective arbiters of code quality, they represent a powerful and promising tool for the reverse engineering community. 
+The findings of this thesis establish a solid baseline for automated decompiler evaluation. 
+Future work should focus on utilizing larger foundation models, using much bigger datasets, and asking to more developer judges to further validate and refine the LLM-as-a-Judge approach, while also exploring techniques to mitigate hallucinations and reduce computational overhead.
 
 \section{Greetings}
-\dots
+
+I would like to express my heartfelt thanks to all those who have supported and encouraged me throughout my academic career. First and foremost, I would like to thank my parents and my family for their love, patience, and unconditional support.
+I would also like to thank my groups of friends,
+the \emph{ThaSuS} group, the \emph{Office} group, the University Group of bachelor's and master's degree students, and all my other friends scattered here and there whom I would like to see more often, for the laughter, the discussions, the good times, and the mutual support we have given each other.
+Finally, I would like to thank my advisors and all the professors who have guided me throughout my university career
+for their expertise, availability, and valuable advice. Without the support of all these
+people, I would not have made it this far. Thank you all from the bottom of my heart!

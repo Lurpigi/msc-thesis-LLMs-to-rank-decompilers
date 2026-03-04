@@ -49,20 +49,19 @@ In contrast, our work leverages also with intrinsic model metrics like \emph{per
 Perplexity provides a more objective, quantifiable measure of how natural the code appears to the model, 
 rather than relying only with subjective ratings, see~\Cref{sec:WhyPerp}.
 
-%TODO cambiare se dogbolt
 Our work also diverges from DecompileBench in its focus on evaluating code variants
-within the same codebase (e.g., different pull requests), rather than comparing entirely different decompilers. 
+within the same codebase (e.g., different pull requests). 
 This fine-grained analysis is crucial on cases where its required to assess incremental changes rather than wholesale tool comparisons (es. GitHub Actions~\cite{site:githubGitHubActions}).
 
 The last difference is that DecompileBench heavily utilizes proprietary, closed-source models (like GPT-4 
 or Claude-3.5) and licensed decompilers (like Hex-Rays or Binary Ninja). 
 Our work specifically explores the feasibility of running these evaluations on local hardware. 
 This addresses the privacy and cost constraints often present in security-sensitive reverse engineering tasks, 
-which large-scale benchmarks often overlook.
+which large-scale benchmarks often overlook. We also evaluate some other decompilers using Dogbolt, see \Cref{sec:dogbolt}, but since it does not provide \acp{API} to automate the evaluation, we had to do it manually, and we only used it for a subset of our dataset.
 
 The creation of the Dataset that we use is a subset of the one used in DecompileBench, 
-since the entire dataset was overly large (at least more than 1 Tb) for our local hardware, and we needed to focus on a smaller subset of code variants to test the utility of perplexity and LLM-as-a-Judge in a more controlled setting.
-we used the technique proposed by the DecompileBench team:
+since the entire dataset was overly large (at least more than 1 Tb) for our local hardware, and we needed to focus on a smaller subset of code variants to test the utility of perplexity and LLM-as-a-Judge in a more controlled setting, we decided to use a subset of that dataset.
+We used the technique proposed by the DecompileBench team:
 extracting source code from OSS-Fuzz projects~\cite{site:githubGitHubGoogleossfuzz}, identifying functions covered during execution using Clang's coverage sanitizer, 
 and then extracting individual function implementations with their dependencies using \texttt{clang-extract}. 
 These functions are compiled into standalone binaries (.so) with everything (binary position, funciton name, and source code) saved in a dataset object~\cite{site:pypiDatasets}.

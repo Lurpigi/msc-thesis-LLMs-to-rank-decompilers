@@ -1,7 +1,7 @@
 \chapter{Background}\label{ch:background}
 
 This chapter provides the necessary background knowledge to understand how Ghidra works, in particular the decompilation process,
-with his architecture, main components, and the decompilation pipeline. The Decompiler of Ghidra is enormous and complex software, (over 200k lines of C++)
+with his architecture, main components, and the decompilation pipeline. The decompiler of Ghidra is enormous and complex software, (over 200k lines of C++)
 so we focus only on the parts that are relevant to this thesis.
 Then we will introduce the main concepts behind \ac{LLM}s, their architecture, sampling, and metrics for evaluation.
 
@@ -750,7 +750,7 @@ Note that a low perplexity reflects statistical predictability relative to the t
 \ac{LLM} are designed to generate text that closely mimics human language, capturing nuances, context, and stylistic elements.
 This capability is achieved through extensive training on vast corpora of text, enabling the models to learn patterns and structures inherent in human communication.
 This mimic of human-like text generation has profound implications across various domains, including customer service, content creation, and education.
-since the generated text is often indistinguishable from that written by humans, \ac{LLM} we can use them to measure how ``human-like'' is a piece of text.
+since the generated text is often indistinguishable from that written by humans, we can use them to measure how ``human-like'' is a piece of text.
 If we have two C functions that perform the same task but generated with different decompilers (or different settings/version of the same decompiler), 
 we can probably assume that using an \ac{LLM} to measure how ``human-like'' is the generated code can be a good proxy for code quality/readability.
 

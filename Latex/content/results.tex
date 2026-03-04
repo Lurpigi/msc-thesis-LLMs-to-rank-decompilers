@@ -12,7 +12,7 @@ An empirical evaluation of the \emph{qwen-3} and \emph{deepseek-r1} models was c
     \caption{Execution time for each evaluated model.}\label{fig:llm_time}
 \end{figure}
 
-As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times between the two operations. The \texttt{score} operation is inherently fast, with both models completing most passes in under 50 seconds. However, the \texttt{generate} operation exhibits significantly higher and more erratic execution times, particularly for \emph{qwen-3}, which frequently exceeds 200 seconds and reaches up to nearly 400 seconds. 
+As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times between the two operations. The \texttt{score} operation is inherently fast, with both models completing most passes in under 50 seconds. However, the \texttt{generate} operation exhibits significantly higher and more erratic execution times, particularly for \emph{qwen-3}, which frequently exceeds 200 seconds and reaches up to nearly 500 seconds. 
 
 
 \begin{figure}%[H]
@@ -21,7 +21,7 @@ As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times b
     \caption{Peak VRAM for each evaluated model.}\label{fig:llm_vram}
 \end{figure}
 
-\Cref{fig:llm_vram} presents a counter-intuitive finding: calculating perplexity (\texttt{score}) requires a higher median and maximum Peak VRAM than generating text (\emph{generate}). While generation heavily utilizes the KV cache over time, perplexity calculations typically require processing the entire sequence in a single forward pass to compute logits, leading to massive activation memory spikes.
+\Cref{fig:llm_vram} presents a counter-intuitive finding: calculating perplexity (\texttt{score}) requires a higher mean and maximum Peak VRAM than generating text (\emph{generate}). While generation heavily utilizes the KV cache over time, perplexity calculations typically require processing the entire sequence in a single forward pass to compute logits, leading to massive activation memory spikes.
 
 \subsection{Generation}
 \begin{figure}%[H]
@@ -30,7 +30,7 @@ As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times b
     \caption{Generated tokens vs execution time and peak VRAM for each evaluated model.}\label{fig:llm_gen}
 \end{figure}
 
-A closer inspection of \Cref{fig:llm_gen} reveals the root cause of the discrepancy between the two models. The scatter plot for ``Generated Tokens vs Execution Time'' shows a near-perfect linear correlation, confirming that generation time is bottlenecked entirely by the length of the model's output rather than the input context. 
+A closer inspection of \Cref{fig:llm_gen} reveals the root cause of the discrepancy between the two models. The scatter plot for ``Generated Tokens vs Execution Time'' shows a linear correlation, confirming that generation time is bottlenecked heavily by the length of the model's output rather than the input context. 
 Critically, \emph{qwen-3} routinely generates between 2,000 and 4,000+ tokens during the evaluation task and often reaches our limit of 4096 new tokens. 
 
 Given that the task is an \ac{LLM} Judge producing an evaluation of code ``humanity,'' a rationale exceeding 4,000 tokens is highly suspicious. This suggests that \emph{qwen-3} may be suffering from severe verbosity, repeating the input code, or failing to trigger stop tokens appropriately. 
@@ -83,7 +83,7 @@ In \Cref{fig:ppl_distribution} we can see the distribution of perplexity values 
 We can observe that the original source code has generally higher perplexity values compared to the decompiled versions,
 which is unexpected since the original source code should be more ``natural'' and predictable than the decompiled output.
 This suggests that the decompilation process may introduce certain patterns or structures that are more familiar to the language model, leading to lower perplexity scores, while the original source code may contain more variability and less predictable constructs that result in higher perplexity.
-We can observe that the perplexity distribution calculated with \emph{deepseek-r1} is generally higher than the one calculated with \emph{qwen-3}, this is consistent with the previous observation that \emph{qwen-3}.
+We can observe that the perplexity distribution calculated with \emph{deepseek-r1} is generally higher than the one calculated with \emph{qwen-3}, this is consistent with the previous observation.
 
 Another observation is that the abstracted representations of the code tend to have higher perplexity values compared to their original counterparts.
 This is likely because the abstraction process removes specific identifiers and literals, which can make the code less predictable and more ``surprising'' to the language model, 
@@ -302,6 +302,12 @@ In this instance, \emph{qwen-3} correctly identifies the core structural improve
 
 This demonstrates that when a structural transformation is sufficiently distinct and maps clearly to standard human programming conventions (like direct mathematical notation), the model's judgment remains stable. The removal of specific variable names and literal values during the \ac{AST} anonymization does not disrupt its ability to identify the more human-like syntactic pattern.
 
+When the models have preferred BASE over the \ac{PR}, we can see that is simply hallucinating reasons to justify, not recognizing the context of the change like in \Cref{fig:8628_4}.
+\begin{figure}%[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/8628/ex4.png}
+    \caption{Hallucination of reasons to prefer BASE over PR}\label{fig:8628_4}
+\end{figure}
 
 \subsection{Indexing Pattern Recognition -- PR \#8587}
 
@@ -546,7 +552,7 @@ qwen-3 & AST + Source  & 17 & 11 & 11 & 16 \\
     \caption{Distribution of winners across the four prompts for the dogbolt evaluation, showing length bias}\label{fig:dogbolt_length_bias}
 \end{figure}
 
-\Cref{fig:dogbolt_length_bias} further quantifies the drastic variations among the decompilers. The boxplots illustrate the delta length between the winning snippet and the losing alternatives. The presence of massive outliers—some exceeding a difference of $\pm 1000$ tokens—proves that the tools generate code of vastly different lengths for the exact same binary function. 
+\Cref{fig:dogbolt_length_bias} further quantifies the drastic variations among the decompilers. The boxplots illustrate the delta length between the winning snippet and the losing alternatives. The presence of massive outliers, some exceeding a difference of $\pm 1000$ tokens, proves that the tools generate code of vastly different lengths for the exact same binary function. 
 
 While the medians hover near zero, we can observe a slight negative bias in the blind tests (\emph{winner} and \emph{winner\_ast}), meaning the LLM judges generally exhibit a slight preference for more concise code when evaluating purely for readability. However, in the source-provided tests (\emph{winner\_s} and \emph{winner\_ast\_s}), this distribution flattens or shifts slightly positive. 
 When forced to prioritize fidelity, the models occasionally reward verbosity if the longer decompiler output happens to capture explicit logic or variable declarations that were present in the original source but optimized away by the more concise decompilers. 

@@ -33,7 +33,7 @@ As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times b
 A closer inspection of \Cref{fig:llm_gen} reveals the root cause of the discrepancy between the two models. The scatter plot for ``Generated Tokens vs Execution Time'' shows a linear correlation, confirming that generation time is bottlenecked heavily by the length of the model's output rather than the input context. 
 Critically, \emph{qwen-3} routinely generates between 2,000 and 4,000+ tokens during the evaluation task and often reaches our limit of 4096 new tokens. 
 
-Given that the task is an \ac{LLM} Judge producing an evaluation of code ``humanity,'' a rationale exceeding 4,000 tokens is highly suspicious. This suggests that \emph{qwen-3} may be suffering from severe verbosity, repeating the input code, or failing to trigger stop tokens appropriately. 
+Given that the task is a \ac{LLM} Judge producing an evaluation of code ``humanity,'' a rationale exceeding 4,000 tokens is highly suspicious. This suggests that \emph{qwen-3} may be suffering from severe verbosity, repeating the input code, or failing to trigger stop tokens appropriately. 
 In contrast, \emph{deepseek-r1} is significantly more concise, rarely exceeding 2,500 tokens; it can still reach the 4096-token limit, but much less frequently, which translates directly to more predictable and efficient execution times.
 
 
@@ -64,7 +64,7 @@ If the dataset contains an enormous larger input (e.g., 8k to 32k tokens), the c
 
 Fortunately, the \emph{generate} operation does not exhibit this issue, as it processes tokens sequentially and can leverage the KV cache to manage memory more efficiently.
 
-The duration is mostly flat (0--20 seconds), but spikes occurfor both models. This implies either batch-processing artifacts or that the evaluation dataset contains many decompiled functions of the exact same token length that trigger specific internal computational bottlenecks.
+The duration is mostly flat (0--20 seconds), but spikes occur for both models. This implies either batch-processing artifacts or that the evaluation dataset contains many decompiled functions of the exact same token length that trigger specific internal computational bottlenecks.
 A possible explanation is that runtime is influenced not only by input length, but also by the distribution of per-token loss values. This hypothesis requires additional targeted experiments, and further studies will be necessary to confirm it.
 
 
@@ -101,7 +101,7 @@ This visualization highlights a counter-intuitive phenomenon: despite the origin
 
 We attribute this behavior to Token Inflation and Loss Dilution:
 As indicated by the token counts in the figure (e.g., $\sim$168k tokens for decompiled vs $\sim$120k for original source), the decompilation process introduces a substantial \emph{token inflation}.
-Ghidra generate verbose, explicit code full of boilerplate structures (e.g., redundant casts, standard control flow patterns, explicit initializations, and restricted vocabulary). These pattern tokens are syntactically rigid and in a context where are used, they are easy to predict for the model, leading to a large number of tokens with very low loss values (close to zero). 
+Ghidra generate verbose, explicit code full of boilerplate structures (e.g., redundant casts, standard control flow patterns, explicit initializations, and restricted vocabulary). These pattern tokens are syntactically rigid and in a context where are used, they are easy to predict for the model, leading to many tokens with very low loss values (close to zero). 
 Their sheer volume effectively dilutes the mean loss, artificially lowering the overall perplexity score compared to the denser, more information-rich human code.
 In contrast, the original source code reflects human authorship, which includes domain-specific naming conventions, creative syntactic choices, and stylistic variability. This ``human entropy'' flattens the density curve and shifts the mean loss to the right, as the model is more frequently ``surprised'' by the programmer's unique choices compared to the machine's standardized output.
 
@@ -134,7 +134,7 @@ Comparing these results with the previous analysis on raw code tokens, we observ
     \caption{Loss values for \texttt{xls\_parseWorkBook} in the decompiled base code}\label{fig:example_loss_func}
 \end{wrapfigure}
 
-The token-level analisys allow us to verify the tokens that contribute the most to the loss, and consequently to the perplexity, in a specific function.
+The token-level analysis allow us to verify the tokens that contribute the most to the loss, and consequently to the perplexity, in a specific function.
 We can observe that the token itself is not the only factor that contributes to the loss, but especially the context in which it is used.
 For example, in \Cref{fig:example_loss_func} we can see the loss values for the token ``\texttt{LAB}'', which is a common label used in the decompiled code to indicate jump targets.
 This token has a low loss value (1.664) when it appears after the \texttt{do{}while loop}, but it has a much higher loss value (11.812) when it appears inside the \texttt{if} allowing a flow branch to ignore the condition and entering the scope without checks.
@@ -170,7 +170,7 @@ We can observe a clear trend across both models:
 \end{itemize}
 
 This result reinforces our conclusion: in our case (Ghidra vs Source) Human-Likeness is not defined by raw predictability (where the machine wins), but by the \textbf{variance of unpredictability}. A ``natural'' code signature is one that surprises the model in inconsistent, context-dependent bursts, rather than being uniformly predictable.
-Meanwhile for the anonymized code, the gap in variance is smaller but it still exists, suggesting that even at the structural level, human code retains a degree of unpredictability that machine-generated code lacks.
+Meanwhile, for the anonymized code, the gap in variance is smaller, suggesting that even at the structural level, human code retains a degree of unpredictability that machine-generated code lacks.
 
 \subsection{Other Decompilers}\label{sec:perplexitydog}
 
@@ -180,10 +180,10 @@ Meanwhile for the anonymized code, the gap in variance is smaller but it still e
     \caption{Perplexity values for the original source code and the decompiled versions from other decompilers.}\label{fig:ppl_distribution_dogbolt}
 \end{figure}
 
-The dogbolt analysis allows us to compare the perplexity values of the decompiled versions from other decompilers (Hex-Rays and Binary Ninja) with the original source code and the Ghidra decompilation, with a subset of the original database (we cannot compare in an absolute way the plot in \Cref{fig:ppl_distribution} with these but only the relative ordering of the distributions).
-We can see in \Cref{fig:ppl_distribution_dogbolt} that the perplexity values for the decompiled versions resulted by the dogbolt analysis, are generally in line with the Ghidra ones.
-we can see that the original source code still has higher perplexity values compared to the decompiled versions, and the abstracted representations of the code still tend to have higher perplexity values compared to their original counterparts.
-Another key observation is that the binary ninja has a perplexity distribution that is more similar to the original source code compared to the Ghidra decompilation, meanwhile Hex-Rays has a distribution in the middle between the other two decompilers, then we can observe that every distribution with \emph{deepseek-r1} has a higher mean perplexity than the same distribution with \emph{qwen-3} like we seen previously.
+The Dogbolt analysis allows us to compare the perplexity values of the decompiled versions from other decompilers (Hex-Rays and Binary Ninja) with the original source code and the Ghidra decompilation, with a subset of the original database (we cannot compare in an absolute way the plot in \Cref{fig:ppl_distribution} with these but only the relative ordering of the distributions).
+We can see in \Cref{fig:ppl_distribution_dogbolt} that the perplexity values for the decompiled versions resulted by the Dogbolt analysis, are generally in line with the Ghidra ones.
+We can see that the original source code still has higher perplexity values compared to the decompiled versions, and the abstracted representations of the code still tend to have higher perplexity values compared to their original counterparts.
+Another key observation is that the binary ninja has a perplexity distribution that is more similar to the original source code compared to the Ghidra decompilation, meanwhile Hex-Rays has a distribution in the middle between the other two decompilers, then we can observe that every distribution with \emph{deepseek-r1} has a higher mean perplexity than the same distribution with \emph{qwen-3} like we have seen previously.
 
 \begin{figure}%[H]
     \centering
@@ -205,7 +205,7 @@ The density plots in \Cref{fig:dogbolt_loss} confirm the phenomena observed in t
     \item \textbf{Binary Ninja} stands out as the decompiler that most closely approximates the original source code. Its loss distribution is flatter, and its mean loss ($\sim 1.33$ for DeepSeek-R1) is significantly closer to the original source ($\sim 1.60$) than the other tools. It also exhibits less token inflation compared to Ghidra and Hex-Rays with a Max loss closer to the original source.
 \end{itemize}
 
-Meanwhile in the \emph{AST} plots in \Cref{fig:dogbolt_loss_ast}, where identifiers and literals are abstracted, we observe the expected flattening of all distributions. By stripping away lexical entropy, the gap between human-written code and machine-generated code narrows. Notably, the massive token inflation seen in Hex-Rays raw code drops significantly during AST abstraction (from 7,034 down to 3,869 tokens), 
+Meanwhile, in the \emph{AST} plots in \Cref{fig:dogbolt_loss_ast}, where identifiers and literals are abstracted, we observe the expected flattening of all distributions. By stripping away lexical entropy, the gap between human-written code and machine-generated code narrows. Notably, the massive token inflation seen in Hex-Rays raw code drops significantly during AST abstraction (from 7,034 down to 3,869 tokens), 
 indicating that a vast majority of its predictability stems from highly repetitive lexical tokens, types, and literal declarations rather than purely structural blocks. Even in the abstracted form, Binary Ninja maintains the distribution shape most similar to the original source code and with Hex-Rays having less tokens, the density at peak now is less than the Ghidra one for \emph{qwen-3}. 
 Finally, comparing the two models across all subplots, we note that while \emph{qwen-3} consistently produces lower absolute loss values (higher confidence/predictability) than \emph{deepseek-r1}, both models almost perfectly agree (except for the code tokens for \emph{qwen-3} where Hex-Rays have a higher peak density than Ghidra) on the relative ordering of the distributions. Original source code always retains the highest mean loss and widest variance, followed by Binary Ninja, Hex-Rays, and finally Ghidra. 
 
@@ -221,10 +221,10 @@ Finally, comparing the two models across all subplots, we note that while \emph{
         \caption{Heatmap of loss values for Hex-Rays decompilation with model \emph{deepseek-r1}}\label{fig:hex-ray_loss2}
 \end{figure}
 
-A token-level analysis of the Hex-Rays decompilation (e.g., \Cref{fig:hex-ray_loss}) for the model \emph{qwen-3}, reveals that Hex-Rays generates comments and other repetitive tokens that are highly predictable. The most predictable tokens are often those associated with those artefacts of the decompilation process. 
+A token-level analysis of the Hex-Rays decompilation (e.g., \Cref{fig:hex-ray_loss}) for the model \emph{qwen-3}, reveals that Hex-Rays generates comments and other repetitive tokens that are highly predictable. The most predictable tokens are often those associated with those artifacts of the decompilation process. 
 These tokens create a dense cluster of low-loss values that significantly lower the overall perplexity score, despite the presence of more complex and less predictable tokens elsewhere in the code.
 
-When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{fig:hex-ray_loss2}), we can see that the loss values are generally higher, but the distribution of low-loss tokens is still present, confirming that the anonimization process is a key factor in the analysis of the perplexity, as it standardizes the code through the removal of personalized identifiers, making the predictability of the code more dependent on its structural patterns rather than on specific lexical choices.
+When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{fig:hex-ray_loss2}), we can see that the loss values are generally higher, but the distribution of low-loss tokens is still present, confirming that the anonymization process is a key factor in the analysis of the perplexity, as it standardizes the code through the removal of personalized identifiers, making the predictability of the code more dependent on its structural patterns rather than on specific lexical choices.
 
 \section{LLM-as-a-Judge Evaluation}
 
@@ -236,11 +236,11 @@ When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{
 
 In \Cref{fig:winner_distribution} we can see the distribution of winners across all evaluated models, based on the qualitative judgments of the \ac{LLM} as a judge.
 The two models, Qwen3 and DeepSeek, have a significant number of Ties, but they also show a balanced distribution of wins between the base code and the pr code.
-We can see a bin for ``Error'' winners as well, this happens primarly when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generate tokens inside $<think>$ tags) sometimes the context becomes too large (often because they repeat thoughts entering in a loop) and they finish the limit without giving inside the response a clear winner (e.g., ``Winner'':``X'').
+We can see a bin for ``Error'' winners as well, this happens primarily when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generated tokens inside \emph{<think>} tags) sometimes the context becomes too large (often because they repeat thoughts entering a loop) and they finish the limit without giving inside the response a clear winner (e.g., ``Winner'':``X'').
 Sometimes the response does not give a clear winner with the pattern ``Winner: X'' but it is still able to give a clear preference in the rationale, in this case we consider it as an error since the model did not follow the instructions correctly, but we can still extract some information from the rationale.
 
-We previously said that a ``Tie'' is when the model judges always the same result regardless the switch of the base and pr code.
-We have a significant number of Ties for all models, watching the result we can observe a ratio of $\sim \frac{2}{3}$ ($204 / 308$) of times where the model prefers the \ac{PR} version (204) over the \texttt{BASE} version (104).
+We previously said that a ``Tie'' is when the model always judges the same result regardless the switch of the base and pr code.
+We have a significant number of Ties for all models, watching the result we can observe a ratio of $\sim \frac{2}{3}$ ($204 / 308$) of times the model prefers the \ac{PR} version (204) over the \texttt{BASE} version (104).
 This suggests a position bias, even using our Diff format explained in \Cref{sec:prompts}, this bias could be caused by the model's tendency to favor the second option presented in a comparison, or it could be due to some subtle cues in the prompt formatting that inadvertently signal a preference for the \ac{PR} version. 
 
 We used as BASE the version in commit \texttt{14c2495cb06ccd09324050c787ad0fc756d35dae}, which is at the moment of writing this thesis, the latest commit in the Ghidra repository, some of these \acp{PR} are derived from a BASE version that is older than the one we used, so the differences between the BASE and the PR version may be more significant than what we expect from only the description of the \ac{PR}, 
@@ -249,7 +249,7 @@ we decided to include these results to evaluate the history of version changes\f
 Using the BASE version as a reference point, we can analyze the impact of specific \acp{PR} on the model's judgments of code ``humanity'' and fidelity.
 
 \subsection{Handling Negative Constants -- PR \#8628}
-This \ac{PR} improves handling of constant subtractions that are rewritten during decompilation as additions with negative immediates (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}).
+This \ac{PR} improves handling of constant subtractions that are rewritten during decompilation as additions with negative constants (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}).
 
 \begin{figure}%[H]
     \centering
@@ -278,7 +278,7 @@ These two inconsistencies occur in the files \texttt{task-readstat\_sav\_parse\_
     \caption{Inconsistency in file task-readstat\_sav\_parse\_date-O3}\label{fig:8628_ex1}
 \end{figure}
 
-In the first inconsistent case (\Cref{fig:8628_ex1}), the \emph{qwen-3} model shifts its preference based on the presence of parentheses. When evaluating the raw code, it praises the \ac{PR} for using parentheses to group arithmetic operations (``\texttt{((type)id * 2 - 2)}''), arguing it makes the intent clearer and aligns with human engineering practices, It does not talk about the sum of negative number but rely his judgment on parenthesis. However, when evaluating the \ac{AST}, the model flips its vote to the \texttt{BASE} version. It suddenly argues that the extra parentheses introduced in the \ac{PR} feel ``mechanically generated'' and that the \texttt{BASE} version is more idiomatic because it trusts operator precedence, againg ignoring the sum of negative number. 
+In the first inconsistent case (\Cref{fig:8628_ex1}), the \emph{qwen-3} model shifts its preference based on the presence of parentheses. When evaluating the raw code, it praises the \ac{PR} for using parentheses to group arithmetic operations (``\texttt{((type)id * 2 - 2)}''), arguing it makes the intent clearer and aligns with human engineering practices, It does not talk about the sum of negative number but rely his judgment on parenthesis. However, when evaluating the \ac{AST}, the model flips its vote to the \texttt{BASE} version. It suddenly argues that the extra parentheses introduced in the \ac{PR} feel ``mechanically generated'' and that the \texttt{BASE} version is more idiomatic because it trusts operator precedence, ignoring again the sum of negative number. 
 We can see that in this case, the model put in priority the parentheses over the sum of negative number. But the fact that the model is not consistent in its judgment when the parentheses are removed in the \ac{AST} evaluation, suggests that it may be overfitting to superficial cues rather than truly understanding the underlying code structure and semantics.
 \begin{figure}%[H]
     \centering
@@ -306,12 +306,12 @@ When the models have preferred BASE over the \ac{PR}, we can see that is simply 
 \begin{figure}%[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/8628/ex4.png}
-    \caption{Hallucination of reasons to prefer BASE over PR}\label{fig:8628_4}
+    \caption{Hallucination of reasons to prefer BASE to PR}\label{fig:8628_4}
 \end{figure}
 
 \subsection{Indexing Pattern Recognition -- PR \#8587}
 
-This \ac{PR} focuses on automatically detecting and correcting one-based indexing patterns for spacebase constants (e.g., \texttt{*(undefined *)((long)i * 0x30 + 0xaddr + (long)j * 4)} $\rightarrow$ \texttt{globalArray[(long)i + -1].field[j]}).
+This \ac{PR} focuses on automatically detecting and correcting indexing patterns for spacebase constants (e.g., \texttt{*(undefined *)((long)i * 0x30 + 0xaddr + (long)j * 4)} $\rightarrow$ \texttt{globalArray[(long)i + -1].field[j]}).
 
 \begin{figure}%[H]
     \centering
@@ -321,7 +321,7 @@ This \ac{PR} focuses on automatically detecting and correcting one-based indexin
 
 As seen in \Cref{fig:8587_winner_distribution}, the results for the raw code blind evaluation are exceptionally decisive: both \emph{deepseek-r1} and \emph{qwen-3} unanimously prefer the \ac{PR} output 100\% of the time. Transforming obscure, hardcoded pointer arithmetic into clean array indexing is universally recognized by the models as a massive improvement in human readability. 
 
-We can observe in our study that the \emph{Deepseek-r1} model suffers from a light position bias in contrast to the \emph{qwen-3} model, which shows always preference to the \ac{PR} version.
+We can observe in our study that the \emph{Deepseek-r1} model suffers from a light position bias in contrast to the \emph{qwen-3} model, which always shows preference to the \ac{PR} version.
 
 This \ac{PR} in particular only modifies 7 functions from the base branch.
 
@@ -350,7 +350,7 @@ In \Cref{fig:8587_ex2,fig:8587_ex2} we can observe two examples where the majori
 
 This \ac{PR} addresses a possible issue with the handling of the \texttt{final\_transform} method of the \texttt{while} BasicBlocks, which could lead to not recover a \texttt{for} loop where it could be possible instead.
 
-Unfortunately, the difference between the BASE and \ac{PR} versions in our dataset is not inherent to the \ac{PR} itself, but rather a consequence of the fact that the BASE branch was generated with an newer version of Ghidra (post-PR) while the \ac{PR} branch was generated with a older version of Ghidra.
+Unfortunately, the difference between the BASE and \ac{PR} versions in our dataset is not inherent to the \ac{PR} itself, but rather a consequence of the fact that the BASE branch was generated with a newer version of Ghidra (post-PR) while the \ac{PR} branch was generated with an older version of Ghidra.
 We can see that in the fork repo of the \ac{PR} branch, where it contains the message ``This branch is 2 commits ahead of and 1948 commits behind NationalSecurityAgency:master'', and consequently the evaluation is not really about the \ac{PR} but about the differences between two versions of Ghidra, which makes it difficult to draw conclusions about the specific impact of the \ac{PR}'s changes.
 
 \begin{figure}%[H]
@@ -359,7 +359,7 @@ We can see that in the fork repo of the \ac{PR} branch, where it contains the me
     \caption{Distribution of winners across the four prompts for PR \#8161}\label{fig:8161_winner_distribution}
 \end{figure}
 
-Looking at the aggregate data in \Cref{fig:8161_winner_distribution}, the impact of the \ac{AST} abstraction on this specific dataset is profound. In the ``Code Blind'' evaluation, the models are largely undecided (high ``TIE'' rate) or slightly favor the older \ac{PR} branch due to localized quirks like the one seen in \Cref{fig:8161_ex3}. However, in the anonimized evaluation, there is a massive shift in preference toward the BASE branch. This suggests that the structural improvements accumulated in the 1948 commits of the BASE branch become much more apparent to the models once distracting lexical artifacts are removed.
+Looking at the aggregate data in \Cref{fig:8161_winner_distribution}, the impact of the \ac{AST} abstraction on this specific dataset is profound. In the ``Code Blind'' evaluation, the models are largely undecided (high ``TIE'' rate) or slightly favor the older \ac{PR} branch due to localized quirks like the one seen in \Cref{fig:8161_ex3}. However, in the anonymized evaluation, there is a massive shift in preference toward the BASE branch. This suggests that the structural improvements accumulated in the 1948 commits of the BASE branch become much more apparent to the models once distracting lexical artifacts are removed.
 
 \begin{figure}%[H]
     \centering
@@ -434,7 +434,7 @@ In the next two figures, the only modification is the order of the cases in the 
 \end{figure}
 
 In \Cref{fig:7253_ex1}, we observe a severe instance of model hallucination by \emph{qwen-3}. Unable to find a structural or logical improvement in the simple reordering, the model fabricates reasons to justify its preference for the \ac{PR}. 
-During the raw code evaluation, it falsely claims that the \ac{PR} ``introduces explicit 'break;' statements'' to prevent fall-through. During the \ac{AST} evaluation, it similarly hallucinates that the \ac{PR} ``reduces redundant case entries''. 
+During the raw code evaluation, it falsely claims that the \ac{PR} ``introduces explicit break statements'' to prevent fall-through. During the \ac{AST} evaluation, it similarly hallucinates that the \ac{PR} ``reduces redundant case entries''. 
 This exposes a significant blind spot in using \ac{LLM}s as judges: when forced to compare logically identical blocks that differ only in arrangement, the model may invent non-existent structural diffs rather than correctly identifying the transformation.
 
 \begin{figure}%[H]
@@ -473,7 +473,7 @@ Despite this imbalance, the consistency rates for PR \#6722 (\Cref{fig:6722_cons
     \caption{Inconsistency in evaluation in sav\_parse\_long\_variable\_names\_record-O0}\label{fig:6722_ex1}
 \end{figure}
 
-\Cref{fig:6722_ex1} illustrates a classic contradiction in how \ac{LLM}s perceive type casting, mirroring issues seen in previous PRs. In the raw code evaluation, \emph{deepseek-r1} prefers the \ac{PR} branch, praising the explicit cast of the \texttt{bsearch} result to \texttt{(char *)} as a ``human-like trait'' that enhances clarity and maintainability. Yet, when evaluating the abstracted \ac{AST} where specific types are hidden, the model completely reverses its logic. It awards the win to the \texttt{BASE} branch, penalizing the explicit cast as an ``unnecessary'' and ``redundant'' feature, suddenly arguing that trusting implicit conversions is the true idiomatic human practice.
+\Cref{fig:6722_ex1} illustrates a classic contradiction in how \ac{LLM}s perceive type casting, mirroring issues seen in previous PRs. In the raw code evaluation, \emph{deepseek-r1} prefers the \ac{PR} branch, praising the explicit cast of the \texttt{bsearch} function result to \texttt{(char *)} as a ``human-like trait'' that enhances clarity and maintainability. Yet, when evaluating the abstracted \ac{AST} where specific types are hidden, the model completely reverses its logic. It awards the win to the \texttt{BASE} branch, penalizing the explicit cast as an ``unnecessary'' and ``redundant'' feature, suddenly arguing that trusting implicit conversions is the true idiomatic human practice.
 
 \begin{figure}%[H]
     \centering
@@ -507,7 +507,7 @@ Because the redundancy is purely structural and does not rely on specific variab
 \begin{figure}%[H]
     \centering
     \includegraphics[width=1\textwidth]{img/dogbolt_winners.png}
-    \caption{Distribution of winners across the four prompts for the dogbolt evaluation}\label{fig:dogbolt_winner_distribution}
+    \caption{Distribution of winners across the four prompts for the Dogbolt evaluation}\label{fig:dogbolt_winner_distribution}
 \end{figure}
 
 
@@ -521,14 +521,14 @@ It could be position Bias, (since the ratio of wins after switch is 99/47 for Ve
 
 \emph{Hex-Rays} manages to maintain the most stable performance across both blind and source-provided prompts, winning almost consistently across all prompts, suggesting a more balanced approach that preserves some of the original code's structure while still applying transformations for readability.
 
-\emph{Ghidra}, on the other hand, consistently underperforms for \emph{deepseek-r1}, rarely winning and often being overshadowed by the other two decompilers, but it also perform slightly better when the raw code is provided. Furthermore the inconsistencies in the Ghidra results across the two models suggest that its output may be more sensitive to the specific evaluation criteria emphasized by each LLM, which further complicates the notion of a single ``best'' decompiler.
+\emph{Ghidra}, on the other hand, consistently underperforms for \emph{deepseek-r1}, rarely winning and often being overshadowed by the other two decompilers, but it also performs slightly better when the raw code is provided. Furthermore, the inconsistencies in the Ghidra results across the two models suggest that its output may be more sensitive to the specific evaluation criteria emphasized by each LLM, which further complicates the notion of a single ``best'' decompiler.
 
 \begin{table}
 \centering
 \caption{Dogbolt evaluation winners by judge and prompt type.}\label{tab:dogbolt_winners_by_prompt}
 \begin{tabular}{llrrrr}
 \toprule
-\textbf{Judge} & \textbf{Test Type} & \textbf{Tie} & \textbf{binary-ninja} & \textbf{ghidra} & \textbf{hex-rays} \\
+\textbf{Judge} & \textbf{Test Type} & \textbf{Tie} & \textbf{Binary-Ninja} & \textbf{Ghidra} & \textbf{Hex-Rays} \\
 \midrule
 deepseek-r1 & AST + Source  & 25 & 11 &  6 & 14 \\
  & AST Blind     & 19 & 21 &  6 & 14 \\
@@ -549,7 +549,7 @@ qwen-3 & AST + Source  & 17 & 11 & 11 & 16 \\
 \begin{figure}%[H]
     \centering
     \includegraphics[width=1\textwidth]{img/dogbolt_length_bias.png}
-    \caption{Distribution of winners across the four prompts for the dogbolt evaluation, showing length bias}\label{fig:dogbolt_length_bias}
+    \caption{Distribution of winners across the four prompts for the Dogbolt evaluation, showing length bias}\label{fig:dogbolt_length_bias}
 \end{figure}
 
 \Cref{fig:dogbolt_length_bias} further quantifies the drastic variations among the decompilers. The boxplots illustrate the delta length between the winning snippet and the losing alternatives. The presence of massive outliers, some exceeding a difference of $\pm 1000$ tokens, proves that the tools generate code of vastly different lengths for the exact same binary function. 
@@ -566,7 +566,7 @@ Despite this increased variance, the fundamental behaviors, biases, and inconsis
 \begin{figure}%[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/dogbolt_ex1.png}
-    \caption{Incoherent results from dogbolt with Qwen}\label{fig:dogbolt_ex1}
+    \caption{Incoherent results from Dogbolt with Qwen}\label{fig:dogbolt_ex1}
 \end{figure}
 
 In \Cref{fig:dogbolt_ex1} we can see a case of inconsistency driven by lexical abstraction, mirroring the vulnerabilities seen in the Ghidra evaluations. When \emph{qwen-3} evaluates the raw code (comparing Binary Ninja and Hex-Rays), it prefers Candidate A (Binary Ninja), praising its \texttt{do-while} loop as a ``semantic structure that aligns with high-level human thinking'' and criticizing Candidate B's \texttt{while(1)} with a \texttt{break} as less idiomatic. 
@@ -575,7 +575,7 @@ However, when the exact same logic is abstracted into an \ac{AST}, the model fli
 \begin{figure}%[H]
     \centering
     \includegraphics[width=0.95\textwidth]{img/dogbolt_ex2.png}
-    \caption{Coherent results from dogbolt with Qwen}\label{fig:dogbolt_ex2}
+    \caption{Coherent results from Dogbolt with Qwen}\label{fig:dogbolt_ex2}
 \end{figure}
 
 Conversely, in \Cref{fig:dogbolt_ex2} the \ac{LLM} compares Ghidra against Hex-Rays. In this scenario, Hex-Rays generates a \texttt{while(1)} loop, whereas Ghidra produces a structure with a \texttt{do-while} loop nested inside multiple conditional checks and variable updates. 
@@ -587,8 +587,8 @@ Interestingly, the \ac{LLM} evaluates the same structural pattern as a negative 
 
 \subsection{Ghidra}
 
-To determine whether the quantitative predictability of the decompiled code (measured via Perplexity) aligns with the qualitative ``human-likeness'' evaluations provided by our LLM judges, we conducted a Point-Biserial correlation analysis 
-\footnote{The point-biserial correlation ($r_{pb}$) measures the strength and direction of the association between a continuous interval/ratio variable and a binary (dichotomous) variable, ranging from -1 to +1. As a special case of the Pearson correlation, it is commonly used to determine if a naturally occurring dichotomy (e.g., pass/fail, yes/no) relates to a continuous score~\cite{site:numiqoPointBiserialCorrelation}}. 
+To determine whether the quantitative predictability of the decompiled code (measured via Perplexity) aligns with the qualitative ``human-likeness'' evaluations provided by our LLM judges, we conducted a Point-Biserial correlation analysis.
+\footnote{The point-biserial correlation ($r_{pb}$) measures the strength and direction of the association between a continuous interval/ratio variable and a binary (dichotomous) variable, ranging from -1 to +1. As a special case of the Pearson correlation, it is commonly used to determine if a naturally occurring dichotomy (e.g., pass/fail, yes/no) relates to a continuous score~\cite{site:numiqoPointBiserialCorrelation}}
 In this setup, the qualitative winner is treated as a binary variable (\texttt{PR} $= 1$, \texttt{BASE} $= 0$), and it is correlated against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{PR}} - \mathrm{PPL}_{\mathrm{BASE}}$). 
 
 Consequently, a \textit{negative} correlation coefficient ($r < 0$) would indicate the expected behavior: when the LLM judge prefers the \texttt{PR} branch (1), the $\Delta$ PPL is negative (meaning the \texttt{PR} code had a lower, ``better'' perplexity). 
@@ -679,7 +679,7 @@ deepseek-r1 & $\sim$74\% & $\sim$74\% \\
 The results in \Cref{tab:human_alignment} provide two critical insights into the capabilities of \ac{LLM}s as code judges:
 
 \begin{enumerate}
-    \item \textbf{Deepseek-R1 is superior for human judgment:} With a consistent $\sim$73.8\% alignment, \emph{deepseek-r1} demonstrates a much more robust understanding of human programming idioms than \emph{qwen-3}. It is important to note that the same results for raw code and \ac{AST} code are identical just in the final number as the intermedial results are different.
+    \item \textbf{Deepseek-R1 is superior for human judgment:} With a consistent $\sim$73.8\% alignment, \emph{deepseek-r1} demonstrates a much more robust understanding of human programming idioms than \emph{qwen-3}. It is important to note that the same results for raw code and \ac{AST} code are identical just in the final number as the intermediate results are different.
     \item \textbf{AST Abstraction improves Qwen-3:} Strikingly, \emph{qwen-3}'s alignment with human developers increases from $\sim$64.28\% to $\sim$69.04\% when evaluating the anonymized \ac{AST}. This means that probably \emph{qwen-3} suffers from a light lexical bias.
 \end{enumerate}
 
@@ -711,12 +711,12 @@ This direction is coherent with the previous analyses: snippets judged as more h
 
 \section{Discussion}
 
-The results presented in this study offer a critical perspective on the use of Large Language Models (LLMs) for evaluating the quality and readability of decompiled code.
+The results presented in this study offer a critical perspective on the use of \acp{LLM} for evaluating the quality and readability of decompiled code.
 
-First, the quantitative analysis clearly shows that perplexity is not a reliable proxy for code human-likeness. Contrary to the initial intuition, the original source code tends to have systematically higher perplexity values than decompiled versions. This phenomenon is rooted in the nature of human-written code, which is characterized by varied stylistic choices, domain-specific naming conventions, and general high-entropy burstiness. In contrast, decompilers such as Ghidra tend to produce rigid syntactic structures, repetitive patterns, and verbose constructs. This structural and lexical token inflation dilutes the cross-entropy mean, artificially lowering overall perplexity and making mechanical code appear more predictable to the model than human code.
+First, the quantitative analysis clearly shows that perplexity is not a reliable proxy for code human-likeness. Contrary to the initial intuition, the original source code tends to have systematically higher perplexity values than decompiled versions. This phenomenon is rooted in the nature of human-written code, which is characterized by varied stylistic choices, domain-specific naming conventions, and general high-entropy. In contrast, decompilers such as Ghidra tend to produce rigid syntactic structures, repetitive patterns, and verbose constructs. This structural and lexical token inflation dilutes the cross-entropy mean, artificially lowering overall perplexity and making mechanical code appear more predictable to the model than human code.
 
-Regarding the use of LLMs as qualitative judges, the two evaluated architectures showed distinct capabilities and limitations. \emph{Deepseek-r1} proved to be clearly superior in approximating human judgment, reaching an alignment rate of about 73.8\%. \emph{Qwen-3}, by contrast, showed significant weaknesses: a marked tendency toward verbosity that harms time and computational efficiency, and strong susceptibility to lexical bias, which improves only when code is abstracted into \ac{AST}. Moreover, both models showed the risk of analytical “hallucinations.” When faced with logically equivalent code variants, or variants differing only in irrelevant stylistic details (such as switch-case ordering), LLMs sometimes invented nonexistent technical justifications to support a preferred choice.
+Regarding the use of \acp{LLM} as qualitative judges, the two evaluated architectures showed distinct capabilities and limitations. \emph{Deepseek-r1} proved to be clearly superior in approximating human judgment, reaching an alignment rate with human evaluators of about 74\%. \emph{Qwen-3}, by contrast, showed significant weaknesses: a marked tendency toward verbosity that harms time and computational efficiency, and strong susceptibility to lexical bias, which improves only when code is abstracted into \ac{AST}. Moreover, both models showed the risk of analytical hallucinations. When faced with logically equivalent code variants with many lines of differences, or variants differing only in irrelevant stylistic details (such as switch-case ordering), \acp{LLM} sometimes invented nonexistent technical justifications to support a preferred choice.
 
-The human-developer experiment played a crucial role in validating our metrics and isolating LLM limitations. Humans proved much more resilient to lexical noise and better at ignoring non-functional stylistic differences. However, human consensus broadly confirmed the models’ macro-level verdicts, validating, for example, the preference for the readability of Binary Ninja and Hex-Rays outputs over Ghidra’s output.
+The human-developer experiment, while limited in sample size and therefore not suitable as an absolute ground truth, still provided a useful signal about the overall direction of the findings and helped validate the biases and failures observed in the \ac{LLM} judges.
 
 Finally, it is important to emphasize that the models evaluated in this study are relatively small in terms of parameter count. This work provides a starting point and a baseline for developing future automated evaluation frameworks for reverse engineering. Although computational bottlenecks emerged and some architectural biases remain, the LLM-as-a-Judge approach is promising. Future developments based on larger foundation models, specialized fine-tuning, or more advanced abstraction pipelines may reduce hallucinations and make these tools essential standards for the continuous improvement of decompilers.

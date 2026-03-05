@@ -1,6 +1,6 @@
 \chapter{Related Work}\label{ch:related}
 
-The intersection of \ac{LLM} and reverse engineering has rapidly evolved, 
+The intersection of \acp{LLM} and reverse engineering has rapidly evolved, 
 transforming how analysts interact with decompiled code. While recent 
 literature has indeed explored utilizing \ac{LLM}s to assist in reverse engineering (using framework like \ac{MCP} servers), 
 the vast majority of this work focuses on two distinct areas: 
@@ -10,9 +10,9 @@ the vast majority of this work focuses on two distinct areas:
 \end{itemize}
 
 Unlike generative approaches that aim to produce better code, our work focuses on 
-measuring the ``humanness'' of existing code using intrinsic model metrics like perplexity and using those \ac{LLM} as a Judge (\Cref{sec:LLMJudge}). 
-Furthermore, unlike broad benchmarking frameworks that rely on proprietary \ac{API}s to rank tools, 
-our research investigates the granular utility of local \ac{LLM} in distinguishing between specific versions (or pull requests) of the same codebase.
+measuring the ``humanness'' of existing code using intrinsic model metrics like perplexity and using those \acp{LLM} as Judges (\Cref{sec:LLMJudge}). 
+Furthermore, unlike broad benchmarking frameworks that rely on proprietary \acp{API} to rank tools, 
+our research investigates the granular utility of local \acp{LLM} in distinguishing between specific versions (or pull requests) of the same codebase.
 %TODO capire se dire anche di dogbolt
 
 \section{Generative Refinement of Decompiler Output}\label{sec:genref}
@@ -73,10 +73,10 @@ These functions are compiled into standalone binaries (.so) with everything (bin
 \end{figure}
 
 \section{LLM-as-a-Judge}\label{sec:LLMJudge}
-The ``\ac{LLM}-as-a-Judge''~\cite{Paper:li-etal-2025-generation} is a technique that leverages the reasoning capabilities of \ac{LLM}s to subsitute human evaluators in tasks that require subjective judgment.
-these aspects can be various (e.g., overall quality, logic, readability, etc.) and are often difficult to quantify with traditional metrics.
+The ``\ac{LLM}-as-a-Judge''~\cite{Paper:li-etal-2025-generation} is a technique that leverages the reasoning capabilities of \ac{LLM}s to substitute human evaluators in tasks that require subjective judgment.
+These aspects can be various (e.g., overall quality, logic, readability, etc.) and are often difficult to quantify with traditional metrics.
 In the context of reverse engineering, using an \ac{LLM} as a judge allows us to evaluate the ``humanness'' of decompiled code.
-Some problems with this approach are the potential for \emph{bias} in the model's judgments, such as position bias (prefer always the first option), or lenght bias (prefer the longer option). 
+Some problems with this approach are the potential for \emph{bias} in the model's judgments, such as position bias (prefer always the first option), or length bias (prefer the longer option). 
 These problems must be carefully managed in a study that relies on \ac{LLM}s for evaluation.
 
 \section{Why Perplexity}\label{sec:WhyPerp}

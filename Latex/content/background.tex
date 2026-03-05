@@ -575,7 +575,7 @@ Before emission, the \emph{ActionNameVars} pass attempts to assign meaningful na
 recovered \texttt{HighVariable} objects. If debug symbols (DWARF, PDB) are available, 
 they are utilized. In their absence, Ghidra relies on heuristics based on variable usage 
 (e.g., loop counters named \texttt{i}, \texttt{j}) or storage location 
-(e.g., \texttt{iVar1}, \texttt{uVar2}). This process is highly stochastic and often results in generic, 
+(e.g., \texttt{iVar1}, \texttt{uVar2}). This process is highly complex and often results in generic, 
 non-descriptive identifiers.
 
 The C++ backend generates a stream of \texttt{ClangToken} objects representing the code structure. This tokenized representation is 
@@ -584,7 +584,7 @@ sent to the Java frontend via the XML protocol. This structured data allows the 
 elements remain linked to the underlying \texttt{Varnode} and \texttt{HighVariable} objects.
 
 \section{Large Language Models}\label{sec:llm}
-The advent of \ac{LLM} marks a fundamental discontinuity in the history of artificial intelligence and \ac{NLP}. It is not merely an increase in computational capacity, 
+The advent of \acp{LLM} marks a fundamental discontinuity in the history of artificial intelligence and \ac{NLP}. It is not merely an increase in computational capacity, 
 but an ontological redefinition of how machines process, represent, and generate semantic information. 
 At the heart of this revolution lies the Transformer architecture, introduced in 2017 by Vaswani~\cite{Paper:NIPS2017_3f5ee243}, which enabled overcoming the sequential 
 limitations of previous \ac{RNN} and \ac{LSTM} architectures.
@@ -746,7 +746,7 @@ A perplexity of K indicates that, on average, the model behaves as if it were ch
 \end{itemize}
 Note that a low perplexity reflects statistical predictability relative to the training corpus and does not guarantee factual accuracy or correctness.
 
-\section{Human-like}\label{sec:human-like}
+\section{Human-likeness}\label{sec:human-like}
 \ac{LLM} are designed to generate text that closely mimics human language, capturing nuances, context, and stylistic elements.
 This capability is achieved through extensive training on vast corpora of text, enabling the models to learn patterns and structures inherent in human communication.
 This mimic of human-like text generation has profound implications across various domains, including customer service, content creation, and education.

@@ -589,6 +589,7 @@ Interestingly, the \ac{LLM} evaluates the same structural pattern as a negative 
 
 To determine whether the quantitative predictability of the decompiled code (measured via Perplexity) aligns with the qualitative ``human-likeness'' evaluations provided by our LLM judges, we conducted a Point-Biserial correlation analysis.
 \footnote{The point-biserial correlation ($r_{pb}$) measures the strength and direction of the association between a continuous interval/ratio variable and a binary (dichotomous) variable, ranging from -1 to +1. As a special case of the Pearson correlation, it is commonly used to determine if a naturally occurring dichotomy (e.g., pass/fail, yes/no) relates to a continuous score~\cite{site:numiqoPointBiserialCorrelation}}
+We also removed the results with clear hallucinations in the motivation field (e.g., where the model referenced code elements or modifications that were not present), as these cases do not reflect genuine judgments about code quality (12 in raw code and 11 in \ac{AST}, with 17 \emph{deepseek-r1} and 6 \emph{qwen-3}).
 In this setup, the qualitative winner is treated as a binary variable (\texttt{PR} $= 1$, \texttt{BASE} $= 0$), and it is correlated against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{PR}} - \mathrm{PPL}_{\mathrm{BASE}}$). 
 
 Consequently, a \textit{negative} correlation coefficient ($r < 0$) would indicate the expected behavior: when the LLM judge prefers the \texttt{PR} branch (1), the $\Delta$ PPL is negative (meaning the \texttt{PR} code had a lower, ``better'' perplexity). 
@@ -600,25 +601,25 @@ Consequently, a \textit{negative} correlation coefficient ($r < 0$) would indica
 \toprule
 \textbf{Model} & \textbf{Code $r$} & \textbf{Code $p$-value} & \textbf{N} & \textbf{AST $r$} & \textbf{AST $p$-value} & \textbf{N} \\
 \midrule
-qwen-3 & -0.0833 & 0.5232 & 61 & -0.1825 & 0.1147 & 76 \\
-deepseek-r1 & -0.0625 & 0.5970 & 74 & -0.1329 & 0.2399 & 80 \\
+qwen-3 & -0.0805 & 0.5443 & 59 & -0.2263 & 0.0509 & 75 \\
+deepseek-r1 & 0.0128 & 0.9204 & 63 & -0.1036 & 0.3866 & 72 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Looking at the raw code correlations (\emph{Code $r$}) in \Cref{tab:ppl_correlation}, we observe values extremely close to zero for both models ($-0.0833$ and $-0.0625$). Furthermore, the associated $p$-values ($> 0.5$) clearly indicate that these results are not statistically significant. This demonstrates a complete lack of correlation between raw code perplexity and qualitative \ac{LLM} judgment. 
+Looking at the raw code correlations (\emph{Code $r$}) in \Cref{tab:ppl_correlation}, we observe values extremely close to zero for both models ($-0.0805$ and $0.0128$). Furthermore, the associated $p$-values ($> 0.5$) clearly indicate that these results are not statistically significant. This demonstrates a complete lack of correlation between raw code perplexity and qualitative \ac{LLM} judgment. 
 
 This disconnect highlights a crucial insight: the features that make code ``predictable'' to an LLM's next-token-prediction engine (lower perplexity) are fundamentally different from the features that an LLM judge evaluates when prompted to look for ``human-like'' readability. As discussed in previous sections, a decompiler might generate highly repetitive, boilerplate-heavy code that drives perplexity down through token inflation, but an LLM judge will correctly penalize this exact same code for being verbose and mechanical.
 
-When evaluating the abstracted \ac{AST} representations (\emph{AST $r$}), the negative correlation slightly strengthens for both \emph{qwen-3} ($-0.1825$) and \emph{deepseek-r1} ($-0.1329$). Additionally, the sample size (N) increases (as the number of TIEs decreases).
+When evaluating the abstracted \ac{AST} representations (\emph{AST $r$}), the negative correlation slightly strengthens for both \emph{qwen-3} ($-0.2263$) and \emph{deepseek-r1} ($-0.1036$). Additionally, the sample size (N) increases (as the number of TIEs decreases).
 
-While the $p$-values ($0.1147$ and $0.2399$) still fall short of the threshold for statistical significance ($p < 0.05$ to confirm if the relationship exists in the population), the shift is notable. By removing the ``lexical noise'' and standardize the decompiler output artificially, the structural predictability of the \ac{AST} aligns slightly better with the structural judgment of the \ac{LLM}. However, the correlation remains weak overall.
+While the $p$-values ($0.0509$ and $0.3866$) still fall short of the threshold for statistical significance ($p < 0.05$ to confirm if the relationship exists in the population), the shift is notable. By removing the ``lexical noise'' and standardizing the decompiler output artificially, the structural predictability of the \ac{AST} aligns slightly better with the structural judgment of the \ac{LLM}. However, the correlation remains weak overall even if for the \emph{qwen-3} model the p-value is approaching the threshold.
 
 Ultimately, this data confirms that \textbf{Perplexity is not a reliable proxy for human-likeness in decompiled code}. While perplexity effectively measures how well the code aligns with the statistical distribution of the model's training data, qualitative human-likeness is defined by higher-level engineering concepts, such as idiomatic control flow, logical grouping, and abstraction, which often introduce necessary structural ``surprises'' that inherently increase perplexity.
 
 \subsection{Dogbolt}
 
-We extended our correlation analysis to the Dogbolt dataset, where the \ac{LLM} judges compared outputs from different decompilers (e.g., Binary Ninja vs. Hex-Rays vs. Ghidra) in an A/B testing format. We binarized the qualitative winner (Candidate A $= 1$, Candidate B $= 0$) and correlated it against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{A}} - \mathrm{PPL}_{\mathrm{B}}$). 
+We extended our correlation analysis to the Dogbolt dataset, where the \ac{LLM} judges compared outputs from different decompilers (e.g., Binary Ninja vs. Hex-Rays vs. Ghidra) in an A/B testing format. We binarized the qualitative winner (Candidate A $= 1$, Candidate B $= 0$) and correlated it against the $\Delta$ Perplexity ($\mathrm{PPL}_{\mathrm{A}} - \mathrm{PPL}_{\mathrm{B}}$). In this case, cleaning the data from hallucinations was not feasible: the differences between candidates were often substantial, and the models tended to provide high-level, generic narratives of ``improvements'', sometimes citing a few true examples, but also overlooking (or implicitly collapsing) many other simultaneous changes. Therefore, we included all the data points in the correlation analysis, acknowledging that some motivations may not reflect genuine judgments about code quality but rather post-hoc rationalizations.
 
 As established previously, if the LLM judge preferred the code that is ``most predictable'' to a language model, we would expect a \textit{negative} correlation (i.e., when A wins, A's perplexity is lower, making $\Delta$ PPL negative). 
 

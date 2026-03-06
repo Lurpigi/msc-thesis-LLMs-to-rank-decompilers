@@ -735,9 +735,21 @@ Mathematically, perplexity is the exponential of the average negative log-likeli
 of the predicted tokens. Exponentiating the cross-entropy restores the measure to probability-like units, yielding an intuitive 
 ``effective branching factor'' the average number of plausible next-token choices the model considers.~\cite{site:cometPerplexityEvaluation}
 
+Let the per-token negative log-likelihood (token loss) be defined as
+
 \[
-\mathrm{PPL}(X) = \exp\!\left( -\frac{1}{N} \sum_{i=1}^N \log P(x_i \mid x_{<i}) \right)
+\ell_i = -\log P(x_i \mid x_{<i})
 \]
+
+Then the perplexity of a sequence \(X = (x_1, \dots, x_N)\) is
+
+\[
+\mathrm{PPL}(X) = \exp\!\left(\frac{1}{N} \sum_{i=1}^{N} \ell_i \right)
+= \exp\!\left( -\frac{1}{N} \sum_{i=1}^N \log P(x_i \mid x_{<i}) \right)
+\]
+
+Thus, perplexity can be interpreted as the exponential of the average token loss 
+across the sequence.
 
 A perplexity of K indicates that, on average, the model behaves as if it were choosing among K equally likely alternatives at each prediction step.~\cite{site:UnderstandingPerplexity}
 \begin{itemize}

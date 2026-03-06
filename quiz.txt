@@ -19,7 +19,6 @@
 
 7253
 - task-readstat_readstat_parse_por-O3 (vince un BASE e TIE)
-difficle valutare questa PR
 
 8587
 - task-readstat_dta_parse_timestamp-O2 (coerenza PR)

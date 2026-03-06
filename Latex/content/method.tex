@@ -371,7 +371,7 @@ For each type of prompt we have two types, the one with the code in the original
 
 \subsubsection{Biases and prompt design}
 
-We had to design the prompts carefully to avoid introducing bias and help the model to focus on the relevant aspects of the decompilation outputs.
+We had to design the prompts carefully to avoid introducing bias and help the model to focus on the relevant aspects of the decompilation outputs, the prompts are available in the appendix (\Cref{app:prompts}).
 To avoid ``update version'' bias, we used a template that does not explicitly mention the concept of ``BASE'' and ``\ac{PR}'', but rather presents the two decompilation outputs as ``Version A'' and ``Version B'', and then asks the model to compare them based on specific criteria.
 To help the model from possible hallucinations, it is important to make it generate the motivation for the choice \emph{before} revealing the correct answer, so we ask the model to first provide an explanation of which version it thinks is better and why, since it will use the token generated to fill his context window.
 

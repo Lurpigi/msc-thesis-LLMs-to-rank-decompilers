@@ -37,11 +37,11 @@ Given that the task is an \ac{LLM} Judge producing an evaluation of code ``human
 In contrast, \emph{deepseek-r1} is significantly more concise, rarely exceeding 2,500 tokens; it can still reach the 4096-token limit, but much less frequently, which translates directly to more predictable and efficient execution times.
 
 
-\begin{wrapfigure}{r}{0.55\textwidth}
+\begin{figure}
     \centering
-    \includegraphics[width=0.45\textwidth]{img/qwen_stuck.png}
+    \includegraphics[width=0.95\textwidth]{img/qwen_stuck.png}
     \caption{Example of repetitions in \emph{qwen-3} output}\label{fig:stuck}
-\end{wrapfigure}
+\end{figure}
 
 In \Cref{fig:stuck} we can see an example of the output of \emph{qwen-3} for a specific function, we can see that the model is repeating the same pattern of thoughts, which is a common symptom of verbosity and lack of proper stop token triggering. 
 This behavior not only leads to unnecessarily long outputs but also significantly increases execution time and VRAM usage, as the model continues to generate tokens without producing meaningful content.

@@ -760,7 +760,6 @@ This behavior can be directly attributed to the dataset composition. As detailed
 Consequently, this restricted subset likely excludes many of the massively bloated and highly complex functions that previously inflated Ghidra's overall token loss. Despite this dataset-specific variance, the visual separation between the decompilers confirms that Total Loss actively captures the varying verbosity levels of each specific decompiler.
 
 To ensure that the effectiveness of the Total Loss metric is not merely an artifact of the Ghidra ecosystem, we replicated the correlation analysis on the Dogbolt dataset. 
-Unlike the Ghidra pull requests, which involve minor variations of the same underlying engine, Dogbolt compares entirely different decompilation engines (e.g., Ghidra vs. Hex-Rays vs. Binary Ninja). This introduces a significantly higher degree of lexical variance, as each decompiler employs entirely different variable naming conventions, type casting rules, and formatting styles.
 
 In this setup, the Point-Biserial correlation measures the association between the \ac{LLM}'s chosen winner (Candidate A $= 1$, Candidate B $= 0$) and the $\Delta$ Total Loss ($\mathrm{Loss}_{\mathrm{A}} - \mathrm{Loss}_{\mathrm{B}}$).
 

@@ -248,6 +248,11 @@ we decided to include these results to evaluate the history of version changes.\
 
 Using the BASE version as a reference point, we can analyze the impact of specific \acp{PR} on the model's judgments of code ``humanity'' and fidelity.
 
+Unfortunately, when evaluating fidelity to the original source code (``Code Fidelity'' and ``AST Fidelity''), the level of uncertainty is too high to draw meaningful conclusions. We observed a significant number of Ties and often no clear winner emerges, which suggests that the models struggle to discern fidelity differences between the BASE and \ac{PR} versions. This could be due to the fact that both versions are relatively close in terms of their structural and lexical features, making it difficult for the models to detect subtle improvements or regressions in fidelity.
+We have decided to focus our analysis on the ``humanity'' judgments, where we observed more decisive outcomes and clearer preferences from the models, but we also decided to include the results of fidelity in the figures.
+
+We include a consistency plot for each \ac{PR} to investigate whether the models' judgments are consistent across the different prompts. These data are calculated as the percentage of times the model's preference remains the same when evaluating raw code versus evaluating the abstracted \ac{AST} representation, we \emph{do not} take into account the errors and Ties in this evaluation, but only when the model have given a clear preference for both versions. 
+
 \subsection{Handling Negative Constants -- PR \#8628}
 This \ac{PR} improves handling of constant subtractions that are rewritten during decompilation as additions with negative constants (e.g., \texttt{x + -0x1a} $\rightarrow$ \texttt{x - 0x1a}).
 
@@ -258,9 +263,6 @@ This \ac{PR} improves handling of constant subtractions that are rewritten durin
 \end{figure}
 
 As shown in \Cref{fig:8628_winner_distribution} (the four prompts results explained in\Cref{sec:prompts}), the qualitative evaluation strongly favors the \ac{PR} branch. In the ``Code Blind (Human-Likeness)'' and ``AST Blind (Structural Humanity)'' assessments, the \ac{PR} version overwhelmingly wins against the \texttt{BASE} branch across both \emph{deepseek-r1} and \emph{qwen-3} models, often exceeding a 60\% win rate. This indicates that rewriting expressions to use explicit subtraction rather than adding a negative immediate is universally recognized by the models as a more natural, human-readable idiom.
-
-However, when evaluating fidelity to the original source code (``Code Fidelity'' and ``AST Fidelity''), the margin of victory for the \ac{PR} branch shrinks, and the number of ``TIE'' outcomes increases significantly. This suggests that while the \ac{PR}'s output is structurally cleaner, the original source code may contain diverse expressions that do not perfectly align with either the \texttt{BASE} or the \ac{PR} decompilation, causing the models to frequently declare a tie.
-
 
 
 \begin{figure}%[H]

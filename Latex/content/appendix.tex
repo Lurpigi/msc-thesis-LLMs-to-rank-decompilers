@@ -171,11 +171,12 @@ P11 & L & R & R & L & R & R & R & R & L & R & R & R & R & R & R & R & R & R & L 
 
 \chapter{Future Ghidra work}\label{app:future-ghidra-work}
 
+\section{Alternative decompilation flows}
+
 A possible future direction, based on the ``groups'' mechanism described in the \Cref{sec:dgroups}, is to define a standard way to enable alternative action pipelines in the decompiler.
-In practice, existing actions could include guarded branches (e.g., \texttt{if}-based checks) to activate different transformation flows and generate multiple candidate C outputs for the same function.
+In practice, existing actions could include guarded branches (e.g., \texttt{if}-based checks, like line 7 of this example) to activate different transformation flows and generate multiple candidate C outputs for the same function.
 
-\begin{lstlisting}
-
+\begin{lstlisting}[style=Cstyle, caption={Example of different branch of code if a specific group is set}]
 void BlockWhileDo::finalTransform(Funcdata &data){
   // Simplification style
   const string &currentAction = data.getArch()->allacts.getCurrentName();
@@ -215,6 +216,14 @@ We have prototyped this architecture in a separate project, and the following \C
 \end{figure}
 
 This would provide a modular framework for experimenting with decompilation strategies while keeping the final user interface simple.
+
+\section{Implementing in GitHub Actions}
+
+Another future direction is to implement the LLM-based evaluation pipeline in a GitHub Action that can be triggered on pull requests.
+This would allow the decompilation quality of new PRs to be automatically evaluated and compared against the base version, providing immediate feedback to developers and maintainers about the readability and human-likeness of their changes.
+This will need to be carefully designed to manage the computational cost and ensure that the evaluation process is efficient and does not introduce significant delays in the PR workflow.
+
+It must be not a blocking check, but rather a complementary tool that provides insights and suggestions to developers without hindering the development process.
 
 \chapter{Prompts}\label{app:prompts}
 

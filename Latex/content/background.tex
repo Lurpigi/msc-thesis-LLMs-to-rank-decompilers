@@ -114,7 +114,7 @@ Each DefaultGroup is a list of names that refer to specific \texttt{ActionGroup}
 The decompiler can be customized by selecting different DefaultGroups in Java with the method \texttt{setSimplificationStyle} of the decompiler interface but
 only the group named \emph{decompile} return C code to Ghidra, since in \texttt{ghidra\_process.cc} we have:
 
-\begin{lstlisting}[language=C++, caption={ghidra\_process.cc}]
+\begin{lstlisting}[style=CStyle, caption={ghidra\_process.cc}]
     [...]
       fd->encode(encoder,0,ghidra->getSendSyntaxTree());
       if (ghidra->getSendCCode()&&
@@ -356,7 +356,7 @@ To transform the \ac{CFG} into C statements, Ghidra employs a structuring algori
 
 inside the \texttt{apply} method of \texttt{ActionBlockStructure} we have a call to \texttt{collapseAll} that is the main loop of the algorithm:
 
-\begin{lstlisting}
+\begin{lstlisting}[style=Cstyle]
 void CollapseStructure::collapseAll(void)
 {
   int4 isolated_count;
@@ -380,21 +380,21 @@ the BasicBlocks into structured FlowBlocks and performs the following steps:
 
 \begin{enumerate}
     \item \textbf{Preparation}\\
-        The algorithm first clears previous visitation state (\texttt{graph.clearVisitCount}) 
-        and invokes \texttt{orderLoopBodies}. This pass discovers loop headers and 
+        The algorithm first clears previous visitation state (\texttt{graph.clearVisitCount}, line 6) 
+        and invokes \texttt{orderLoopBodies} (line 7). This pass discovers loop headers and 
         back-edges, establishing a partial ordering among loop bodies. 
         Detecting loops early is essential to prevent later structuring passes 
         from erroneously breaking loop semantics.
 
     \item \textbf{Conditional simplification}\\
-        Next, \texttt{collapseConditions} attempts to simplify complex boolean logic 
+        Next, \texttt{collapseConditions} (line 9) attempts to simplify complex boolean logic 
         and fold adjacent blocks that form logical AND/OR patterns (for example, 
         transforming sequences that represent \texttt{if (A \&\& B)} or \texttt{if (A || B)} 
         into single conditional constructs). This phase applies local rules such as \texttt{ruleBlockOr} 
         to reduce predicate complexity before higher-level structuring.
 
     \item \textbf{Initial collapse}\\
-        The engine then calls \texttt{collapseInternal ((FlowBlock *)0)}, which scans the graph 
+        The engine then calls \texttt{collapseInternal ((FlowBlock *)0)} (line 11), which scans the graph 
         and applies standard structuring rules (e.g. \texttt{ruleBlockIfElse}, \texttt{ruleBlockWhileDo}, 
         \texttt{ruleBlockSwitch}) to collapse perfectly structured regions. 
         The routine returns an \texttt{isolated\_count} indicating how many blocks have been 
@@ -408,7 +408,7 @@ the BasicBlocks into structured FlowBlocks and performs the following steps:
         to minimize disruption to surrounding structure. After marking the edge, 
         \texttt{collapseInternal (targetbl)} is invoked again (often passing the target block of the newly created goto) 
         so the structuring engine can resume collapsing other regions. This loop repeats until every block 
-        is resolved.
+        is resolved (line 12-14).
 \end{enumerate}
 
 in the \texttt{collapseInternal} method we have the main pattern recognition method, 
@@ -430,10 +430,8 @@ These ``rules'' are implemented inside a loop that tries every pattern till no m
 
 in the \texttt{ruleBlockWhileDo} method we can see how the pattern matching is done:
 
-\begin{lstlisting}
-
+\begin{lstlisting}[style=Cstyle]
 bool CollapseStructure::ruleBlockWhileDo(FlowBlock *bl)
-
 {
   FlowBlock *clauseblock;
   int4 i;
@@ -507,8 +505,7 @@ The check is performed in the method \texttt{BlockWhileDo::finalTransform}, this
 \end{enumerate}
 
 
-\begin{lstlisting}
-
+\begin{lstlisting}[style=Cstyle]
 void BlockWhileDo::finalTransform(Funcdata &data)
 {
   // Simplification style

@@ -8,16 +8,16 @@ An empirical evaluation of the \emph{qwen-3} and \emph{deepseek-r1} models was c
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/llm_time.png}
-    \caption{Execution time for each evaluated model.}\label{fig:llm_time}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 0.75cm, clip]{img/llm_time.png}
+    \caption{Execution time for each evaluated model, score vs generate.}\label{fig:llm_time}
 \end{figure}
 
-As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times between the two operations. The \emph{score} operation is inherently fast, with both models completing most passes in under 50 seconds. However, the \emph{generate} operation exhibits significantly higher and more erratic execution times, particularly for \emph{qwen-3}, which frequently exceeds 200 seconds and reaches up to nearly 500 seconds. 
+As shown in \Cref{fig:llm_time}, there is a dichotomy in execution times between the two operations. The \emph{score} operation is inherently fast, with both models completing most passes in under 50 seconds. However, the \emph{generate} operation exhibits significantly higher and more erratic execution times, particularly for \emph{qwen-3}, which frequently exceeds 200 seconds and reaches up to nearly 500 seconds. 
 
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/llm_vram.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 0.75cm, clip]{img/llm_vram.png}
     \caption{Peak VRAM for each evaluated model.}\label{fig:llm_vram}
 \end{figure}
 
@@ -30,7 +30,7 @@ As shown in \Cref{fig:llm_time}, there is a stark dichotomy in execution times b
     \caption{Generated tokens vs execution time and peak VRAM for each evaluated model.}\label{fig:llm_gen}
 \end{figure}
 
-A closer inspection of \Cref{fig:llm_gen}, that is the data of only generation, reveals the root cause of the discrepancy between the two models. The scatter plot for ``Generated Tokens vs Execution Time'' shows a linear correlation, confirming that generation time is bottlenecked heavily by the length of the model's output rather than the input context. 
+A closer inspection of \Cref{fig:llm_gen}, that is the data of only generation, reveals the root cause of the discrepancy between the two models: The scatter plot for ``Generated Tokens vs Execution Time'' shows a linear correlation, confirming that generation time is bottlenecked heavily by the length of the model's output rather than the input context. 
 Critically, \emph{qwen-3} routinely generates between 2,000 and 4,000+ tokens during the evaluation task and often reaches our limit of 4096 new tokens. 
 
 Given that the task is an \ac{LLM} Judge producing an evaluation of code ``humanity,'' a rationale exceeding 4,000 tokens is highly suspicious. This suggests that \emph{qwen-3} may be suffering from severe verbosity, repeating the input code, or failing to trigger stop tokens appropriately. 
@@ -49,7 +49,7 @@ This verbosity issue is a critical flaw for the \ac{LLM} Judge task, as it under
 Maybe this could be mitigated by implementing stricter stop conditions or by fine-tuning the model to better understand the task requirements and avoid unnecessary verbosity, but this will need further investigation.
 
 Furthermore, analyzing the memory consumption in the bottom row of \Cref{fig:llm_gen} reveals a distinct behavior regarding how \ac{VRAM} scales during the generation process. 
-The ``Input Tokens vs Peak VRAM'' subplot demonstrates a strange phenomenon: Under 2500 tokens we can observe a cloud of data points but exceeding that number of token we observe an uninterrupted linear relationship, this line is also the minimum boundary of the data. In the line, \emph{deepseek-r1} exhibits a slightly higher memory scaling compared to \emph{qwen-3}, consuming marginally more \ac{VRAM} for the same input length. 
+The ``Input Tokens vs Peak VRAM'' subplot demonstrates a strange phenomenon: Under 2500 tokens we can observe a cloud of data points but exceeding that number of tokens we observe an uninterrupted linear relationship, this line is also the minimum boundary of the data. In the line, \emph{deepseek-r1} exhibits a slightly higher memory scaling compared to \emph{qwen-3}, consuming marginally more \ac{VRAM} for the same input length. 
 
 \subsection{Score}
 
@@ -60,7 +60,7 @@ The ``Input Tokens vs Peak VRAM'' subplot demonstrates a strange phenomenon: Und
 \end{figure}
 
 The linear scaling of VRAM during the \emph{score} operation (\Cref{fig:llm_score}, right panel) is a major scalability risk. At roughly 3,800 input tokens, both models push past 12 GB of \ac{VRAM}. 
-If the dataset contains an enormous larger input (e.g., 8k to 32k tokens), the current perplexity scoring methodology will inevitably result in \ac{OOM} failures on standard consumer GPUs.
+If the dataset contains an enormous larger input (e.g., 8k to 32k tokens), the current perplexity scoring methodology will inevitably result in Out of Memory failures on standard consumer GPUs.
 
 Fortunately, the \emph{generate} operation does not exhibit this issue, as it processes tokens sequentially and can leverage the KV cache to manage memory more efficiently.
 
@@ -75,11 +75,11 @@ However, for the perplexity (\emph{score}) task, the architecture of the operati
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/ppl_distribution.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/ppl_distribution.png}
     \caption{On the top, the perplexity values across original source code, base code, and \ac{PR} code. On the bottom, perplexity values across abstracted representations of the same functions.}\label{fig:ppl_distribution}
 \end{figure}
 
-In \Cref{fig:ppl_distribution} we can see the distribution of perplexity values for the original source code, the base code, and the pr code, as well as their abstracted representations.
+In \Cref{fig:ppl_distribution} we can see the distribution of perplexity values for the original source code, the base code, and the \ac{PR} code, as well as their abstracted representations.
 We can observe that the original source code has generally higher perplexity values compared to the decompiled versions,
 which is unexpected since the original source code should be more ``natural'' and predictable than the decompiled output.
 This suggests that the decompilation process may introduce certain patterns or structures that are more familiar to the language model, leading to lower perplexity scores, while the original source code may contain more variability and less predictable constructs that result in higher perplexity.
@@ -92,7 +92,7 @@ but even in this case, the original source code still has higher perplexity than
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.99\textwidth]{img/global_loss.png}
+    \includegraphics[width=0.99\textwidth, trim=0 0 0 1.2cm, clip]{img/global_loss.png}
     \caption{Density distribution of cross-entropy loss values for all tokens in the original source code and the decompiled versions.}\label{fig:global_loss}
 \end{figure}
 
@@ -107,7 +107,7 @@ In contrast, the original source code reflects human authorship, which includes 
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.99\textwidth]{img/global_loss_ast.png}
+    \includegraphics[width=0.99\textwidth, trim=0 0 0 1.2cm, clip]{img/global_loss_ast.png}
     \caption{Density distribution of cross-entropy loss values for all tokens in the original source code and the decompiled versions.}\label{fig:global_loss_ast}
 \end{figure}
 
@@ -134,7 +134,7 @@ Comparing these results with the previous analysis on raw code tokens, we observ
     \caption{Loss values for \texttt{xls\_parseWorkBook} in the decompiled base code}\label{fig:example_loss_func}
 \end{wrapfigure}
 
-The token-level analysis allow us to verify the tokens that contribute the most to the loss, and consequently to the perplexity, in a specific function.
+The token-level analysis allows us to verify the tokens that contribute the most to the loss, and consequently to the perplexity, in a specific function.
 We can observe that the token itself is not the only factor that contributes to the loss, but especially the context in which it is used.
 For example, in \Cref{fig:example_loss_func} we can see the loss values for the token ``\texttt{LAB}'', which is a common label used in the decompiled code to indicate jump targets.
 This token has a low loss value (1.664) when it appears after the \texttt{do{}while loop}, but it has a much higher loss value (11.812) when it appears inside the \texttt{if} allowing a flow branch to ignore the condition and enter the scope without checks.
@@ -147,14 +147,14 @@ This token has a low loss value (1.664) when it appears after the \texttt{do{}wh
 
 Obviously every function has a different distribution of loss values, and some functions may be more ``natural'' than others.
 In \Cref{fig:example_loss} we can see an example of the loss values for \texttt{xls\_parseWorkBook} function from the DeepSeek analisys, 
-remembering that the perplexity is calculated as the exponential of the mean loss~\ref{sec:perplexity}, we can see that the original source code has a perplexity of $\sim 3.06$ (mean loss $\sim 1.12$), while the decompiled base version has a perplexity of $\sim 2.4$ (mean loss $\sim 0.89$).
-We can see that the max values for the loss are higher for the decompiled version, in contrary to the global distribution where the decompiled code had a sharper peak towards zero, but then when we look at the anonymized version of the same function, the original source code became the one with a higher max loss value than the decompiled version.
+remembering that the perplexity is calculated as the exponential of the mean loss (\Cref{sec:perplexity}), we can see that the original source code has a perplexity of $\sim 3.06$ (mean loss $\sim 1.12$), while the decompiled base version has a perplexity of $\sim 2.4$ (mean loss $\sim 0.89$).
+The max values for the loss are higher for the decompiled version, in contrary to the global distribution where the decompiled code had a sharper peak towards zero, but then when we look at the anonymized version of the same function, the original source code became the one with a higher max loss value than the decompiled version.
 However, the anonymization process manages to bring the two versions significantly closer, both in terms of loss values and, consequently, perplexity.
 
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.99\textwidth]{img/std_dev_loss.png}
+    \includegraphics[width=0.99\textwidth, trim=0 0 0 1cm, clip]{img/std_dev_loss.png}
     \caption{Standard deviation of loss values across all functions in the normal version and anonymized version.}\label{fig:std_dev_loss}
 \end{figure}
 
@@ -187,14 +187,14 @@ Another key observation is that the binary ninja has a perplexity distribution t
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/dogbolt_loss.png}
-    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Code}\label{fig:dogbolt_loss}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/dogbolt_loss.png}
+    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Code version}\label{fig:dogbolt_loss}
 \end{figure}
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/dogbolt_loss_ast.png}
-    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Abstract}\label{fig:dogbolt_loss_ast}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/dogbolt_loss_ast.png}
+    \caption{Loss values for the original source code and the decompiled versions from other decompilers. Abstract version}\label{fig:dogbolt_loss_ast}
 \end{figure}
 
 The density plots in \Cref{fig:dogbolt_loss} confirm the phenomena observed in the previous sections across both LLM judges. Focusing on the raw \emph{Code Tokens} (top row), we can observe a distinct hierarchy in predictability:
@@ -230,12 +230,12 @@ When we look at the same decompilation with the model \emph{deepseek-r1} (\Cref{
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/winner_distribution.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/winner_distribution.png}
     \caption{Distribution of winners across all evaluated models.}\label{fig:winner_distribution}
 \end{figure}
 
-In \Cref{fig:winner_distribution} we can see the distribution of winners across all evaluated models, based on the qualitative judgments of the \ac{LLM} as a judge.
-The two models, Qwen3 and DeepSeek, have a significant number of Ties, but they also show a balanced distribution of wins between the base code and the pr code.
+In \Cref{fig:winner_distribution} we can see the distribution of winners across all evaluated models, based on the qualitative judgments of the LLM-as -a-Judge.
+The two models, Qwen3 and DeepSeek, have a significant number of Ties, but they also show a balanced distribution of wins between the base code and the \ac{PR} code.
 We can see a bin for ``Error'' winners as well, this happens primarily when the model exceed the token limit of 4096 tokens (reasonable limit set by us), since they are reasoning models (they create a context with the generated tokens inside \texttt{<think>} tags) sometimes the context becomes too large (often because they repeat thoughts entering a loop) and they finish the limit without giving inside the response a clear winner (e.g., \texttt{'Winner':'X'}).
 Sometimes the response does not give a clear winner with the pattern ``Winner: X'' but it is still able to give a clear preference in the rationale, in this case we consider it as an error since the model did not follow the instructions correctly, but we can still extract some information from the rationale.
 
@@ -243,7 +243,7 @@ We previously said that a ``Tie'' is when the model always judges the same resul
 We have a significant number of Ties for all models, watching the result we can observe a ratio of $\sim \frac{2}{3}$ ($204 / 308$) of times the model prefers the \ac{PR} version (204) over the \texttt{BASE} version (104).
 This suggests a position bias, even using our Diff format explained in \Cref{sec:prompts}, this bias could be caused by the model's tendency to favor the second option presented in a comparison, or it could be due to some subtle cues in the prompt formatting that inadvertently signal a preference for the \ac{PR} version. 
 
-We used as BASE the version in commit \texttt{14c2495cb06ccd09324050c787ad0fc756d35dae}, which is at the moment of writing this thesis, the latest commit in the Ghidra repository, some of these \acp{PR} are derived from a BASE version that is older than the one we used, so the differences between the BASE and the PR version may be more significant than what we expect from only the description of the \ac{PR}, 
+We used as BASE the version in commit \texttt{14c2495cb06ccd09324050c787ad0fc756d35dae}, which is at the moment of writing this master's thesis, the latest commit in the Ghidra repository, some of these \acp{PR} are derived from a BASE version that is older than the one we used, so the differences between the BASE and the PR version may be more significant than what we expect from only the description of the \ac{PR}, 
 we decided to include these results to evaluate the history of version changes.\footnote{We ran a simulation also with the BASE version where each \ac{PR} is derived, unfortunately in our dataset of 600+ functions there were no differences between the two decompilations for the older \acp{PR} that suffered this problem (8161 and 6722)}
 
 Using the BASE version as a reference point, we can analyze the impact of specific \acp{PR} on the model's judgments of code ``humanity'' and fidelity.
@@ -258,7 +258,7 @@ This \ac{PR} improves handling of constant subtractions that are rewritten durin
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/8628/preference.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/8628/preference.png}
     \caption{Distribution of winners across the four prompts for PR \#8628}\label{fig:8628_winner_distribution}
 \end{figure}
 
@@ -267,7 +267,7 @@ As shown in \Cref{fig:8628_winner_distribution} (the four prompts results explai
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/8628/consistency.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/8628/consistency.png}
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8628}\label{fig:8628_consistency}
 \end{figure}
 
@@ -317,7 +317,7 @@ This \ac{PR} focuses on automatically detecting and correcting indexing patterns
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/8587/preference.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/8587/preference.png}
     \caption{Distribution of winners across the four prompts for PR \#8587}\label{fig:8587_winner_distribution}
 \end{figure}
 
@@ -329,7 +329,7 @@ This \ac{PR} in particular only modifies 7 functions from the base branch.
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/8587/consistency.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/8587/consistency.png}
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8587}\label{fig:8587_consistency}
 \end{figure}
 
@@ -357,7 +357,7 @@ We can see that in the fork repo of the \ac{PR} branch, where it contains the me
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/8161/preference.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/8161/preference.png}
     \caption{Distribution of winners across the four prompts for PR \#8161}\label{fig:8161_winner_distribution}
 \end{figure}
 
@@ -365,7 +365,7 @@ Looking at the aggregate data in \Cref{fig:8161_winner_distribution}, the impact
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/8161/consistency.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/8161/consistency.png}
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#8161}\label{fig:8161_consistency}
 \end{figure}
 
@@ -407,7 +407,7 @@ This \ac{PR} sorts \texttt{switch} case entries by their target address
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/7253/preference.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/7253/preference.png}
     \caption{Distribution of winners across the four prompts for PR \#7253}\label{fig:7253_winner_distribution}
 \end{figure}
 
@@ -421,7 +421,7 @@ This behavior can be explained by two main factors:
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/7253/consistency.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/7253/consistency.png}
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#7253}\label{fig:7253_consistency}
 \end{figure}
 
@@ -454,7 +454,7 @@ This \ac{PR} focuses on improving pointer-expression recovery, allowing clean ou
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/6722/preference.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/6722/preference.png}
     \caption{Distribution of winners across the four prompts for PR \#6722}\label{fig:6722_winner_distribution}
 \end{figure}
 
@@ -463,7 +463,7 @@ Because of this significant version mismatch, the overall results in \Cref{fig:6
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=0.95\textwidth]{img/6722/consistency.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/6722/consistency.png}
     \caption{Consistency across the prompts for evaluating ``humanity'' for PR \#6722}\label{fig:6722_consistency}
 \end{figure}
 
@@ -508,7 +508,7 @@ Because the redundancy is purely structural and does not rely on specific variab
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=1\textwidth]{img/dogbolt_winners.png}
+    \includegraphics[width=1\textwidth, trim=0 0 0 0.85cm, clip]{img/dogbolt_winners.png}
     \caption{Distribution of winners across the four prompts for the Dogbolt evaluation}\label{fig:dogbolt_winner_distribution}
 \end{figure}
 
@@ -550,7 +550,7 @@ qwen-3 & AST + Source  & 17 & 11 & 11 & 16 \\
 
 \begin{figure}%[H]
     \centering
-    \includegraphics[width=1\textwidth]{img/dogbolt_length_bias.png}
+    \includegraphics[width=1\textwidth, trim=0 0 0 0.85cm, clip]{img/dogbolt_length_bias.png}
     \caption{Distribution of winners across the four prompts for the Dogbolt evaluation, showing length bias}\label{fig:dogbolt_length_bias}
 \end{figure}
 
@@ -708,7 +708,7 @@ Human Consensus & 0.3278 & 0.2330 & 15 & 0.4609 & 0.0838 & 15 \\
 \end{tabular}
 \end{table}
 
-As shown in Table~\ref{tab:human_ppl_correlation}, the correlation with human consensus is positive in both settings, and stronger for the \ac{AST} condition ($r=0.4609$) than for raw code ($r=0.3278$). 
+As shown in \Cref{tab:human_ppl_correlation}, the correlation with human consensus is positive in both settings, and stronger for the \ac{AST} condition ($r=0.4609$) than for raw code ($r=0.3278$). 
 This direction is coherent with the previous analyses: snippets judged as more human-like are not associated with lower perplexity, but tend to show equal or higher perplexity. However, with $N=15$, neither result is statistically significant at $\alpha=0.05$ ($p=0.2330$ for code, $p=0.0838$ for \ac{AST}), so these values should be interpreted as an exploratory trend rather than conclusive evidence.
 
 
@@ -720,7 +720,7 @@ Given the failure of average perplexity to proxy human-likeness (due to its vuln
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.95\textwidth]{img/ghidra_total_loss.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 0.85cm, clip]{img/ghidra_total_loss.png}
     \caption{Distribution of the Total Loss (Sum of token losses) across Source, BASE, and PR branches for both evaluated LLM judges.}\label{fig:ghidra_total_loss}
 \end{figure}
 
@@ -752,7 +752,7 @@ Unlike average perplexity, Total Loss, in our case, seems to be a statistically 
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.95\textwidth]{img/dogbolt_total_loss.png}
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 0.85cm, clip]{img/dogbolt_total_loss.png}
     \caption{Distribution of the Total Loss (Sum of token losses) across the three decompilers for both evaluated LLM judges in the Dogbolt dataset.}\label{fig:dogbolt_total_loss}
 \end{figure}
 
@@ -816,7 +816,7 @@ First, the quantitative analysis clearly shows that perplexity is not a reliable
 
 To overcome the limitations of average perplexity, this study introduced \emph{Total Loss} ($\sum \mathrm{Loss}$) as an alternative quantitative metric. By accumulating the prediction error across all tokens, Total Loss inherently penalizes the structural bloat and verbosity typical of decompiled outputs. Our findings demonstrate that Total Loss, unlike average perplexity, acts as a statistically viable predictor of qualitative code readability, correctly reflecting the models' penalization of overly complex code.
 
-Crucially, the effectiveness of this metric is maximized when combined with the \ac{AST} abstraction pipeline. Different decompilers inject a massive amount of arbitrary lexical entropy (e.g., varying variable naming conventions and explicit type casts) that severely skews the raw prediction loss. While human developers intuitively ignore this non-functional noise, \acp{LLM} accumulate loss for every character. By removing this decompiler-specific lexical noise through \ac{AST} anonymization, the resulting \ac{AST} Total Loss strongly correlated with the \ac{LLM} judges preferences across both the Ghidra and Dogbolt datasets. Consequently, \ac{AST} Total Loss emerges as the most accurate quantitative proxy for human-perceived structural code quality identified in this thesis.
+Crucially, the effectiveness of this metric is maximized when combined with the \ac{AST} abstraction pipeline. Different decompilers inject a massive amount of arbitrary lexical entropy (e.g., varying variable naming conventions and explicit type casts) that severely skews the raw prediction loss. While human developers intuitively ignore this non-functional noise, \acp{LLM} accumulate loss for every character. By removing this decompiler-specific lexical noise through \ac{AST} anonymization, the resulting \ac{AST} Total Loss strongly correlated with the \ac{LLM} judges preferences across both the Ghidra and Dogbolt datasets. Consequently, \ac{AST} Total Loss emerges as the most accurate quantitative proxy for human-perceived structural code quality identified in this master'sthesis.
 
 Regarding the use of \acp{LLM} as qualitative judges, the two evaluated architectures showed distinct capabilities and limitations. \emph{Deepseek-r1} proved to be clearly superior in approximating human judgment, reaching an alignment rate with human evaluators of about 74\%. \emph{Qwen-3}, by contrast, showed significant weaknesses: a marked tendency toward verbosity that harms time and computational efficiency, and strong susceptibility to lexical bias, which improves only when code is abstracted into \ac{AST}. Moreover, both models showed the risk of analytical hallucinations. When faced with logically equivalent code variants with many lines of differences, or variants differing only in irrelevant stylistic details (such as switch-case ordering), \acp{LLM} sometimes invented nonexistent technical justifications to support a preferred choice.
 

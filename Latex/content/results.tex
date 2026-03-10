@@ -251,6 +251,22 @@ Using the BASE version as a reference point, we can analyze the impact of specif
 Unfortunately, when evaluating fidelity to the original source code (``Code Fidelity'' and ``AST Fidelity''), the level of uncertainty is too high to draw meaningful conclusions. We observed a significant number of Ties and often no clear winner emerges, which suggests that the models struggle to discern fidelity differences between the BASE and \ac{PR} versions. This could be due to the fact that both versions are relatively close in terms of their structural and lexical features, making it difficult for the models to detect subtle improvements or regressions in fidelity.
 We have decided to focus our analysis on the ``humanity'' judgments, where we observed more decisive outcomes and clearer preferences from the models, but we also decided to include the results of fidelity in the figures.
 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.95\textwidth, trim=0 0 0 1cm, clip]{img/length_ghidra.png}
+    \caption{Length Bias Analysis}\label{fig:length_bias_ghidra}
+\end{figure}
+
+\Cref{fig:length_bias_ghidra} quantifies the extent to which the LLM-as-a-Judge decisions are driven by \emph{snippet length} rather than by perceived structural quality.
+For each comparison, we compute a signed length delta between the winning and losing candidates ($\Delta L = L_{\mathrm{winner}} - L_{\mathrm{loser}}$). Therefore, negative values indicate that the model tends to select the \emph{shorter} decompilation as more human-like, while positive values indicate a preference for more verbose code.
+
+Aggregating the results by judge on the \ac{AST} prompts, we observe a consistent but mild conciseness preference:
+\emph{deepseek-r1} has a mean bias of $-2.95$ characters, while \emph{qwen-3} shows a stronger mean bias of $-9.08$ characters.
+In practical terms, both judges are slightly more likely to reward outputs that are marginally shorter once lexical noise is removed, with \emph{qwen-3} being noticeably more sensitive to this factor.
+
+However, the magnitude of these mean shifts is small relative to typical function sizes and to the scale of changes introduced by the evaluated \acp{PR}.
+This suggests that, in the Ghidra \ac{PR} setting, length is not the primary driver of the models' preferences; rather, it acts as a weak prior that favors conciseness when two candidates are otherwise similar in structure and readability.
+
 We include a consistency plot for each \ac{PR} to investigate whether the models' judgments are consistent across the different prompts. These data are calculated as the percentage of times the model's preference remains the same when evaluating raw code versus evaluating the abstracted \ac{AST} representation, we \emph{do not} take into account the errors and Ties in this evaluation, but only when the model have given a clear preference for both versions. 
 
 \subsection{Handling Negative Constants -- PR \#8628}
@@ -450,7 +466,7 @@ However, when the specific \texttt{case} values and internal variables are abstr
 
 \subsection{Improving Pointer-Expression Recovery -- PR \#6722}
 
-This \ac{PR} focuses on improving pointer-expression recovery, allowing clean output such as \texttt{PTR 0041a1b8->ar[local\_18]} instead of raw pointer casts and offset arithmetic.
+This \ac{PR} focuses on improving pointer-expression recovery, allowing clean output such as \texttt{PTR\_0041a1b8->ar[local\_18]} instead of raw pointer casts and offset arithmetic.
 
 \begin{figure}%[H]
     \centering

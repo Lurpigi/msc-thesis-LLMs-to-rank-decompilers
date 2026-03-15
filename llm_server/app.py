@@ -135,10 +135,8 @@ class ModelEngine:
                 f"[OFFLOAD] Moving {self.current_model_id} from GPU to System RAM...")
 
             try:
-                # Attempt to move model to CPU to save it in RAM
                 self.model.to("cpu")
 
-                # Store in cache
                 self.ram_cache[self.current_model_id] = {
                     "model": self.model,
                     "tokenizer": self.tokenizer
@@ -147,7 +145,6 @@ class ModelEngine:
                     f"[OFFLOAD] {self.current_model_id} stored in RAM cache.")
 
             except Exception as e:
-                # Fallback for 4-bit models or configs that don't support .to('cpu')
                 print(
                     f"[WARNING] Failed to move {self.current_model_id} to CPU (likely quantization limitation): {e}")
                 print(
@@ -155,12 +152,10 @@ class ModelEngine:
                 del self.model
                 del self.tokenizer
 
-            # Remove references from active slots
             self.model = None
             self.tokenizer = None
             self.current_model_id = None
 
-            # Clear VRAM now that the model is on CPU (or deleted)
             self._clean_gpu_memory()
             print("[OFFLOAD] VRAM cleared.")
 
@@ -170,7 +165,6 @@ class ModelEngine:
         """
         print("[FREE] Explicit free requested. Clearing Cache and VRAM...")
 
-        # 1. Unload current if active
         if self.model:
             del self.model
             del self.tokenizer
@@ -178,13 +172,11 @@ class ModelEngine:
             self.tokenizer = None
             self.current_model_id = None
 
-        # 2. Clear RAM cache
         if self.ram_cache:
             print(
                 f"[FREE] Removing {len(self.ram_cache)} models from RAM cache.")
             self.ram_cache.clear()
 
-        # 3. Final GC
         self._clean_gpu_memory()
         print("[FREE] System state reset.")
 
@@ -200,10 +192,9 @@ class ModelEngine:
 
         print(f"[LOAD] Request to switch to {model_key}...")
 
-        # Offload current model to RAM (Context Switch)
+        #(Context Switch)
         self._offload_current_model()
 
-        # Check if the requested model is already in RAM cache
         if model_key in self.ram_cache:
             print(f"[CACHE] Found {model_key} in RAM cache. Moving to GPU...")
             cached_data = self.ram_cache[model_key]
@@ -212,7 +203,6 @@ class ModelEngine:
                 self.model = cached_data["model"]
                 self.tokenizer = cached_data["tokenizer"]
 
-                # Move back to GPU
                 self.model.to(self.device)
                 self.current_model_id = model_key
                 print(f"[LOAD] {model_key} restored from RAM.")

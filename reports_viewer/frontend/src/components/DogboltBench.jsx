@@ -91,83 +91,163 @@ const ComparisonRow = ({ item, showCode, showSource, taskLossData }) => {
                 {showSource && <CodeBlock title="Source Code" content={sourceContent} />}
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
-                {/* Qualitative Winners */}
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                    <div className="flex items-center space-x-2 mb-3 border-b border-gray-100 pb-2">
-                        <svg className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">Qualitative Comparison (Blind)</span>
-                    </div>
-                    <div className="space-y-6">
-                        <div>
-                            <div className="flex items-center space-x-3 mb-2">
-                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-tight">Code Winner:</span>
-                                <span className={clsx(
-                                    "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
-                                    item.winner === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
-                                    item.winner === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
-                                )}>
-                                    {item.winner || 'TIE'}
-                                </span>
-                            </div>
-                            <p className="text-sm text-gray-700 italic mt-2 leading-relaxed" title={item.motivation}>{item.motivation}</p>
-                        </div>
-                        <div>
-                            <div className="flex items-center space-x-3 mb-2">
-                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-tight">AST Winner:</span>
-                                <span className={clsx(
-                                    "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
-                                    item.winner_ast === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner_ast === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
-                                    item.winner_ast === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
-                                )}>
-                                    {item.winner_ast || 'TIE'}
-                                </span>
-                            </div>
-                            <p className="text-sm text-gray-700 italic mt-2 leading-relaxed" title={item.motivation_ast}>{item.motivation_ast}</p>
-                        </div>
-                    </div>
-                </div>
+            {/* Winners Table */}
+            <h3 className="text-lg font-medium leading-6 text-gray-900 mt-8 mb-4">
+                Comparison Winners
+            </h3>
+            <div className="flex flex-col mb-8">
+                <div className="-my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+                    <div className="py-2 align-middle inline-block min-w-full sm:px-6 lg:px-8">
+                        <div className="shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                <tr>
+                                    <th
+                                        scope="col"
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Comparison
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Evaluation Criteria
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Winner
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    >
+                                        Motivation
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                {(() => {
+                                    const analyses = [
+                                        {
+                                            key: "winner",
+                                            label: "Code: Humanity & Readability",
+                                            winner: item.winner,
+                                            motivation: item.motivation,
+                                        },
+                                        {
+                                            key: "winner_ast",
+                                            label: "AST: Humanity & Readability",
+                                            winner: item.winner_ast,
+                                            motivation: item.motivation_ast,
+                                        },
+                                        {
+                                            key: "winner_s",
+                                            label: "Code: Fidelity & Cleanliness (GT)",
+                                            winner: item.winner_s,
+                                            motivation: item.motivation_s,
+                                        },
+                                        {
+                                            key: "winner_ast_s",
+                                            label: "AST: Fidelity & Cleanliness (GT)",
+                                            winner: item.winner_ast_s,
+                                            motivation: item.motivation_ast_s,
+                                        },
+                                    ];
 
-                {/* Ground Truth Fidelity (S-Winners) */}
-                <div className="bg-white rounded-lg border border-indigo-100 shadow-sm p-4 overflow-hidden">
-                    <div className="flex items-center space-x-2 mb-3 border-b border-indigo-50 pb-2">
-                        <svg className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-xs font-bold text-indigo-800 uppercase tracking-wider">Qualitative Comparison (Ground Truth)</span>
-                    </div>
-                    <div className="space-y-6">
-                        <div>
-                            <div className="flex items-center space-x-3 mb-2">
-                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-tight">GT Code Winner:</span>
-                                <span className={clsx(
-                                    "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
-                                    item.winner_s === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner_s === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
-                                    item.winner_s === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
-                                )}>
-                                    {item.winner_s || 'TIE'}
-                                </span>
-                            </div>
-                            <p className="text-sm text-gray-700 italic mt-2 leading-relaxed" title={item.motivation_s}>{item.motivation_s}</p>
-                        </div>
-                        <div>
-                            <div className="flex items-center space-x-3 mb-2">
-                                <span className="text-xs font-bold text-indigo-500 uppercase tracking-tight">GT AST Winner:</span>
-                                <span className={clsx(
-                                    "px-4 py-1.5 rounded-md text-lg font-black uppercase shadow-md leading-none",
-                                    item.winner_ast_s === 'A' ? "bg-yellow-500 text-white ring-2 ring-yellow-100" : 
-                                    item.winner_ast_s === 'B' ? "bg-green-500 text-white ring-2 ring-green-100" : 
-                                    item.winner_ast_s === 'ERROR' ? "bg-red-600 text-white ring-2 ring-red-100" : "bg-gray-400 text-white"
-                                )}>
-                                    {item.winner_ast_s || 'TIE'}
-                                </span>
-                            </div>
-                            <p className="text-sm text-gray-700 italic mt-2 leading-relaxed" title={item.motivation_ast_s}>{item.motivation_ast_s}</p>
+                                    return analyses.map((analysis, aIdx) => (
+                                        <tr
+                                            key={analysis.key}
+                                            className={
+                                                aIdx === analyses.length - 1
+                                                    ? "border-b-4 border-gray-100"
+                                                    : ""
+                                            }
+                                        >
+                                            {aIdx === 0 && (
+                                                <td
+                                                    className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 bg-gray-50/50 uppercase"
+                                                    rowSpan={4}
+                                                >
+                                                    {item.decompiler_A} vs.<br/>{item.decompiler_B}
+                                                </td>
+                                            )}
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 italic">
+                                                {analysis.label}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                                                <span
+                                                    className={clsx(
+                                                        "px-2 inline-flex text-xs leading-5 font-semibold rounded-full",
+                                                        analysis.winner === "A"
+                                                            ? "bg-yellow-100 text-yellow-800"
+                                                            : analysis.winner === "B"
+                                                            ? "bg-green-100 text-green-800"
+                                                            : analysis.winner === "TIE"
+                                                                ? "bg-gray-100 text-gray-800"
+                                                                : "bg-red-100 text-red-800",
+                                                    )}
+                                                >
+                                                    {analysis.winner === "A" 
+                                                      ? item.decompiler_A 
+                                                      : analysis.winner === "B" 
+                                                        ? item.decompiler_B 
+                                                        : analysis.winner || "N/A"
+                                                    }
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xl break-words whitespace-pre-wrap">
+                                                {analysis.winner === "ERROR" ? (
+                                                    <details>
+                                                        <summary className="cursor-pointer font-medium text-red-600 hover:text-red-800 transition-colors select-none">
+                                                            Motivation (Error)
+                                                        </summary>
+                                                        <div className="mt-2 text-sm text-gray-500">
+                                                            {analysis.motivation || "No motivation provided."}
+                                                        </div>
+                                                    </details>
+                                                ) : (
+                                                    analysis.motivation || "No motivation provided."
+                                                )}
+
+                                                {analysis.raw_response && (
+                                                  <details className="mt-2">
+                                                    <summary className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 transition-colors select-none">
+                                                      Raw Response
+                                                    </summary>
+                                                    <div className="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                                      {analysis.raw_response}
+                                                    </div>
+                                                  </details>
+                                                )}
+                                                {analysis.raw_response1 && (
+                                                  <details className="mt-2">
+                                                    <summary className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 transition-colors select-none">
+                                                      Response 1
+                                                    </summary>
+                                                    <div className="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                                      {analysis.raw_response1}
+                                                    </div>
+                                                  </details>
+                                                )}
+                                                {analysis.raw_response2 && (
+                                                  <details className="mt-2">
+                                                    <summary className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 transition-colors select-none">
+                                                      Response 2
+                                                    </summary>
+                                                    <div className="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200 text-xs font-mono whitespace-pre-wrap overflow-x-auto">
+                                                      {analysis.raw_response2}
+                                                    </div>
+                                                  </details>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ));
+                                })()}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

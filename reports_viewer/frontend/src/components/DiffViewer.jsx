@@ -11,11 +11,6 @@ const CodeBlock = ({ title, content, diff, type }) => {
             <div className="p-4 overflow-x-auto">
                 <pre className="text-xs font-mono whitespace-pre-wrap">
                     {diff ? diff.map((part, index) => {
-                         // For diffs, usually we want to hide parts that are NOT relevant for this block?
-                         // But here we're passing specific filtered diffs or the whole diff?
-                         // If we pass 'type' (base/pr), we can filter here.
-                         
-                         // Actually, the previous manual logic was:
                          // Base: if (part.added) return null; apply removed color.
                          // PR: if (part.removed) return null; apply added color.
                          
@@ -26,7 +21,7 @@ const CodeBlock = ({ title, content, diff, type }) => {
                         if (type === 'base' && part.removed) color = 'bg-red-100 text-red-900';
                         if (type === 'pr' && part.added) color = 'bg-green-100 text-green-900';
                         
-                        // If no type (Source), just show text (handled by content prop usually)
+                        // If no type (Source), just show text
                         return <span key={index} className={color}>{part.value}</span>
                     }) : (
                         <code className="text-gray-800">{content}</code>

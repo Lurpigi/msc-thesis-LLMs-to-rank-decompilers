@@ -5,10 +5,8 @@ import LossHeatmap from "./LossHeatmap";
 export default function Stats({ func, prData }) {
   if (!func) return null;
 
-  // 1. Fix Property Access: 'metrics' is directly on the function object.
   const m = func.metrics || {};
 
-  // 2. Fix Model Iteration to find winners
   // prData.results = { "qwen-coder": [ {function: "name", ...}, ... ], "other-model": [...] }
   const functionName = func.function;
   const binaryName = func.binary;
@@ -251,8 +249,20 @@ export default function Stats({ func, prData }) {
                               </span>
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 max-w-xl break-words whitespace-pre-wrap">
-                              {res.data[analysis.key]?.motivation ||
-                                "No motivation provided."}
+                              {res.data[analysis.key]?.winner === "Error" ? (
+                                <details>
+                                  <summary className="cursor-pointer font-medium text-red-600 hover:text-red-800 transition-colors select-none">
+                                    Motivation (Error)
+                                  </summary>
+                                  <div className="mt-2 text-sm text-gray-500">
+                                    {res.data[analysis.key]?.motivation ||
+                                      "No motivation provided."}
+                                  </div>
+                                </details>
+                              ) : (
+                                res.data[analysis.key]?.motivation ||
+                                "No motivation provided."
+                              )}
                               {res.data[analysis.key]?.raw_response && (
                                 <details className="mt-2">
                                   <summary className="cursor-pointer font-medium text-indigo-600 hover:text-indigo-800 transition-colors select-none">
